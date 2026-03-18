@@ -68,30 +68,64 @@ class ActiveCampaignConnector:
     def fetch_deals(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
         Fetch deals from ActiveCampaign
-        
+
         Args:
             limit: Number of deals to fetch
             offset: Pagination offset
-            
+
         Returns:
             List of deal dictionaries
         """
         endpoint = '/api/3/deals'
         params = {'limit': limit, 'offset': offset}
-        
+
+        response = self._make_request(endpoint, params)
+        return response.get('deals', [])
+
+    def fetch_deals_by_pipeline(
+        self, pipeline_id: int, limit: int = 1000, offset: int = 0
+    ) -> List[Dict]:
+        """
+        Fetch deals filtered to a specific pipeline.
+
+        Args:
+            pipeline_id: ActiveCampaign pipeline (dealGroup) ID
+            limit: Number of deals to fetch
+            offset: Pagination offset
+
+        Returns:
+            List of deal dictionaries belonging to that pipeline
+        """
+        endpoint = '/api/3/deals'
+        params = {
+            'limit': limit,
+            'offset': offset,
+            'filters[group]': pipeline_id,
+        }
+
         response = self._make_request(endpoint, params)
         return response.get('deals', [])
     
-    def get_pipeline_stages(self) -> List[Dict]:
+    def get_pipeline_stages(self, pipeline_id: Optional[int] = None) -> List[Dict]:
         """
-        Get all pipeline stages
-        
+        Get pipeline stages, optionally filtered to a single pipeline.
+
+        Args:
+            pipeline_id: If provided, only return stages for this pipeline.
+
         Returns:
             List of pipeline stage dictionaries
         """
         endpoint = '/api/3/dealStages'
-        response = self._make_request(endpoint)
-        return response.get('dealStages', [])
+        params = {}
+        if pipeline_id is not None:
+            params['filters[d_groupid]'] = pipeline_id
+        response = self._make_request(endpoint, params)
+        stages = response.get('dealStages', [])
+        # Client-side filter as backup (some AC versions ignore the param)
+        if pipeline_id is not None and stages:
+            stages = [s for s in stages if str(s.get("group")) == str(pipeline_id)]
+        return stages
     
     def get_pipelines(self) -> List[Dict]:
         """
@@ -104,6 +138,36 @@ class ActiveCampaignConnector:
         response = self._make_request(endpoint)
         return response.get('dealGroups', [])
     
+    def fetch_contacts_by_date(
+        self,
+        start_date: str,
+        end_date: str,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> List[Dict]:
+        """
+        Fetch contacts created within a date range.
+
+        Args:
+            start_date: ISO date string (e.g. '2026-01-01')
+            end_date: ISO date string (e.g. '2026-03-31')
+            limit: Number of contacts to fetch
+            offset: Pagination offset
+
+        Returns:
+            List of contact dictionaries created in the range
+        """
+        endpoint = '/api/3/contacts'
+        params = {
+            'limit': limit,
+            'offset': offset,
+            'filters[created_after]': start_date,
+            'filters[created_before]': end_date,
+        }
+
+        response = self._make_request(endpoint, params)
+        return response.get('contacts', [])
+
     def fetch_contact_by_email(self, email: str) -> Optional[Dict]:
         """
         Fetch a specific contact by email
@@ -133,16 +197,27 @@ class ActiveCampaignConnector:
         response = self._make_request(endpoint)
         return response.get('dealCustomFieldMeta', [])
     
-    def fetch_deals_with_stages(self, limit: int = 1000) -> tuple:
+    def fetch_deals_with_stages(
+        self, limit: int = 1000, pipeline_id: Optional[int] = None
+    ) -> tuple:
         """
         Fetch deals and enrich each with its pipeline stage name/order.
+
+        Args:
+            limit: Number of deals to fetch.
+            pipeline_id: If provided, only fetch deals from this pipeline.
 
         Returns:
             (deals, pipeline_stages) — deals have extra keys
             ``_stage_title`` and ``_stage_order``.
         """
-        deals = self.fetch_deals(limit=limit)
-        stages = self.get_pipeline_stages()
+        if pipeline_id is not None:
+            deals = self.fetch_deals_by_pipeline(pipeline_id, limit=limit)
+            stages = self.get_pipeline_stages(pipeline_id)
+        else:
+            deals = self.fetch_deals(limit=limit)
+            stages = self.get_pipeline_stages()
+
         stage_map = {s["id"]: s for s in stages}
 
         for deal in deals:

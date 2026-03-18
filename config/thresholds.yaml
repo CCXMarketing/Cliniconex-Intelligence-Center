@@ -1,5 +1,9 @@
 # Business Metrics & Thresholds Configuration
 
+activecampaign:
+  primary_pipeline_id: 1          # Prospect Demand Pipeline
+  pipeline_name: "Prospect Demand Pipeline"
+
 revenue:
   annual_target: 9000000  # $9M annual target
   q1_target: 2250000      # $2.25M per quarter

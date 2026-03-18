@@ -151,6 +151,11 @@ def dashboard():
     q_start, q_end = _quarter_dates(quarter)
     days_left = _days_remaining_in_quarter()
 
+    # ── Pipeline config ──────────────────────────────────────────────────
+    ac_config = thresholds.get("activecampaign", {})
+    pipeline_id = ac_config.get("primary_pipeline_id")
+    pipeline_name = ac_config.get("pipeline_name", "All Pipelines")
+
     # ── Fetch live data ──────────────────────────────────────────────────
     ac_data = {"contacts": [], "deals": [], "pipeline_stages": []}
     gads_campaigns = []
@@ -170,8 +175,16 @@ def dashboard():
             ac = build_activecampaign(creds)
             ac_connected = ac.test_connection()
             if ac_connected:
-                ac_data["contacts"] = ac.fetch_contacts(limit=1000)
-                deals, stages = ac.fetch_deals_with_stages(limit=1000)
+                # Filter contacts to current quarter
+                ac_data["contacts"] = ac.fetch_contacts_by_date(
+                    start_date=q_start.strftime("%Y-%m-%d"),
+                    end_date=q_end.strftime("%Y-%m-%d"),
+                    limit=1000,
+                )
+                # Filter deals to primary pipeline
+                deals, stages = ac.fetch_deals_with_stages(
+                    limit=1000, pipeline_id=pipeline_id
+                )
                 ac_data["deals"] = deals
                 ac_data["pipeline_stages"] = stages
         except Exception as exc:
@@ -212,6 +225,10 @@ def dashboard():
     status = _status_indicator(pct)
 
     header_lines = [
+        f"[bold]📋 Pipeline:[/] {pipeline_name}"
+        + (f" (ID: {pipeline_id})" if pipeline_id else ""),
+        f"[bold]📅 Period:[/] {q_start:%Y-%m-%d} → {q_end:%Y-%m-%d}",
+        "",
         f"[bold]🎯 {quarter} TARGET:[/] ${revenue_target:,.0f}",
         f"   Current: ${pipeline_value:,.0f} ({pct:.1f}%)",
         f"   Status: {status}",
@@ -337,8 +354,10 @@ def dashboard():
     # ── Connection status footer ─────────────────────────────────────────
     ac_status = "[green]Connected[/]" if ac_connected else "[red]Disconnected[/]"
     gads_status = "[green]Connected[/]" if gads_connected else "[red]Disconnected[/]"
+    pipeline_label = f"Pipeline: {pipeline_name}" + (f" (ID: {pipeline_id})" if pipeline_id else "")
     console.print(
         Panel(
+            f"{pipeline_label}  |  "
             f"ActiveCampaign: {ac_status}  |  Google Ads: {gads_status}  |  "
             f"Last refresh: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             border_style="dim",

@@ -72,6 +72,15 @@ def _days_remaining_in_quarter() -> int:
     return max((end - datetime.now()).days, 0)
 
 
+def _pipeline_config(thresholds: dict) -> dict:
+    """Extract ActiveCampaign pipeline configuration from thresholds."""
+    ac_cfg = thresholds.get("activecampaign", {})
+    return {
+        "pipeline_id": ac_cfg.get("primary_pipeline_id"),
+        "pipeline_name": ac_cfg.get("pipeline_name", "All Pipelines"),
+    }
+
+
 # ── Connector factories ────────────────────────────────────────────────────
 
 
@@ -114,8 +123,19 @@ def _build_google_ads(creds: dict):
 # ── Live data fetcher ──────────────────────────────────────────────────────
 
 
-def _fetch_ac_data(creds: dict) -> dict:
+def _fetch_ac_data(
+    creds: dict,
+    pipeline_id: int | None = None,
+    date_start: str | None = None,
+    date_end: str | None = None,
+) -> dict:
     """Fetch contacts and deals from ActiveCampaign.
+
+    Args:
+        creds: Credentials dict.
+        pipeline_id: If set, filter deals to this pipeline only.
+        date_start: If set, filter contacts created after this date (YYYY-MM-DD).
+        date_end: If set, filter contacts created before this date (YYYY-MM-DD).
 
     Returns dict with keys: connected, contacts, deals, pipeline_stages.
     """
@@ -130,12 +150,34 @@ def _fetch_ac_data(creds: dict) -> dict:
         ac = _build_activecampaign(creds)
         if ac and ac.test_connection():
             result["connected"] = True
-            result["contacts"] = ac.fetch_contacts(limit=1000)
-            result["deals"] = ac.fetch_deals(limit=1000)
-            try:
-                result["pipeline_stages"] = ac.get_pipeline_stages()
-            except Exception:
-                pass
+
+            # Contacts — date-filtered if range provided
+            if date_start and date_end:
+                result["contacts"] = ac.fetch_contacts_by_date(
+                    start_date=date_start,
+                    end_date=date_end,
+                    limit=1000,
+                )
+            else:
+                result["contacts"] = ac.fetch_contacts(limit=1000)
+
+            # Deals — pipeline-filtered if ID provided
+            if pipeline_id is not None:
+                result["deals"] = ac.fetch_deals_by_pipeline(
+                    pipeline_id, limit=1000
+                )
+                try:
+                    result["pipeline_stages"] = ac.get_pipeline_stages(
+                        pipeline_id
+                    )
+                except Exception:
+                    pass
+            else:
+                result["deals"] = ac.fetch_deals(limit=1000)
+                try:
+                    result["pipeline_stages"] = ac.get_pipeline_stages()
+                except Exception:
+                    pass
     except Exception as e:
         result["error"] = str(e)
         logger.warning("ActiveCampaign error: %s", e)
@@ -334,14 +376,21 @@ def create_app() -> Flask:
     def api_metrics():
         thresholds = _load_thresholds()
         creds = _load_credentials()
+        pcfg = _pipeline_config(thresholds)
 
         quarter = _current_quarter()
         quarter_key = f"{quarter.lower()}_target"
         revenue_target = thresholds.get("revenue", {}).get(quarter_key, 0)
+        q_start, q_end = _quarter_dates(quarter)
         days_left = _days_remaining_in_quarter()
 
-        # Fetch live data — no demo fallback
-        ac = _fetch_ac_data(creds)
+        # Fetch live data filtered to pipeline + quarter
+        ac = _fetch_ac_data(
+            creds,
+            pipeline_id=pcfg["pipeline_id"],
+            date_start=q_start.strftime("%Y-%m-%d"),
+            date_end=q_end.strftime("%Y-%m-%d"),
+        )
         ac_connected = ac["connected"]
         contacts_count = len(ac["contacts"])
         deals_count = len(ac["deals"])
@@ -393,6 +442,14 @@ def create_app() -> Flask:
         return jsonify(
             {
                 "quarter": quarter,
+                "date_range": {
+                    "start": q_start.strftime("%Y-%m-%d"),
+                    "end": q_end.strftime("%Y-%m-%d"),
+                },
+                "pipeline": {
+                    "id": pcfg["pipeline_id"],
+                    "name": pcfg["pipeline_name"],
+                },
                 "revenue_target": revenue_target,
                 "pipeline_value": round(pipeline_value, 2),
                 "pct_complete": round(pct, 1),
@@ -416,9 +473,17 @@ def create_app() -> Flask:
     def api_funnel():
         thresholds = _load_thresholds()
         creds = _load_credentials()
+        pcfg = _pipeline_config(thresholds)
+        quarter = _current_quarter()
+        q_start, q_end = _quarter_dates(quarter)
 
-        # Fetch live data — no demo fallback
-        ac = _fetch_ac_data(creds)
+        # Fetch live data filtered to pipeline + quarter
+        ac = _fetch_ac_data(
+            creds,
+            pipeline_id=pcfg["pipeline_id"],
+            date_start=q_start.strftime("%Y-%m-%d"),
+            date_end=q_end.strftime("%Y-%m-%d"),
+        )
         contacts = ac["contacts"]
         deals = ac["deals"]
         pipeline_stages = ac["pipeline_stages"]
@@ -473,7 +538,8 @@ def create_app() -> Flask:
 
         # Fall back to ActiveCampaign deals (real data, not demo)
         if not campaigns:
-            ac = _fetch_ac_data(creds)
+            pcfg = _pipeline_config(thresholds)
+            ac = _fetch_ac_data(creds, pipeline_id=pcfg["pipeline_id"])
             if ac["connected"] and ac["deals"]:
                 ac_connected = True
                 campaigns = _deals_to_campaign_rows(
@@ -591,7 +657,8 @@ def create_app() -> Flask:
             return jsonify({"days": trend_days, "live_data": True, "source": "google_ads"})
 
         # Fall back to ActiveCampaign deal history
-        ac = _fetch_ac_data(creds)
+        pcfg = _pipeline_config(_load_thresholds())
+        ac = _fetch_ac_data(creds, pipeline_id=pcfg["pipeline_id"])
         if ac["connected"] and ac["deals"]:
             trend_days = _build_trend_from_deals(ac["deals"])
             return jsonify(
@@ -627,7 +694,8 @@ def create_app() -> Flask:
             return jsonify({"alerts": alerts, "source": "google_ads"})
 
         # Generate alerts from ActiveCampaign deal data
-        ac = _fetch_ac_data(creds)
+        pcfg = _pipeline_config(thresholds)
+        ac = _fetch_ac_data(creds, pipeline_id=pcfg["pipeline_id"])
         if ac["connected"]:
             alerts = _generate_deal_alerts(ac["deals"], thresholds)
             return jsonify({"alerts": alerts, "source": "activecampaign"})
