@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: Hero Metrics                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="section" id="sectionMetrics">
+    <div class="hero-grid">
+        <!-- Revenue Target Card -->
+        <div class="hero-card hero-card--primary">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="target" class="icon-sm"></i>
+                    <span id="metricQuarter">Q1</span> Revenue Target
+                </div>
+                <div class="hero-card__value">
+                    <span class="currency">$</span>
+                    <span class="counter" id="metricTarget" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="revenueProgressBar" style="width: 0%"></div>
+                    </div>
+                    <span class="progress-label" id="revenueProgressLabel">0% complete</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Value Card -->
+        <div class="hero-card hero-card--accent">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="trending-up" class="icon-sm"></i>
+                    Pipeline Value
+                </div>
+                <div class="hero-card__value">
+                    <span class="currency">$</span>
+                    <span class="counter" id="metricPipeline" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <span class="status-badge" id="statusBadge">
+                        <span class="pulse-dot"></span>
+                        <span id="statusLabel">Loading...</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leads Needed Card -->
+        <div class="hero-card hero-card--highlight">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="users" class="icon-sm"></i>
+                    Leads Needed
+                </div>
+                <div class="hero-card__value">
+                    <span class="counter" id="metricLeads" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <span id="dailyPaceLabel">-- leads/day required</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Days Remaining Card -->
+        <div class="hero-card hero-card--countdown">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="clock" class="icon-sm"></i>
+                    Days Remaining
+                </div>
+                <div class="hero-card__value">
+                    <span class="counter countdown-number" id="metricDays" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <div class="countdown-bar-container">
+                        <div class="countdown-bar" id="countdownBar" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: Conversion Funnel                                           -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="section" id="sectionFunnel">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="filter" class="icon-md"></i>
+            Conversion Funnel
+        </h2>
+        <div class="section-meta">
+            <span class="badge badge--info" id="funnelDataBadge">Loading</span>
+        </div>
+    </div>
+
+    <div class="funnel-container">
+        <!-- Funnel visualization -->
+        <div class="funnel-visual" id="funnelVisual">
+            <!-- Populated by JS -->
+            <div class="skeleton-funnel">
+                <div class="skeleton-bar" style="width:100%"></div>
+                <div class="skeleton-bar" style="width:80%"></div>
+                <div class="skeleton-bar" style="width:50%"></div>
+                <div class="skeleton-bar" style="width:25%"></div>
+            </div>
+        </div>
+
+        <!-- Funnel stats sidebar -->
+        <div class="funnel-stats" id="funnelStats">
+            <div class="stat-card skeleton-card">
+                <div class="skeleton-text"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+            <div class="stat-card skeleton-card">
+                <div class="skeleton-text"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+            <div class="stat-card skeleton-card">
+                <div class="skeleton-text"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: Campaign Performance                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="section" id="sectionCampaigns">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="bar-chart-3" class="icon-md"></i>
+            Campaign Performance
+        </h2>
+        <div class="section-actions">
+            <div class="search-box">
+                <i data-lucide="search" class="icon-sm"></i>
+                <input type="text" id="campaignSearch" placeholder="Search campaigns..." />
+            </div>
+            <select class="filter-select" id="campaignFilter">
+                <option value="all">All Campaigns</option>
+                <option value="ENABLED">Active Only</option>
+                <option value="PAUSED">Paused Only</option>
+            </select>
+            <select class="filter-select" id="cpaFilter">
+                <option value="all">All CPA</option>
+                <option value="excellent">Excellent</option>
+                <option value="warning">Warning</option>
+                <option value="critical">Critical</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table" id="campaignTable">
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="name">Campaign <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable" data-sort="status">Status <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable num" data-sort="impressions">Impressions <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable num" data-sort="clicks">Clicks <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable num" data-sort="conversions">Conv. <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable num" data-sort="cost">Spend <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable num" data-sort="cpa">CPA <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="sortable num" data-sort="ctr">CTR <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th>Trend</th>
+                </tr>
+            </thead>
+            <tbody id="campaignTableBody">
+                <!-- Skeleton rows -->
+                <tr class="skeleton-row"><td colspan="9"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="9"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="9"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="9"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="9"><div class="skeleton-text"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Expanded campaign detail (hidden by default) -->
+    <div class="campaign-detail" id="campaignDetail" style="display:none">
+        <div class="detail-header">
+            <h3 id="detailCampaignName"></h3>
+            <button class="btn-close" id="closeDetail">&times;</button>
+        </div>
+        <div class="detail-grid" id="detailContent"></div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: Trend Charts                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="section" id="sectionTrends">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="line-chart" class="icon-md"></i>
+            Performance Trends
+        </h2>
+        <div class="section-actions">
+            <div class="btn-group">
+                <button class="btn-pill btn-pill--active" data-range="30">30 Days</button>
+                <button class="btn-pill" data-range="14">14 Days</button>
+                <button class="btn-pill" data-range="7">7 Days</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-card__header">
+                <h4>Daily Spend</h4>
+                <span class="chart-badge" id="totalSpendBadge">--</span>
+            </div>
+            <div class="chart-card__body">
+                <canvas id="chartSpend"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-card__header">
+                <h4>Cost Per Acquisition</h4>
+                <span class="chart-badge" id="avgCpaBadge">--</span>
+            </div>
+            <div class="chart-card__body">
+                <canvas id="chartCPA"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-card__header">
+                <h4>Conversion Rate</h4>
+                <span class="chart-badge" id="avgConvBadge">--</span>
+            </div>
+            <div class="chart-card__body">
+                <canvas id="chartConversion"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-card__header">
+                <h4>Click-Through Rate</h4>
+                <span class="chart-badge" id="avgCtrBadge">--</span>
+            </div>
+            <div class="chart-card__body">
+                <canvas id="chartCTR"></canvas>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 5: Strategic Alerts                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="section" id="sectionAlerts">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="bell" class="icon-md"></i>
+            Strategic Alerts
+        </h2>
+        <div class="section-meta">
+            <span class="badge badge--warning" id="alertCountBadge">0 alerts</span>
+        </div>
+    </div>
+
+    <div class="alerts-container" id="alertsContainer">
+        <!-- Skeleton alerts -->
+        <div class="alert-card skeleton-card">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+        </div>
+        <div class="alert-card skeleton-card">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

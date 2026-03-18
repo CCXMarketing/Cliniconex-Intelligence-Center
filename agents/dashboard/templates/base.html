@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Marketing Intelligence Center{% endblock %} — Cliniconex</title>
+
+    <!-- Nunito Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="brand-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#brandGrad)"/>
+                    <path d="M8 16 L14 22 L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="brandGrad" x1="0" y1="0" x2="32" y2="32">
+                            <stop offset="0%" stop-color="#ADC837"/>
+                            <stop offset="100%" stop-color="#029FB5"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">Cliniconex</span>
+                <span class="brand-subtitle">Marketing Intelligence Center</span>
+            </div>
+        </div>
+
+        <div class="nav-actions">
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot" id="statusDot"></span>
+                <span class="status-text" id="statusText">Connecting...</span>
+            </div>
+
+            <div class="nav-separator"></div>
+
+            <button class="nav-btn" id="btnRefresh" title="Refresh (R)">
+                <i data-lucide="refresh-cw" class="icon"></i>
+            </button>
+            <button class="nav-btn" id="btnExportCSV" title="Export CSV">
+                <i data-lucide="download" class="icon"></i>
+            </button>
+            <button class="nav-btn" id="btnKeyboardHelp" title="Keyboard Shortcuts (?)">
+                <i data-lucide="keyboard" class="icon"></i>
+            </button>
+            <button class="nav-btn theme-toggle" id="btnThemeToggle" title="Toggle Theme (T)">
+                <i data-lucide="moon" class="icon icon-dark"></i>
+                <i data-lucide="sun" class="icon icon-light"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="main-content" id="mainContent">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Last updated footer -->
+    <footer class="dashboard-footer">
+        <span id="lastUpdated">Loading...</span>
+        <span class="footer-sep">|</span>
+        <span>Auto-refresh: <strong>30s</strong></span>
+        <span class="footer-sep">|</span>
+        <span>Press <kbd>?</kbd> for shortcuts</span>
+    </footer>
+
+    <!-- Keyboard shortcuts modal -->
+    <div class="modal-overlay" id="shortcutsModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Keyboard Shortcuts</h3>
+                <button class="modal-close" id="closeShortcuts">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shortcut-row"><kbd>?</kbd> <span>Show this help</span></div>
+                <div class="shortcut-row"><kbd>T</kbd> <span>Toggle dark/light mode</span></div>
+                <div class="shortcut-row"><kbd>R</kbd> <span>Refresh data</span></div>
+                <div class="shortcut-row"><kbd>E</kbd> <span>Export CSV</span></div>
+                <div class="shortcut-row"><kbd>/</kbd> <span>Focus search</span></div>
+                <div class="shortcut-row"><kbd>Esc</kbd> <span>Close modals</span></div>
+                <div class="shortcut-row"><kbd>1</kbd> <span>Scroll to Metrics</span></div>
+                <div class="shortcut-row"><kbd>2</kbd> <span>Scroll to Funnel</span></div>
+                <div class="shortcut-row"><kbd>3</kbd> <span>Scroll to Campaigns</span></div>
+                <div class="shortcut-row"><kbd>4</kbd> <span>Scroll to Trends</span></div>
+                <div class="shortcut-row"><kbd>5</kbd> <span>Scroll to Alerts</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- App JS -->
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

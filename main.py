@@ -531,6 +531,41 @@ def analyze(start_date: datetime, end_date: datetime):
         )
 
 
+# ── serve (web dashboard) ────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.option("--port", default=8080, help="Port to run the dashboard on")
+@click.option(
+    "--mode",
+    default="sexy",
+    type=click.Choice(["sexy", "debug"]),
+    help="Dashboard mode",
+)
+def serve(port: int, mode: str):
+    """Launch the premium web dashboard."""
+    from agents.dashboard.web_app import create_app
+
+    app = create_app()
+    debug = mode == "debug"
+
+    console.print()
+    console.print(
+        Panel(
+            f"[bold green]🚀 Marketing Intelligence Center[/]\n\n"
+            f"  Dashboard: [link=http://localhost:{port}]http://localhost:{port}[/link]\n"
+            f"  Mode:      [bold]{'Development' if debug else 'Production'}[/]\n"
+            f"  Theme:     [bold]Premium ({mode})[/]\n\n"
+            f"  Press [bold]Ctrl+C[/] to stop",
+            title="[bold white]Web Dashboard[/]",
+            border_style="bright_green",
+            padding=(1, 2),
+        )
+    )
+    console.print()
+    app.run(host="0.0.0.0", port=port, debug=debug)
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
