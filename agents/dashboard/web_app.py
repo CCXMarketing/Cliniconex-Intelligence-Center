@@ -2,6 +2,7 @@
 Cliniconex Marketing Intelligence Center — Web Dashboard Server
 
 Flask-based premium dashboard with real-time data from all agents.
+All data comes from live connectors — no demo/fake data.
 """
 
 import csv
@@ -97,6 +98,9 @@ def _build_google_ads(creds: dict):
     ]
     if not all(ga.get(k) for k in required):
         return None
+    # Skip if placeholder credentials
+    if ga.get("refresh_token", "").startswith("PLACEHOLDER"):
+        return None
     return GoogleAdsConnector(
         developer_token=ga["developer_token"],
         client_id=ga["client_id"],
@@ -107,130 +111,202 @@ def _build_google_ads(creds: dict):
     )
 
 
-# ── Demo data (used when connectors are unavailable) ───────────────────────
+# ── Live data fetcher ──────────────────────────────────────────────────────
 
 
-def _demo_campaigns():
-    """Realistic demo campaign data for when Google Ads isn't connected."""
-    return [
-        {
-            "id": "1",
-            "name": "Brand Awareness - Healthcare",
-            "status": "ENABLED",
-            "impressions": 145200,
-            "clicks": 4356,
-            "cost": 8712.00,
-            "conversions": 87,
-        },
-        {
-            "id": "2",
-            "name": "Long-Term Care Facilities",
-            "status": "ENABLED",
-            "impressions": 89300,
-            "clicks": 2679,
-            "cost": 6698.50,
-            "conversions": 54,
-        },
-        {
-            "id": "3",
-            "name": "Automated Communications",
-            "status": "ENABLED",
-            "impressions": 67800,
-            "clicks": 2034,
-            "cost": 5085.00,
-            "conversions": 41,
-        },
-        {
-            "id": "4",
-            "name": "Family Engagement Platform",
-            "status": "ENABLED",
-            "impressions": 52100,
-            "clicks": 1563,
-            "cost": 4689.00,
-            "conversions": 28,
-        },
-        {
-            "id": "5",
-            "name": "Retargeting - Website Visitors",
-            "status": "ENABLED",
-            "impressions": 198400,
-            "clicks": 5952,
-            "cost": 4761.60,
-            "conversions": 95,
-        },
-        {
-            "id": "6",
-            "name": "Competitor Conquesting",
-            "status": "ENABLED",
-            "impressions": 34500,
-            "clicks": 690,
-            "cost": 3450.00,
-            "conversions": 7,
-        },
-        {
-            "id": "7",
-            "name": "Emergency Notification Demo",
-            "status": "PAUSED",
-            "impressions": 12300,
-            "clicks": 369,
-            "cost": 1845.00,
-            "conversions": 3,
-        },
-        {
-            "id": "8",
-            "name": "DSA - Blog Content",
-            "status": "ENABLED",
-            "impressions": 78900,
-            "clicks": 2367,
-            "cost": 3550.50,
-            "conversions": 33,
-        },
-    ]
+def _fetch_ac_data(creds: dict) -> dict:
+    """Fetch contacts and deals from ActiveCampaign.
 
-
-def _demo_contacts():
-    """Demo contact/deal data."""
-    return {
-        "contacts": [{"id": str(i)} for i in range(1, 851)],
-        "deals": [
-            {"id": str(i), "value": 1200 + (i * 37) % 800}
-            for i in range(1, 68)
-        ],
+    Returns dict with keys: connected, contacts, deals, pipeline_stages.
+    """
+    result = {
+        "connected": False,
+        "contacts": [],
+        "deals": [],
+        "pipeline_stages": [],
+        "error": None,
     }
+    try:
+        ac = _build_activecampaign(creds)
+        if ac and ac.test_connection():
+            result["connected"] = True
+            result["contacts"] = ac.fetch_contacts(limit=1000)
+            result["deals"] = ac.fetch_deals(limit=1000)
+            try:
+                result["pipeline_stages"] = ac.get_pipeline_stages()
+            except Exception:
+                pass
+    except Exception as e:
+        result["error"] = str(e)
+        logger.warning("ActiveCampaign error: %s", e)
+    return result
 
 
-def _demo_trend_data():
-    """Generate 30 days of trend data for charts."""
-    import random
+def _fetch_gads_data(creds: dict, start_date, end_date) -> dict:
+    """Fetch campaigns and metrics from Google Ads.
 
-    random.seed(42)
-    base_date = datetime.now() - timedelta(days=30)
-    days = []
-    cumulative_spend = 0
-    for i in range(30):
-        date = base_date + timedelta(days=i)
-        daily_spend = 800 + random.uniform(-200, 400)
-        daily_clicks = int(180 + random.uniform(-40, 80))
-        daily_conversions = int(daily_clicks * random.uniform(0.015, 0.045))
-        daily_impressions = int(daily_clicks / random.uniform(0.025, 0.04))
-        cumulative_spend += daily_spend
-        days.append(
+    Returns dict with keys: connected, campaigns, metrics.
+    """
+    result = {
+        "connected": False,
+        "campaigns": [],
+        "metrics": {},
+        "error": None,
+    }
+    try:
+        gads = _build_google_ads(creds)
+        if gads and gads.test_connection():
+            result["connected"] = True
+            result["campaigns"] = gads.fetch_campaigns(start_date, end_date)
+            result["metrics"] = gads.fetch_performance_metrics(start_date, end_date)
+    except Exception as e:
+        result["error"] = str(e)
+        logger.debug("Google Ads unavailable: %s", e)
+    return result
+
+
+# ── Deal-to-campaign adapter ───────────────────────────────────────────────
+
+
+def _deals_to_campaign_rows(deals: list, stages: list) -> list:
+    """Convert ActiveCampaign deals into campaign-table-compatible rows.
+
+    Groups deals by pipeline stage so each stage becomes a row in the
+    campaign performance table.
+    """
+    # Build stage-name lookup
+    stage_map = {}
+    for s in stages:
+        stage_map[str(s.get("id", ""))] = s.get("title", f"Stage {s.get('id')}")
+
+    # Group deals by stage
+    stage_groups: dict[str, list] = {}
+    for deal in deals:
+        sid = str(deal.get("stage", deal.get("dealStage", "unknown")))
+        stage_groups.setdefault(sid, []).append(deal)
+
+    rows = []
+    for sid, group in stage_groups.items():
+        total_value = sum(float(d.get("value", 0)) for d in group)
+        deal_count = len(group)
+        won_count = sum(
+            1 for d in group if str(d.get("status", "")) == "1"
+        )
+        avg_value = total_value / deal_count if deal_count else 0
+        stage_name = stage_map.get(sid, f"Pipeline Stage {sid}")
+
+        rows.append(
             {
-                "date": date.strftime("%Y-%m-%d"),
-                "label": date.strftime("%b %d"),
-                "spend": round(daily_spend, 2),
-                "cumulative_spend": round(cumulative_spend, 2),
-                "clicks": daily_clicks,
-                "conversions": daily_conversions,
-                "impressions": daily_impressions,
-                "cpa": round(daily_spend / max(daily_conversions, 1), 2),
-                "ctr": round(daily_clicks / max(daily_impressions, 1) * 100, 2),
+                "id": f"stage-{sid}",
+                "name": stage_name,
+                "status": "ENABLED",
+                "impressions": 0,
+                "clicks": deal_count,
+                "conversions": won_count,
+                "cost": round(total_value, 2),
+                "cpa": round(avg_value, 2),
+                "ctr": 0,
                 "conversion_rate": round(
-                    daily_conversions / max(daily_clicks, 1) * 100, 2
+                    won_count / deal_count * 100 if deal_count else 0, 2
+                ),
+                "cpa_status": "none",
+            }
+        )
+
+    # If no stage grouping worked, show individual deals
+    if not rows and deals:
+        for deal in deals:
+            value = float(deal.get("value", 0))
+            status_code = str(deal.get("status", "0"))
+            rows.append(
+                {
+                    "id": deal.get("id", ""),
+                    "name": deal.get("title", f"Deal #{deal.get('id', '?')}"),
+                    "status": "ENABLED" if status_code in ("0", "1") else "PAUSED",
+                    "impressions": 0,
+                    "clicks": 0,
+                    "conversions": 1 if status_code == "1" else 0,
+                    "cost": round(value, 2),
+                    "cpa": round(value, 2) if status_code == "1" else 0,
+                    "ctr": 0,
+                    "conversion_rate": 100.0 if status_code == "1" else 0,
+                    "cpa_status": "none",
+                }
+            )
+
+    return rows
+
+
+# ── Trend data from real deal history ──────────────────────────────────────
+
+
+def _build_trend_from_deals(deals: list) -> list:
+    """Build daily trend data from deal creation/modification dates."""
+    if not deals:
+        return []
+
+    # Parse deal dates and group by day
+    daily: dict[str, dict] = {}
+    for deal in deals:
+        date_str = deal.get("cdate") or deal.get("mdate") or deal.get("created_timestamp")
+        if not date_str:
+            continue
+        try:
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            day_key = dt.strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            # Try simpler parse
+            try:
+                dt = datetime.strptime(str(date_str)[:10], "%Y-%m-%d")
+                day_key = dt.strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                continue
+
+        if day_key not in daily:
+            daily[day_key] = {
+                "date": day_key,
+                "deal_count": 0,
+                "total_value": 0,
+                "won_count": 0,
+            }
+        daily[day_key]["deal_count"] += 1
+        daily[day_key]["total_value"] += float(deal.get("value", 0))
+        if str(deal.get("status", "")) == "1":
+            daily[day_key]["won_count"] += 1
+
+    if not daily:
+        return []
+
+    # Sort by date and convert to trend format
+    sorted_days = sorted(daily.values(), key=lambda d: d["date"])
+    cumulative_value = 0
+    trend = []
+    for day in sorted_days:
+        cumulative_value += day["total_value"]
+        deal_count = day["deal_count"]
+        won_count = day["won_count"]
+        total_value = day["total_value"]
+        avg_value = total_value / deal_count if deal_count else 0
+
+        dt = datetime.strptime(day["date"], "%Y-%m-%d")
+        trend.append(
+            {
+                "date": day["date"],
+                "label": dt.strftime("%b %d"),
+                "spend": round(total_value, 2),
+                "cumulative_spend": round(cumulative_value, 2),
+                "clicks": deal_count,
+                "conversions": won_count,
+                "impressions": deal_count,
+                "cpa": round(avg_value, 2),
+                "ctr": round(won_count / deal_count * 100 if deal_count else 0, 2),
+                "conversion_rate": round(
+                    won_count / deal_count * 100 if deal_count else 0, 2
                 ),
             }
         )
-    return days
+
+    return trend
 
 
 # ── Flask app factory ───────────────────────────────────────────────────────
@@ -261,43 +337,26 @@ def create_app() -> Flask:
 
         quarter = _current_quarter()
         quarter_key = f"{quarter.lower()}_target"
-        revenue_target = thresholds.get("revenue", {}).get(quarter_key, 500000)
+        revenue_target = thresholds.get("revenue", {}).get(quarter_key, 0)
         days_left = _days_remaining_in_quarter()
 
-        # Try live data
-        pipeline_value = 0
-        ac_connected = False
+        # Fetch live data — no demo fallback
+        ac = _fetch_ac_data(creds)
+        ac_connected = ac["connected"]
+        contacts_count = len(ac["contacts"])
+        deals_count = len(ac["deals"])
+        pipeline_value = sum(float(d.get("value", 0)) for d in ac["deals"])
+
+        # Check Google Ads connectivity
         gads_connected = False
-        contacts_count = 0
-        deals_count = 0
-
-        try:
-            ac = _build_activecampaign(creds)
-            if ac and ac.test_connection():
-                ac_connected = True
-                contacts = ac.fetch_contacts(limit=100)
-                deals = ac.fetch_deals(limit=100)
-                contacts_count = len(contacts)
-                deals_count = len(deals)
-                pipeline_value = sum(float(d.get("value", 0)) for d in deals)
-        except Exception as e:
-            logger.debug("ActiveCampaign unavailable: %s", e)
-
         try:
             gads = _build_google_ads(creds)
             if gads and gads.test_connection():
                 gads_connected = True
-        except Exception as e:
-            logger.debug("Google Ads unavailable: %s", e)
+        except Exception:
+            pass
 
-        # Fallback to demo data
-        if not ac_connected:
-            demo = _demo_contacts()
-            contacts_count = len(demo["contacts"])
-            deals_count = len(demo["deals"])
-            pipeline_value = sum(float(d.get("value", 0)) for d in demo["deals"])
-
-        # Revenue calculations
+        # Revenue calculations (same logic as CLI main.py)
         try:
             from agents.revenue_analyst.calculator import RevenueCalculator
 
@@ -310,11 +369,11 @@ def create_app() -> Flask:
                 time_remaining=days_left,
             )
             leads = calc.calculate_leads_needed(
-                revenue_target=max(revenue_target - pipeline_value, 0),
+                revenue_target=revenue_target - pipeline_value,
                 conversion_rates=thresholds.get("conversion_rates"),
             )
         except Exception as e:
-            logger.debug("RevenueCalculator error: %s", e)
+            logger.warning("RevenueCalculator error: %s", e)
             pct = (pipeline_value / revenue_target * 100) if revenue_target else 0
             gap = {
                 "pct_complete": pct,
@@ -358,62 +417,27 @@ def create_app() -> Flask:
         thresholds = _load_thresholds()
         creds = _load_credentials()
 
-        contacts = []
-        deals = []
-        ac_connected = False
+        # Fetch live data — no demo fallback
+        ac = _fetch_ac_data(creds)
+        contacts = ac["contacts"]
+        deals = ac["deals"]
+        pipeline_stages = ac["pipeline_stages"]
+        ac_connected = ac["connected"]
 
-        try:
-            ac = _build_activecampaign(creds)
-            if ac and ac.test_connection():
-                ac_connected = True
-                contacts = ac.fetch_contacts(limit=100)
-                deals = ac.fetch_deals(limit=100)
-        except Exception:
-            pass
-
-        if not ac_connected:
-            demo = _demo_contacts()
-            contacts = demo["contacts"]
-            deals = demo["deals"]
-
+        # Analyze funnel (same logic as CLI main.py)
         try:
             from agents.revenue_analyst.calculator import RevenueCalculator
 
             avg_deal = thresholds.get("deal_size", {}).get("average", 1200)
             calc = RevenueCalculator(default_avg_deal_size=avg_deal)
-            funnel = calc.analyze_funnel(contacts, deals)
-        except Exception:
-            total = len(contacts)
+            funnel = calc.analyze_funnel(contacts, deals, pipeline_stages)
+        except Exception as e:
+            logger.warning("Funnel analysis error: %s", e)
             funnel = {
-                "total_contacts": total,
-                "engaged": int(total * 0.80),
-                "mqls": int(total * 0.20),
-                "hiros": int(total * 0.07),
+                "stage_breakdown": [],
+                "conversion_rates": {},
                 "pipeline_value": sum(float(d.get("value", 0)) for d in deals),
-                "avg_deal_size": 1200,
-                "conversion_rates": {
-                    "contact_to_engaged": 0.80,
-                    "engaged_to_mql": 0.25,
-                    "mql_to_hiro": 0.35,
-                },
-                "stage_breakdown": [
-                    {"stage": "Contacts", "count": total, "rate_from_previous": None},
-                    {
-                        "stage": "Engaged",
-                        "count": int(total * 0.80),
-                        "rate_from_previous": 0.80,
-                    },
-                    {
-                        "stage": "MQL",
-                        "count": int(total * 0.20),
-                        "rate_from_previous": 0.25,
-                    },
-                    {
-                        "stage": "HIRO",
-                        "count": int(total * 0.07),
-                        "rate_from_previous": 0.35,
-                    },
-                ],
+                "avg_deal_size": 0,
             }
 
         return jsonify(
@@ -421,7 +445,7 @@ def create_app() -> Flask:
                 "stages": funnel.get("stage_breakdown", []),
                 "conversion_rates": funnel.get("conversion_rates", {}),
                 "pipeline_value": funnel.get("pipeline_value", 0),
-                "avg_deal_size": funnel.get("avg_deal_size", 1200),
+                "avg_deal_size": funnel.get("avg_deal_size", 0),
                 "live_data": ac_connected,
             }
         )
@@ -436,21 +460,31 @@ def create_app() -> Flask:
         q_start, q_end = _quarter_dates(quarter)
 
         campaigns = []
+        source = "none"
         gads_connected = False
+        ac_connected = False
 
-        try:
-            gads = _build_google_ads(creds)
-            if gads and gads.test_connection():
-                gads_connected = True
-                campaigns = gads.fetch_campaigns(q_start, q_end)
-        except Exception:
-            pass
+        # Try Google Ads first
+        gads = _fetch_gads_data(creds, q_start, q_end)
+        if gads["connected"] and gads["campaigns"]:
+            gads_connected = True
+            campaigns = gads["campaigns"]
+            source = "google_ads"
 
-        if not gads_connected:
-            campaigns = _demo_campaigns()
+        # Fall back to ActiveCampaign deals (real data, not demo)
+        if not campaigns:
+            ac = _fetch_ac_data(creds)
+            if ac["connected"] and ac["deals"]:
+                ac_connected = True
+                campaigns = _deals_to_campaign_rows(
+                    ac["deals"], ac["pipeline_stages"]
+                )
+                source = "activecampaign"
 
         # Enrich with CPA analysis
-        cpa_thresholds = thresholds.get("cpa", {"excellent": 80, "warning": 150, "critical": 250})
+        cpa_thresholds = thresholds.get(
+            "cpa", {"excellent": 75, "warning": 200, "critical": 300}
+        )
 
         enriched = []
         for c in campaigns:
@@ -462,9 +496,9 @@ def create_app() -> Flask:
 
             if conversions == 0:
                 cpa_status = "none"
-            elif cpa <= cpa_thresholds.get("excellent", 80):
+            elif cpa <= cpa_thresholds.get("excellent", 75):
                 cpa_status = "excellent"
-            elif cpa <= cpa_thresholds.get("warning", 150):
+            elif cpa <= cpa_thresholds.get("warning", 200):
                 cpa_status = "warning"
             else:
                 cpa_status = "critical"
@@ -484,30 +518,33 @@ def create_app() -> Flask:
                     "cpa": round(cpa, 2),
                     "ctr": round(ctr, 2),
                     "conversion_rate": round(conv_rate, 2),
-                    "cpa_status": cpa_status,
+                    "cpa_status": c.get("cpa_status", cpa_status),
                 }
             )
 
         # Try strategic analysis
-        try:
-            from agents.strategic_advisor.campaign_analyzer import CampaignAnalyzer
+        recommendations = {
+            "immediate_actions": [],
+            "strategic_adjustments": [],
+            "new_tactics": [],
+        }
+        if campaigns and source == "google_ads":
+            try:
+                from agents.strategic_advisor.campaign_analyzer import CampaignAnalyzer
 
-            analyzer = CampaignAnalyzer()
-            analysis = analyzer.analyze_campaigns(campaigns, cpa_thresholds)
-            recommendations = analyzer.generate_recommendations(analysis)
-        except Exception:
-            recommendations = {
-                "immediate_actions": [],
-                "strategic_adjustments": [],
-                "new_tactics": [],
-            }
+                analyzer = CampaignAnalyzer()
+                analysis = analyzer.analyze_campaigns(campaigns, cpa_thresholds)
+                recommendations = analyzer.generate_recommendations(analysis)
+            except Exception:
+                pass
 
         return jsonify(
             {
                 "campaigns": enriched,
                 "recommendations": recommendations,
                 "thresholds": cpa_thresholds,
-                "live_data": gads_connected,
+                "live_data": gads_connected or ac_connected,
+                "source": source,
             }
         )
 
@@ -515,7 +552,54 @@ def create_app() -> Flask:
 
     @app.route("/api/trends")
     def api_trends():
-        return jsonify({"days": _demo_trend_data()})
+        creds = _load_credentials()
+        quarter = _current_quarter()
+        q_start, q_end = _quarter_dates(quarter)
+
+        # Try Google Ads daily data first
+        gads = _fetch_gads_data(creds, q_start, q_end)
+        if gads["connected"] and gads["campaigns"]:
+            # Build trend from campaign metrics
+            # (Google Ads fetch_campaigns returns aggregate, not daily —
+            #  so we return a single summary point per campaign)
+            trend_days = []
+            for camp in gads["campaigns"]:
+                conversions = camp.get("conversions", 0)
+                cost = camp.get("cost", 0)
+                clicks = camp.get("clicks", 0)
+                impressions = camp.get("impressions", 0)
+                trend_days.append(
+                    {
+                        "date": q_start.strftime("%Y-%m-%d"),
+                        "label": camp.get("name", "Campaign")[:20],
+                        "spend": round(cost, 2),
+                        "cumulative_spend": round(cost, 2),
+                        "clicks": clicks,
+                        "conversions": conversions,
+                        "impressions": impressions,
+                        "cpa": round(cost / conversions, 2) if conversions else 0,
+                        "ctr": round(clicks / impressions * 100, 2)
+                        if impressions
+                        else 0,
+                        "conversion_rate": round(
+                            conversions / clicks * 100, 2
+                        )
+                        if clicks
+                        else 0,
+                    }
+                )
+            return jsonify({"days": trend_days, "live_data": True, "source": "google_ads"})
+
+        # Fall back to ActiveCampaign deal history
+        ac = _fetch_ac_data(creds)
+        if ac["connected"] and ac["deals"]:
+            trend_days = _build_trend_from_deals(ac["deals"])
+            return jsonify(
+                {"days": trend_days, "live_data": True, "source": "activecampaign"}
+            )
+
+        # No data available
+        return jsonify({"days": [], "live_data": False, "source": "none"})
 
     # ── API: Alerts ─────────────────────────────────────────────────────
 
@@ -526,29 +610,30 @@ def create_app() -> Flask:
         quarter = _current_quarter()
         q_start, q_end = _quarter_dates(quarter)
 
-        campaigns = []
-        try:
-            gads = _build_google_ads(creds)
-            if gads and gads.test_connection():
-                campaigns = gads.fetch_campaigns(q_start, q_end)
-        except Exception:
-            pass
+        # Try Google Ads campaigns for CPA-based alerts
+        gads = _fetch_gads_data(creds, q_start, q_end)
+        if gads["connected"] and gads["campaigns"]:
+            campaigns = gads["campaigns"]
+            try:
+                from agents.strategic_advisor.campaign_analyzer import CampaignAnalyzer
 
-        if not campaigns:
-            campaigns = _demo_campaigns()
+                analyzer = CampaignAnalyzer()
+                cpa_thresholds = thresholds.get(
+                    "cpa", {"excellent": 75, "warning": 200, "critical": 300}
+                )
+                alerts = analyzer.create_alerts(campaigns, cpa_thresholds)
+            except Exception:
+                alerts = _generate_fallback_alerts(campaigns, thresholds)
+            return jsonify({"alerts": alerts, "source": "google_ads"})
 
-        try:
-            from agents.strategic_advisor.campaign_analyzer import CampaignAnalyzer
+        # Generate alerts from ActiveCampaign deal data
+        ac = _fetch_ac_data(creds)
+        if ac["connected"]:
+            alerts = _generate_deal_alerts(ac["deals"], thresholds)
+            return jsonify({"alerts": alerts, "source": "activecampaign"})
 
-            analyzer = CampaignAnalyzer()
-            cpa_thresholds = thresholds.get(
-                "cpa", {"excellent": 80, "warning": 150, "critical": 250}
-            )
-            alerts = analyzer.create_alerts(campaigns, cpa_thresholds)
-        except Exception:
-            alerts = _generate_fallback_alerts(campaigns, thresholds)
-
-        return jsonify({"alerts": alerts})
+        # No data — no alerts
+        return jsonify({"alerts": [], "source": "none"})
 
     # ── API: Export CSV ─────────────────────────────────────────────────
 
@@ -600,12 +685,15 @@ def create_app() -> Flask:
     return app
 
 
+# ── Alert generators ────────────────────────────────────────────────────────
+
+
 def _generate_fallback_alerts(campaigns: list, thresholds: dict) -> list:
-    """Generate alerts without the CampaignAnalyzer."""
+    """Generate alerts from Google Ads campaigns without the CampaignAnalyzer."""
     alerts = []
-    cpa_critical = thresholds.get("cpa", {}).get("critical", 250)
-    cpa_warning = thresholds.get("cpa", {}).get("warning", 150)
-    zero_limit = thresholds.get("budget", {}).get("zero_conversion_limit", 500)
+    cpa_critical = thresholds.get("cpa", {}).get("critical", 300)
+    cpa_warning = thresholds.get("cpa", {}).get("warning", 200)
+    zero_limit = thresholds.get("budget", {}).get("zero_conversion_limit", 150)
 
     for c in campaigns:
         cost = c.get("cost", 0)
@@ -646,8 +734,7 @@ def _generate_fallback_alerts(campaigns: list, thresholds: dict) -> list:
                 }
             )
 
-    # Add positive alerts for well-performing campaigns
-    excellent = thresholds.get("cpa", {}).get("excellent", 80)
+    excellent = thresholds.get("cpa", {}).get("excellent", 75)
     for c in campaigns:
         conversions = c.get("conversions", 0)
         cost = c.get("cost", 0)
@@ -668,14 +755,93 @@ def _generate_fallback_alerts(campaigns: list, thresholds: dict) -> list:
     return alerts
 
 
+def _generate_deal_alerts(deals: list, thresholds: dict) -> list:
+    """Generate alerts from ActiveCampaign deal pipeline data."""
+    alerts = []
+
+    if not deals:
+        return alerts
+
+    # Pipeline health alerts
+    total_value = sum(float(d.get("value", 0)) for d in deals)
+    deal_count = len(deals)
+    won_deals = [d for d in deals if str(d.get("status", "")) == "1"]
+    lost_deals = [d for d in deals if str(d.get("status", "")) == "2"]
+    open_deals = [d for d in deals if str(d.get("status", "")) == "0"]
+
+    avg_deal = thresholds.get("deal_size", {}).get("average", 1200)
+
+    # Alert: high-value deals in pipeline
+    high_value_deals = [
+        d for d in open_deals
+        if float(d.get("value", 0)) > avg_deal * 3
+    ]
+    for d in high_value_deals:
+        value = float(d.get("value", 0))
+        alerts.append(
+            {
+                "level": "info",
+                "campaign": d.get("title", f"Deal #{d.get('id', '?')}"),
+                "metric": "deal_value",
+                "value": round(value, 2),
+                "threshold": avg_deal * 3,
+                "message": f"High-value deal ${value:,.2f} in pipeline — prioritize follow-up",
+            }
+        )
+
+    # Alert: pipeline summary
+    if total_value > 0:
+        quarter = _current_quarter()
+        quarter_key = f"{quarter.lower()}_target"
+        revenue_target = thresholds.get("revenue", {}).get(quarter_key, 0)
+        if revenue_target and total_value >= revenue_target:
+            alerts.append(
+                {
+                    "level": "info",
+                    "campaign": "Pipeline Health",
+                    "metric": "pipeline_value",
+                    "value": round(total_value, 2),
+                    "threshold": revenue_target,
+                    "message": f"Pipeline value ${total_value:,.0f} meets {quarter} target ${revenue_target:,.0f}",
+                }
+            )
+        elif revenue_target and total_value < revenue_target * 0.5:
+            alerts.append(
+                {
+                    "level": "warning",
+                    "campaign": "Pipeline Health",
+                    "metric": "pipeline_value",
+                    "value": round(total_value, 2),
+                    "threshold": revenue_target,
+                    "message": f"Pipeline value ${total_value:,.0f} is below 50% of {quarter} target ${revenue_target:,.0f}",
+                }
+            )
+
+    # Alert: lost deal ratio
+    if deal_count >= 5 and lost_deals:
+        loss_rate = len(lost_deals) / deal_count
+        if loss_rate > 0.3:
+            alerts.append(
+                {
+                    "level": "warning",
+                    "campaign": "Deal Win Rate",
+                    "metric": "loss_rate",
+                    "value": round(loss_rate * 100, 1),
+                    "threshold": 30,
+                    "message": f"{loss_rate:.0%} of deals lost — review sales process",
+                }
+            )
+
+    return alerts
+
+
 # ── Standalone runner ───────────────────────────────────────────────────────
 
 
 def run_server(port: int = 8080, debug: bool = False):
     """Start the dashboard server."""
     app = create_app()
-    print(f"\n  🚀 Marketing Intelligence Center Dashboard")
-    print(f"  ───────────────────────────────────────────")
+    print(f"\n  Marketing Intelligence Center Dashboard")
     print(f"  Running on: http://localhost:{port}")
     print(f"  Mode: {'Development' if debug else 'Production'}")
     print(f"  Press Ctrl+C to stop\n")
