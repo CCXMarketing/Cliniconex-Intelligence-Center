@@ -48,7 +48,7 @@ class ActiveCampaignConnector:
             print(f"Error fetching from ActiveCampaign: {e}")
             raise
     
-    def fetch_contacts(self, limit: int = 100, offset: int = 0) -> List[Dict]:
+    def fetch_contacts(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
         Fetch contacts from ActiveCampaign
         
@@ -65,7 +65,7 @@ class ActiveCampaignConnector:
         response = self._make_request(endpoint, params)
         return response.get('contacts', [])
     
-    def fetch_deals(self, limit: int = 100, offset: int = 0) -> List[Dict]:
+    def fetch_deals(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
         Fetch deals from ActiveCampaign
         
@@ -133,10 +133,30 @@ class ActiveCampaignConnector:
         response = self._make_request(endpoint)
         return response.get('dealCustomFieldMeta', [])
     
+    def fetch_deals_with_stages(self, limit: int = 1000) -> tuple:
+        """
+        Fetch deals and enrich each with its pipeline stage name/order.
+
+        Returns:
+            (deals, pipeline_stages) — deals have extra keys
+            ``_stage_title`` and ``_stage_order``.
+        """
+        deals = self.fetch_deals(limit=limit)
+        stages = self.get_pipeline_stages()
+        stage_map = {s["id"]: s for s in stages}
+
+        for deal in deals:
+            stage_id = deal.get("stage")
+            info = stage_map.get(stage_id, {})
+            deal["_stage_title"] = info.get("title", "Unknown")
+            deal["_stage_order"] = int(info.get("order", 0))
+
+        return deals, stages
+
     def test_connection(self) -> bool:
         """
         Test if API connection is working
-        
+
         Returns:
             True if connection successful, False otherwise
         """
@@ -153,8 +173,7 @@ if __name__ == "__main__":
     import yaml
     
     # Load credentials
-    with open('../config/credentials.yaml', 'r') as f:
-        config = yaml.safe_load(f)
+    with open('config/credentials.yaml', 'r') as f:        config = yaml.safe_load(f)
     
     # Initialize connector
     ac = ActiveCampaignConnector(

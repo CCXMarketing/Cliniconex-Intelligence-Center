@@ -94,17 +94,25 @@ class RevenueCalculator:
     # ------------------------------------------------------------------
 
     def analyze_funnel(
-        self, contacts: List[Dict], deals: List[Dict]
+        self,
+        contacts: List[Dict],
+        deals: List[Dict],
+        pipeline_stages: Optional[List[Dict]] = None,
     ) -> Dict:
         """
         Derive actual conversion rates from ActiveCampaign contacts/deals.
 
-        Contacts are bucketed by tag into funnel stages.  Deals represent
-        the HIRO stage.
+        Contacts are bucketed by tag into funnel stages.  When tag data is
+        unavailable, pipeline stage order is used to classify deals into
+        MQL (early stages) vs HIRO (late stages).
 
         Args:
             contacts: List of ActiveCampaign contact dicts.
             deals: List of ActiveCampaign deal dicts.
+            pipeline_stages: Optional list of AC dealStage dicts (from
+                ``get_pipeline_stages()``).  When provided, deals are
+                classified by their stage position rather than by the
+                backward-computation heuristic.
 
         Returns:
             Dict with counts per stage, observed conversion rates,
@@ -113,11 +121,23 @@ class RevenueCalculator:
         total_contacts = len(contacts)
         engaged = self._count_contacts_with_tag(contacts, "engaged")
         mqls = self._count_contacts_with_tag(contacts, "mql")
-        hiros = len(deals)
 
-        # If no engaged/mql tags found, fall back to deal-stage buckets
-        if engaged == 0 and mqls == 0 and total_contacts > 0:
+        if engaged > 0 or mqls > 0:
+            # Tag data available — use it directly.
+            hiros = len(deals)
+        elif pipeline_stages and deals:
+            # Classify deals using pipeline stage order.
+            engaged, mqls, hiros = self._classify_by_pipeline(
+                deals, pipeline_stages, total_contacts
+            )
+        elif total_contacts > 0 and deals:
+            # Fallback: use deal-stage heuristic (returns engaged, mqls, hiros).
             engaged, mqls = self._infer_stages_from_deals(deals, total_contacts)
+            hiros = max(
+                math.ceil(len(deals) * DEFAULT_CONVERSION_RATES["mql_to_hiro"]), 1
+            )
+        else:
+            engaged = mqls = hiros = 0
 
         rates = {
             "contact_to_engaged": self._safe_divide(engaged, total_contacts),
@@ -260,16 +280,81 @@ class RevenueCalculator:
         return count
 
     @staticmethod
+    def _classify_by_pipeline(
+        deals: List[Dict],
+        pipeline_stages: List[Dict],
+        total_contacts: int,
+    ) -> tuple:
+        """Classify deals into funnel stages using pipeline stage order.
+
+        Stages are sorted by their ``order`` field.  The first half of
+        stages are considered early-funnel (MQL territory); the second
+        half are late-funnel (HIRO territory).
+
+        Counts are based on **unique contacts**, not deals, so that
+        funnel rates stay monotonically decreasing.
+
+        Returns:
+            (engaged, mqls, hiros)
+        """
+        sorted_stages = sorted(
+            pipeline_stages, key=lambda s: int(s.get("order", 0))
+        )
+        if not sorted_stages:
+            hiros = len(deals)
+            return min(hiros, total_contacts), hiros, hiros
+
+        mid = max(len(sorted_stages) // 2, 1)
+        late_ids = {str(s["id"]) for s in sorted_stages[mid:]}
+
+        all_contact_ids: set = set()
+        hiro_contact_ids: set = set()
+
+        for deal in deals:
+            contact_id = str(deal.get("contact", deal.get("id", "")))
+            stage_id = str(deal.get("stage", ""))
+            all_contact_ids.add(contact_id)
+            if stage_id in late_ids:
+                hiro_contact_ids.add(contact_id)
+
+        # Engaged = unique contacts that have any deal (known to be active)
+        engaged = min(len(all_contact_ids), total_contacts)
+        # MQLs = all contacts with deals (they entered the pipeline)
+        mqls = engaged
+        # HIROs = contacts whose furthest deal is in a late stage
+        hiros = min(len(hiro_contact_ids), mqls)
+
+        return engaged, mqls, hiros
+
+    @staticmethod
     def _infer_stages_from_deals(
         deals: List[Dict], total_contacts: int
     ) -> tuple:
-        """Rough heuristic when tag data is unavailable."""
-        hiros = len(deals)
-        mqls = math.ceil(hiros / DEFAULT_CONVERSION_RATES["mql_to_hiro"]) if hiros else 0
-        engaged = math.ceil(mqls / DEFAULT_CONVERSION_RATES["engaged_to_mql"]) if mqls else 0
-        # Clamp to actual contact count
+        """Rough heuristic when neither tags nor pipeline stages are available.
+
+        Without stage data we cannot tell which deals are late-funnel (HIRO)
+        vs early-funnel (MQL).  We treat *all* deals as MQLs and estimate
+        that only ``DEFAULT_CONVERSION_RATES["mql_to_hiro"]`` fraction have
+        progressed to HIRO.  This prevents every rate from collapsing to
+        100%.
+        """
+        num_deals = len(deals)
+        if num_deals == 0:
+            return 0, 0
+
+        # All deals represent at least MQL-stage contacts.
+        mqls = num_deals
+
+        # Estimate HIROs as a proportion of MQLs using default rate.
+        hiros = max(math.ceil(num_deals * DEFAULT_CONVERSION_RATES["mql_to_hiro"]), 1)
+
+        # Work forward from total_contacts for the engaged estimate.
+        engaged = int(total_contacts * DEFAULT_CONVERSION_RATES["contact_to_engaged"])
+        # Engaged must be at least as large as MQLs.
+        engaged = max(engaged, mqls)
+        # But not larger than total contacts.
         engaged = min(engaged, total_contacts)
-        mqls = min(mqls, engaged)
+
         return engaged, mqls
 
     @staticmethod

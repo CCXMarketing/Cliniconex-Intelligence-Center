@@ -5,9 +5,16 @@ Ties together all agents (data connectors + revenue analyst) and presents
 a unified CLI dashboard using Click and Rich.
 """
 
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# Ensure UTF-8 output on Windows so Rich can render emoji/box-drawing
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import click
 import yaml
@@ -22,7 +29,7 @@ from agents.data_connector.activecampaign import ActiveCampaignConnector
 from agents.data_connector.google_ads import GoogleAdsConnector
 from agents.revenue_analyst.calculator import RevenueCalculator
 
-console = Console()
+console = Console(force_terminal=True)
 
 # ── Configuration helpers ────────────────────────────────────────────────────
 
@@ -145,7 +152,7 @@ def dashboard():
     days_left = _days_remaining_in_quarter()
 
     # ── Fetch live data ──────────────────────────────────────────────────
-    ac_data = {"contacts": [], "deals": []}
+    ac_data = {"contacts": [], "deals": [], "pipeline_stages": []}
     gads_campaigns = []
     gads_metrics = {}
     ac_connected = False
@@ -163,8 +170,10 @@ def dashboard():
             ac = build_activecampaign(creds)
             ac_connected = ac.test_connection()
             if ac_connected:
-                ac_data["contacts"] = ac.fetch_contacts(limit=100)
-                ac_data["deals"] = ac.fetch_deals(limit=100)
+                ac_data["contacts"] = ac.fetch_contacts(limit=1000)
+                deals, stages = ac.fetch_deals_with_stages(limit=1000)
+                ac_data["deals"] = deals
+                ac_data["pipeline_stages"] = stages
         except Exception as exc:
             console.print(f"[dim]ActiveCampaign error: {exc}[/]")
         progress.remove_task(task)
@@ -194,7 +203,9 @@ def dashboard():
         revenue_target=revenue_target - pipeline_value,
         conversion_rates=thresholds.get("conversion_rates"),
     )
-    funnel = calc.analyze_funnel(ac_data["contacts"], ac_data["deals"])
+    funnel = calc.analyze_funnel(
+        ac_data["contacts"], ac_data["deals"], ac_data["pipeline_stages"]
+    )
 
     # ── Header panel ─────────────────────────────────────────────────────
     pct = gap["pct_complete"]
