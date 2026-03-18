@@ -1,0 +1,37 @@
+# Business Metrics & Thresholds Configuration
+
+revenue:
+  annual_target: 9000000  # $9M annual target
+  q1_target: 2250000      # $2.25M per quarter
+  q2_target: 2250000
+  q3_target: 2250000
+  q4_target: 2250000
+
+cpa:
+  # Cost Per Acquisition thresholds (CAD)
+  excellent: 75      # Green: CPA ≤ $75
+  warning: 200       # Yellow: CPA $75-$200
+  critical: 300      # Red: CPA > $200
+
+conversion_rates:
+  # Default conversion rates (can be overridden by actual data)
+  contact_to_demo: 0.25    # 25% of contacts book demos
+  demo_to_deal: 0.35       # 35% of demos become opportunities
+  deal_to_won: 0.15        # 15% of deals close-won
+
+deal_size:
+  average: 1200      # $1,200 average deal size (LTV)
+  minimum: 500       # $500 minimum deal
+  maximum: 5000      # $5,000 maximum deal
+
+budget:
+  # Campaign budget limits
+  daily_max: 500           # Max daily spend per campaign
+  monthly_max: 15000       # Max monthly spend per campaign
+  zero_conversion_limit: 150  # Pause if $150 spent with 0 conversions
+
+alerts:
+  # Alert thresholds
+  cpa_increase_percent: 20      # Alert if CPA increases >20%
+  conversion_rate_drop: 0.05    # Alert if conversion rate drops >5%
+  daily_spend_variance: 0.50    # Alert if daily spend varies >50%
