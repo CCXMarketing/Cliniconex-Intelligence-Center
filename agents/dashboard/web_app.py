@@ -9,6 +9,7 @@ import csv
 import io
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -126,16 +127,12 @@ def _build_google_ads(creds: dict):
 def _fetch_ac_data(
     creds: dict,
     pipeline_id: int | None = None,
-    date_start: str | None = None,
-    date_end: str | None = None,
 ) -> dict:
-    """Fetch contacts and deals from ActiveCampaign.
+    """Fetch contacts (with deals) and deals from ActiveCampaign.
 
     Args:
         creds: Credentials dict.
         pipeline_id: If set, filter deals to this pipeline only.
-        date_start: If set, filter contacts created after this date (YYYY-MM-DD).
-        date_end: If set, filter contacts created before this date (YYYY-MM-DD).
 
     Returns dict with keys: connected, contacts, deals, pipeline_stages.
     """
@@ -151,15 +148,12 @@ def _fetch_ac_data(
         if ac and ac.test_connection():
             result["connected"] = True
 
-            # Contacts — date-filtered if range provided
-            if date_start and date_end:
-                result["contacts"] = ac.fetch_contacts_by_date(
-                    start_date=date_start,
-                    end_date=date_end,
-                    limit=1000,
-                )
-            else:
-                result["contacts"] = ac.fetch_contacts(limit=1000)
+            # Contacts — fetch contacts with active deals in the pipeline
+            # (replaces date-filtered fetch; we want contacts in the funnel,
+            #  not contacts created in a date range)
+            result["contacts"] = ac.fetch_contacts_with_deals(
+                pipeline_id=pipeline_id, limit=5000,
+            )
 
             # Deals — pipeline-filtered if ID provided
             if pipeline_id is not None:
@@ -362,7 +356,21 @@ def create_app() -> Flask:
         static_folder=str(BASE_DIR / "static"),
     )
     app.config["SECRET_KEY"] = "mic-dashboard-secret"
-    CORS(app)
+
+    # CORS — ToolHub-aware configuration
+    toolhub_origin = os.environ.get("TOOLHUB_ORIGIN", "https://toolhub.cliniconex.com")
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [toolhub_origin],
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "X-Service-Token"],
+            "supports_credentials": False,
+        }
+    })
+
+    # Register ToolHub REST API blueprint
+    from agents.dashboard.api import api_bp
+    app.register_blueprint(api_bp)
 
     # ── Main page ───────────────────────────────────────────────────────
 
@@ -378,23 +386,38 @@ def create_app() -> Flask:
         creds = _load_credentials()
         pcfg = _pipeline_config(thresholds)
 
+        # Pipeline selector — accept ?pipeline_id= or default to thresholds
+        pipeline_id = request.args.get("pipeline_id", type=int)
+        if pipeline_id is None:
+            pipeline_id = pcfg["pipeline_id"]
+
         quarter = _current_quarter()
         quarter_key = f"{quarter.lower()}_target"
         revenue_target = thresholds.get("revenue", {}).get(quarter_key, 0)
         q_start, q_end = _quarter_dates(quarter)
         days_left = _days_remaining_in_quarter()
 
-        # Fetch live data filtered to pipeline + quarter
-        ac = _fetch_ac_data(
-            creds,
-            pipeline_id=pcfg["pipeline_id"],
-            date_start=q_start.strftime("%Y-%m-%d"),
-            date_end=q_end.strftime("%Y-%m-%d"),
-        )
+        # Fetch live data filtered to pipeline
+        ac = _fetch_ac_data(creds, pipeline_id=pipeline_id)
         ac_connected = ac["connected"]
         contacts_count = len(ac["contacts"])
         deals_count = len(ac["deals"])
         pipeline_value = sum(float(d.get("value", 0)) for d in ac["deals"])
+
+        # Currency split
+        currency_buckets: dict[str, float] = {}
+        for d in ac["deals"]:
+            cur = d.get("currency", "usd").lower()
+            currency_buckets[cur] = currency_buckets.get(cur, 0.0) + float(d.get("value", 0))
+
+        # Available pipelines for selector
+        available_pipelines = []
+        try:
+            ac_conn = _build_activecampaign(creds)
+            if ac_conn:
+                available_pipelines = ac_conn.fetch_all_pipelines()
+        except Exception:
+            pass
 
         # Check Google Ads connectivity
         gads_connected = False
@@ -439,6 +462,13 @@ def create_app() -> Flask:
         else:
             status = "behind"
 
+        # Resolve pipeline name from available pipelines or config
+        pipeline_name = pcfg["pipeline_name"]
+        for p in available_pipelines:
+            if p["id"] == pipeline_id:
+                pipeline_name = p["title"]
+                break
+
         return jsonify(
             {
                 "quarter": quarter,
@@ -447,11 +477,14 @@ def create_app() -> Flask:
                     "end": q_end.strftime("%Y-%m-%d"),
                 },
                 "pipeline": {
-                    "id": pcfg["pipeline_id"],
-                    "name": pcfg["pipeline_name"],
+                    "id": pipeline_id,
+                    "name": pipeline_name,
                 },
                 "revenue_target": revenue_target,
                 "pipeline_value": round(pipeline_value, 2),
+                "pipeline_value_by_currency": {
+                    k: round(v, 2) for k, v in currency_buckets.items()
+                },
                 "pct_complete": round(pct, 1),
                 "status": status,
                 "days_remaining": days_left,
@@ -463,6 +496,7 @@ def create_app() -> Flask:
                     "activecampaign": ac_connected,
                     "google_ads": gads_connected,
                 },
+                "available_pipelines": available_pipelines,
                 "last_updated": datetime.now().isoformat(),
             }
         )
@@ -474,16 +508,14 @@ def create_app() -> Flask:
         thresholds = _load_thresholds()
         creds = _load_credentials()
         pcfg = _pipeline_config(thresholds)
-        quarter = _current_quarter()
-        q_start, q_end = _quarter_dates(quarter)
 
-        # Fetch live data filtered to pipeline + quarter
-        ac = _fetch_ac_data(
-            creds,
-            pipeline_id=pcfg["pipeline_id"],
-            date_start=q_start.strftime("%Y-%m-%d"),
-            date_end=q_end.strftime("%Y-%m-%d"),
-        )
+        # Pipeline selector
+        pipeline_id = request.args.get("pipeline_id", type=int)
+        if pipeline_id is None:
+            pipeline_id = pcfg["pipeline_id"]
+
+        # Fetch live data filtered to pipeline
+        ac = _fetch_ac_data(creds, pipeline_id=pipeline_id)
         contacts = ac["contacts"]
         deals = ac["deals"]
         pipeline_stages = ac["pipeline_stages"]
@@ -510,10 +542,25 @@ def create_app() -> Flask:
                 "stages": funnel.get("stage_breakdown", []),
                 "conversion_rates": funnel.get("conversion_rates", {}),
                 "pipeline_value": funnel.get("pipeline_value", 0),
+                "pipeline_value_by_currency": funnel.get("pipeline_value_by_currency", {}),
                 "avg_deal_size": funnel.get("avg_deal_size", 0),
                 "live_data": ac_connected,
             }
         )
+
+    # ── API: Available pipelines ─────────────────────────────────────────
+
+    @app.route("/api/pipelines")
+    def api_pipelines():
+        creds = _load_credentials()
+        try:
+            ac = _build_activecampaign(creds)
+            if ac and ac.test_connection():
+                pipelines = ac.fetch_all_pipelines()
+                return jsonify({"pipelines": pipelines})
+        except Exception:
+            pass
+        return jsonify({"pipelines": []})
 
     # ── API: Campaigns ──────────────────────────────────────────────────
 

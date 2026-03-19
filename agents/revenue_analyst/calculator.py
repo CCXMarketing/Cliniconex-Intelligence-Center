@@ -119,19 +119,14 @@ class RevenueCalculator:
             and total pipeline value.
         """
         total_contacts = len(contacts)
-        engaged = self._count_contacts_with_tag(contacts, "engaged")
-        mqls = self._count_contacts_with_tag(contacts, "mql")
 
-        if engaged > 0 or mqls > 0:
-            # Tag data available — use it directly.
-            hiros = len(deals)
-        elif pipeline_stages and deals:
-            # Classify deals using pipeline stage order.
+        # Always use pipeline stage classification when stages are available.
+        # Contact tags are NOT used — stage tracking is on the deal itself.
+        if pipeline_stages and deals:
             engaged, mqls, hiros = self._classify_by_pipeline(
                 deals, pipeline_stages, total_contacts
             )
         elif total_contacts > 0 and deals:
-            # Fallback: use deal-stage heuristic (returns engaged, mqls, hiros).
             engaged, mqls = self._infer_stages_from_deals(deals, total_contacts)
             hiros = max(
                 math.ceil(len(deals) * DEFAULT_CONVERSION_RATES["mql_to_hiro"]), 1
@@ -148,6 +143,14 @@ class RevenueCalculator:
         pipeline_value = sum(float(d.get("value", 0)) for d in deals)
         avg_deal = self._safe_divide(pipeline_value, hiros)
 
+        # Currency split — deals carry a "currency" field ("usd" or "cad")
+        currency_buckets: Dict[str, float] = {}
+        for d in deals:
+            currency = d.get("currency", "usd").lower()
+            currency_buckets[currency] = (
+                currency_buckets.get(currency, 0.0) + float(d.get("value", 0))
+            )
+
         return {
             "total_contacts": total_contacts,
             "engaged": engaged,
@@ -155,6 +158,7 @@ class RevenueCalculator:
             "hiros": hiros,
             "conversion_rates": rates,
             "pipeline_value": pipeline_value,
+            "pipeline_value_by_currency": currency_buckets,
             "avg_deal_size": avg_deal,
             "stage_breakdown": [
                 {"stage": "Contact Created", "count": total_contacts},

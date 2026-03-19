@@ -47,7 +47,20 @@ class ActiveCampaignConnector:
         except requests.exceptions.RequestException as e:
             print(f"Error fetching from ActiveCampaign: {e}")
             raise
-    
+
+    @staticmethod
+    def _normalize_deal(deal: Dict) -> Dict:
+        """Normalize an AC deal — convert value from cents to dollars, ensure currency.
+
+        ActiveCampaign stores deal values in **cents** (integer).
+        A $1,200 deal is stored as ``120000``.
+        """
+        raw_value = int(float(deal.get("value", 0)))
+        deal["value_cents"] = raw_value
+        deal["value"] = raw_value / 100  # cents → dollars
+        deal["currency"] = deal.get("currency", "usd").lower()
+        return deal
+
     def fetch_contacts(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
         Fetch contacts from ActiveCampaign
@@ -67,20 +80,22 @@ class ActiveCampaignConnector:
     
     def fetch_deals(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
-        Fetch deals from ActiveCampaign
+        Fetch deals from ActiveCampaign.
+
+        Values are converted from cents to dollars automatically.
 
         Args:
             limit: Number of deals to fetch
             offset: Pagination offset
 
         Returns:
-            List of deal dictionaries
+            List of deal dictionaries (value in dollars)
         """
         endpoint = '/api/3/deals'
         params = {'limit': limit, 'offset': offset}
 
         response = self._make_request(endpoint, params)
-        return response.get('deals', [])
+        return [self._normalize_deal(d) for d in response.get('deals', [])]
 
     def fetch_deals_by_pipeline(
         self, pipeline_id: int, limit: int = 1000, offset: int = 0
@@ -88,13 +103,15 @@ class ActiveCampaignConnector:
         """
         Fetch deals filtered to a specific pipeline.
 
+        Values are converted from cents to dollars automatically.
+
         Args:
             pipeline_id: ActiveCampaign pipeline (dealGroup) ID
             limit: Number of deals to fetch
             offset: Pagination offset
 
         Returns:
-            List of deal dictionaries belonging to that pipeline
+            List of deal dictionaries belonging to that pipeline (value in dollars)
         """
         endpoint = '/api/3/deals'
         params = {
@@ -104,7 +121,7 @@ class ActiveCampaignConnector:
         }
 
         response = self._make_request(endpoint, params)
-        return response.get('deals', [])
+        return [self._normalize_deal(d) for d in response.get('deals', [])]
     
     def get_pipeline_stages(self, pipeline_id: Optional[int] = None) -> List[Dict]:
         """
@@ -130,14 +147,73 @@ class ActiveCampaignConnector:
     def get_pipelines(self) -> List[Dict]:
         """
         Get all pipelines
-        
+
         Returns:
             List of pipeline dictionaries
         """
         endpoint = '/api/3/dealGroups'
         response = self._make_request(endpoint)
         return response.get('dealGroups', [])
-    
+
+    def fetch_all_pipelines(self) -> List[Dict]:
+        """
+        Fetch all deal pipelines with basic metadata.
+
+        Returns:
+            List of dicts: {id, title, deal_count}
+        """
+        endpoint = '/api/3/dealGroups'
+        response = self._make_request(endpoint)
+        pipelines = response.get('dealGroups', [])
+        return [
+            {
+                "id": int(p.get("id", 0)),
+                "title": p.get("title", "Unknown Pipeline"),
+                "deal_count": int(p.get("dcount", p.get("dealCount", 0))),
+            }
+            for p in pipelines
+        ]
+
+    def fetch_contacts_with_deals(
+        self, pipeline_id: Optional[int] = None, limit: int = 5000
+    ) -> List[Dict]:
+        """
+        Fetch contacts that have at least one associated deal.
+
+        If pipeline_id is provided, only contacts with deals in that
+        pipeline are returned.  This replaces fetch_contacts_by_date()
+        for funnel analysis — we want contacts active in the pipeline,
+        NOT contacts created in a date range.
+
+        Returns:
+            List of minimal contact dicts: {id}
+        """
+        contact_ids: set = set()
+        offset = 0
+        batch_size = 100  # AC API max per page
+
+        while len(contact_ids) < limit:
+            params: Dict = {"limit": batch_size, "offset": offset}
+            if pipeline_id is not None:
+                params["filters[group]"] = pipeline_id
+
+            response = self._make_request("/api/3/deals", params)
+            deals = response.get("deals", [])
+
+            if not deals:
+                break
+
+            for deal in deals:
+                cid = deal.get("contact")
+                if cid:
+                    contact_ids.add(str(cid))
+
+            if len(deals) < batch_size:
+                break
+            offset += batch_size
+
+        return [{"id": cid} for cid in list(contact_ids)[:limit]]
+
     def fetch_contacts_by_date(
         self,
         start_date: str,
