@@ -39,3 +39,28 @@ alerts:
   cpa_increase_percent: 20      # Alert if CPA increases >20%
   conversion_rate_drop: 0.05    # Alert if conversion rate drops >5%
   daily_spend_variance: 0.50    # Alert if daily spend varies >50%
+
+# ── Demand Gen ROI ──────────────────────────────────────────────────────
+roas_excellent: 8.0    # Green: ROAS >= 8x (target: excellent)
+roas_good: 4.0         # Teal:  ROAS >= 4x (target: minimum)
+roas_warning: 1.0      # Amber: ROAS >= 1x
+
+ltv:
+  # Monthly actual LTV values — source: internal finance
+  # Keyed by YYYY-MM. Do NOT pull from ActiveCampaign.
+  monthly_actuals:
+    "2025-01": 15000
+    "2025-02": 18000
+    "2025-03": 22000
+    "2025-04": 19500
+    "2025-05": 21000
+    "2025-06": 24000
+    "2025-07": 26000
+    "2025-08": 23500
+    "2025-09": 28000
+    "2025-10": 90915     # Known outlier
+    "2025-11": 31000
+    "2025-12": 27500
+    "2026-01": 29000
+    "2026-02": 32000
+    "2026-03": 34000

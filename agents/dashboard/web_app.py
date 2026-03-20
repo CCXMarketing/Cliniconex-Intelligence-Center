@@ -258,6 +258,7 @@ def _deals_to_campaign_rows(deals: list, stages: list) -> list:
                 {
                     "id": deal.get("id", ""),
                     "name": deal.get("title", f"Deal #{deal.get('id', '?')}"),
+                    "ac_url": deal.get("ac_url", ""),
                     "status": "ENABLED" if status_code in ("0", "1") else "PAUSED",
                     "impressions": 0,
                     "clicks": 0,
@@ -343,6 +344,267 @@ def _build_trend_from_deals(deals: list) -> list:
         )
 
     return trend
+
+
+# ── Time Intelligence CSS ──────────────────────────────────────────────────
+
+_TIME_INTELLIGENCE_CSS = """\
+/* Time Intelligence Bar */
+.time-intelligence-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--lgrey-100, #F4F4F4);
+    border-bottom: 1px solid var(--neutral-300, #D1D5DB);
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.time-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.time-preset,
+.time-preset-gads {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 14px;
+    border: 1px solid var(--neutral-300, #D1D5DB);
+    background: white;
+    color: var(--dgrey-100, #404041);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.time-preset:hover,
+.time-preset-gads:hover {
+    border-color: var(--green-100, #ADC837);
+    background: rgba(173, 200, 55, 0.1);
+}
+
+.time-preset.active,
+.time-preset-gads.active {
+    background: var(--green-100, #ADC837);
+    color: #404041;
+    font-weight: 700;
+    border-color: var(--green-100, #ADC837);
+}
+
+.time-custom-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.time-custom-range.hidden {
+    display: none;
+}
+
+.time-custom-range input[type="date"] {
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--neutral-300, #D1D5DB);
+    border-radius: 6px;
+    font-size: 12px;
+    background: white;
+    color: var(--dgrey-100, #404041);
+}
+
+.time-custom-range span {
+    color: var(--dgrey-100, #404041);
+    font-size: 14px;
+}
+
+.btn-apply-range {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: none;
+    background: var(--green-100, #ADC837);
+    color: #404041;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.btn-apply-range:hover {
+    opacity: 0.85;
+}
+
+.time-comparison {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.compare-label {
+    font-size: 12px;
+    color: var(--dgrey-100, #404041);
+    font-weight: 500;
+}
+
+.time-comparison select {
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--neutral-300, #D1D5DB);
+    border-radius: 6px;
+    font-size: 12px;
+    background: white;
+    color: var(--dgrey-100, #404041);
+    cursor: pointer;
+}
+
+.time-active-period {
+    font-size: 12px;
+    color: var(--dgrey-100, #404041);
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+/* Dashboard Sections */
+.dashboard-section {
+    background: var(--card-bg, white);
+    border-radius: 12px;
+    border: 1px solid var(--neutral-200, #E5E7EB);
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.dashboard-section:hover {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-section .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--neutral-200, #E5E7EB);
+}
+
+.dashboard-section .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--dgrey-100, #404041);
+    margin: 0;
+}
+
+.section-icon {
+    font-size: 18px;
+}
+
+.section-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.section-badge.live {
+    background: rgba(173, 200, 55, 0.15);
+    color: #7A9A00;
+}
+
+.section-body {
+    padding: 20px;
+    min-height: 120px;
+}
+
+.section-loading {
+    padding: 20px;
+}
+
+.section-loading.hidden,
+.section-error.hidden {
+    display: none;
+}
+
+.skeleton-loader {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.skeleton-loader::before,
+.skeleton-loader::after {
+    content: '';
+    display: block;
+    height: 16px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-loader::after {
+    width: 60%;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.section-error {
+    padding: 16px 20px;
+    background: rgba(239, 68, 68, 0.05);
+    border-top: 1px solid rgba(239, 68, 68, 0.1);
+}
+
+.error-msg {
+    color: var(--error, #EF4444);
+    font-size: 13px;
+}
+
+/* Delta Badge */
+.delta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .time-intelligence-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .time-comparison {
+        margin-left: 0;
+    }
+    .time-presets {
+        width: 100%;
+    }
+}
+"""
 
 
 # ── Flask app factory ───────────────────────────────────────────────────────
@@ -571,6 +833,16 @@ def create_app() -> Flask:
         quarter = _current_quarter()
         q_start, q_end = _quarter_dates(quarter)
 
+        # Accept optional date range from query params
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        if start_date_str and end_date_str:
+            try:
+                q_start = datetime.strptime(start_date_str, "%Y-%m-%d")
+                q_end = datetime.strptime(end_date_str, "%Y-%m-%d")
+            except ValueError:
+                pass  # fall back to quarter defaults
+
         campaigns = []
         source = "none"
         gads_connected = False
@@ -668,6 +940,16 @@ def create_app() -> Flask:
         creds = _load_credentials()
         quarter = _current_quarter()
         q_start, q_end = _quarter_dates(quarter)
+
+        # Accept optional date range from query params
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        if start_date_str and end_date_str:
+            try:
+                q_start = datetime.strptime(start_date_str, "%Y-%m-%d")
+                q_end = datetime.strptime(end_date_str, "%Y-%m-%d")
+            except ValueError:
+                pass  # fall back to quarter defaults
 
         # Try Google Ads daily data first
         gads = _fetch_gads_data(creds, q_start, q_end)
@@ -797,6 +1079,143 @@ def create_app() -> Flask:
             },
         )
 
+    # ── API: Demand Gen ROI ─────────────────────────────────────────────
+
+    @app.route("/api/demand-gen-roi")
+    def api_demand_gen_roi():
+        from agents.dashboard.demand_gen_roi import build_roi_payload
+
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pcfg = _pipeline_config(thresholds)
+        pipeline_id = pcfg.get("pipeline_id", 1)
+
+        # Determine year
+        year = request.args.get("year", type=int) or datetime.now().year
+
+        # Fetch pipeline deals + stages
+        ac = _fetch_ac_data(creds, pipeline_id=pipeline_id)
+        deals = ac.get("deals", [])
+        stages = ac.get("pipeline_stages", [])
+        ac_connected = ac.get("connected", False)
+
+        # Ad spend from Google Ads (aggregate per month)
+        ad_spend: dict[str, dict[str, float]] = {}
+        gads_connected = False
+        try:
+            gads = _build_google_ads(creds)
+            if gads and gads.test_connection():
+                gads_connected = True
+                # Fetch full year of data, month by month
+                google_monthly: dict[str, float] = {}
+                for m in range(1, 13):
+                    from calendar import monthrange
+                    days_in = monthrange(year, m)[1]
+                    sd = f"{year}-{m:02d}-01"
+                    ed = f"{year}-{m:02d}-{days_in:02d}"
+                    try:
+                        metrics = gads.fetch_performance_metrics(sd, ed)
+                        google_monthly[f"{year}-{m:02d}"] = metrics.get("cost", 0.0)
+                    except Exception:
+                        google_monthly[f"{year}-{m:02d}"] = 0.0
+                ad_spend["google"] = google_monthly
+        except Exception as e:
+            logger.debug("Google Ads unavailable for ROI: %s", e)
+
+        # LTV from config
+        ltv_monthly_raw = thresholds.get("ltv", {}).get("monthly_actuals", {})
+        ltv_monthly = {str(k): float(v) for k, v in ltv_monthly_raw.items()}
+
+        payload = build_roi_payload(
+            deals=deals,
+            stages=stages,
+            ad_spend=ad_spend,
+            ltv_monthly=ltv_monthly,
+            thresholds=thresholds,
+            year=year,
+        )
+        payload["connections"] = {
+            "activecampaign": ac_connected,
+            "google_ads": gads_connected,
+        }
+        payload["year"] = year
+
+        return jsonify(payload)
+
+    # ── API: Demand Gen ROI CSV export ───────────────────────────────────
+
+    @app.route("/api/demand-gen-roi/export/csv")
+    def export_roi_csv():
+        roi_resp = api_demand_gen_roi()
+        data = json.loads(roi_resp.get_data())
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        funnel = data.get("funnel", {})
+        roas = data.get("roas", {})
+        labels = funnel.get("labels", [])
+        months = funnel.get("months", [])
+
+        # Header
+        writer.writerow(["Metric"] + labels + ["YTD Total"])
+
+        # Funnel rows
+        ytd = funnel.get("ytd_totals", {})
+        for key in ["created", "engaged", "captured", "converted"]:
+            vals = funnel.get(key, [])
+            writer.writerow(
+                [f"Demand {key.title()}"] + vals + [ytd.get(key, "")]
+            )
+
+        # Conversion rate rows
+        for key in ["engaged_rate", "captured_rate", "converted_rate"]:
+            vals = funnel.get(key, [])
+            formatted = [
+                f"{v:.1%}" if v is not None else "" for v in vals
+            ]
+            ytd_val = ytd.get(key)
+            ytd_fmt = f"{ytd_val:.1%}" if ytd_val is not None else ""
+            writer.writerow([key.replace("_", " ").title()] + formatted + [ytd_fmt])
+
+        writer.writerow([])  # blank row
+
+        # ROAS rows
+        writer.writerow(
+            ["Ad Spend"] + [f"${v:,.2f}" for v in roas.get("total_spend", [])]
+            + [f"${roas.get('annual', {}).get('total_spend', 0):,.2f}"]
+        )
+        writer.writerow(
+            ["LTV"] + [f"${v:,.0f}" for v in roas.get("ltv", [])] + [""]
+        )
+        for label, key in [
+            ("ROAS A (Monthly New)", "roas_a"),
+            ("ROAS B (Cumulative ARR)", "roas_b"),
+            ("ROAS C (LTV-Weighted)", "roas_c"),
+        ]:
+            vals = roas.get(key, [])
+            formatted = [f"{v:.1f}x" if v is not None else "" for v in vals]
+            writer.writerow([label] + formatted + [
+                f"{roas.get('annual', {}).get('roas', 0):.1f}x"
+                if key == "roas_c" else ""
+            ])
+
+        output.seek(0)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=demand_gen_roi_{timestamp}.csv"
+            },
+        )
+
+    # ── CSS: Time Intelligence styles ────────────────────────────────────
+
+    @app.route("/css/time-intelligence.css")
+    def time_intelligence_css():
+        return Response(_TIME_INTELLIGENCE_CSS, mimetype="text/css")
+
     return app
 
 
@@ -901,6 +1320,7 @@ def _generate_deal_alerts(deals: list, thresholds: dict) -> list:
                 "value": round(value, 2),
                 "threshold": avg_deal * 3,
                 "message": f"High-value deal ${value:,.2f} in pipeline — prioritize follow-up",
+                "ac_url": d.get("ac_url", ""),
             }
         )
 

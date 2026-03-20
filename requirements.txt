@@ -8,8 +8,8 @@ google-ads==23.0.0
 google-auth-oauthlib==1.2.0
 
 # Data Processing
-pandas==2.1.4
-numpy==1.26.2
+#pandas==2.1.4
+#numpy==1.26.2
 
 # CLI & Visualization
 rich==13.7.0

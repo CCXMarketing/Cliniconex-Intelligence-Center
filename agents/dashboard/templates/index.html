@@ -2,8 +2,29 @@
 
 {% block content %}
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SECTION 1: Hero Metrics                                                -->
+<!-- TAB BAR                                                                -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="ac" onclick="MICDashboard.switchTab('ac')">
+        <i data-lucide="database" class="icon-sm"></i>
+        ActiveCampaign Metrics
+    </button>
+    <button class="tab-btn" data-tab="gads" onclick="MICDashboard.switchTab('gads')">
+        <i data-lucide="megaphone" class="icon-sm"></i>
+        Google Ads Metrics
+    </button>
+    <button class="tab-btn" data-tab="roi" onclick="MICDashboard.switchTab('roi')">
+        <i data-lucide="trending-up" class="icon-sm"></i>
+        Demand Gen ROI
+    </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 1: ActiveCampaign Metrics                                         -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-ac">
+
+<!-- SECTION 1: Hero Metrics -->
 <section class="section" id="sectionMetrics">
     <div class="hero-grid">
         <!-- Revenue Target Card -->
@@ -86,9 +107,7 @@
     </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SECTION 2: Conversion Funnel                                           -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: Conversion Funnel -->
 <section class="section" id="sectionFunnel">
     <div class="section-header">
         <h2 class="section-title">
@@ -130,9 +149,47 @@
     </div>
 </section>
 
+<!-- SECTION 5: Strategic Alerts (AC deal alerts) -->
+<section class="section" id="sectionAlerts">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="bell" class="icon-md"></i>
+            Strategic Alerts
+        </h2>
+        <div class="section-meta">
+            <span class="badge badge--warning" id="alertCountBadge">0 alerts</span>
+        </div>
+    </div>
+
+    <div class="alerts-container" id="alertsContainer">
+        <!-- Skeleton alerts -->
+        <div class="alert-card skeleton-card">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+        </div>
+        <div class="alert-card skeleton-card">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+        </div>
+    </div>
+</section>
+
+<!-- AC Connection Status -->
+<section class="section" id="sectionAcStatus">
+    <div class="connection-indicator">
+        <span class="status-dot" id="acStatusDot"></span>
+        <span id="acStatusText">ActiveCampaign: Checking...</span>
+    </div>
+</section>
+
+</div><!-- /tab-ac -->
+
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SECTION 3: Campaign Performance                                        -->
+<!-- TAB 2: Google Ads Metrics                                             -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content hidden" id="tab-gads">
+
+<!-- SECTION 3: Campaign Performance -->
 <section class="section" id="sectionCampaigns">
     <div class="section-header">
         <h2 class="section-title">
@@ -194,9 +251,7 @@
     </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SECTION 4: Trend Charts                                                -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: Trend Charts -->
 <section class="section" id="sectionTrends">
     <div class="section-header">
         <h2 class="section-title">
@@ -255,31 +310,175 @@
     </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SECTION 5: Strategic Alerts                                            -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<section class="section" id="sectionAlerts">
-    <div class="section-header">
-        <h2 class="section-title">
-            <i data-lucide="bell" class="icon-md"></i>
-            Strategic Alerts
-        </h2>
-        <div class="section-meta">
-            <span class="badge badge--warning" id="alertCountBadge">0 alerts</span>
-        </div>
+<!-- Google Ads Connection Status -->
+<section class="section" id="sectionGadsStatus">
+    <div class="connection-indicator">
+        <span class="status-dot" id="gadsStatusDot"></span>
+        <span id="gadsStatusText">Google Ads: Checking...</span>
     </div>
+</section>
 
-    <div class="alerts-container" id="alertsContainer">
-        <!-- Skeleton alerts -->
-        <div class="alert-card skeleton-card">
-            <div class="skeleton-text"></div>
-            <div class="skeleton-text short"></div>
+</div><!-- /tab-gads -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 3: Demand Gen ROI                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content hidden" id="tab-roi">
+
+<!-- ROI Hero Metrics -->
+<section class="section" id="sectionRoiHero">
+    <div class="hero-grid hero-grid--roi">
+        <div class="hero-card hero-card--primary">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="bar-chart-3" class="icon-sm"></i>
+                    Annual ROAS
+                </div>
+                <div class="hero-card__value">
+                    <span class="counter" id="roiAnnualRoas" data-target="0">0</span>
+                    <span class="hero-card__unit">x</span>
+                </div>
+                <div class="hero-card__sub">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="roasProgressBar" style="width: 0%"></div>
+                    </div>
+                    <span class="progress-label" id="roasProgressLabel">Target: 4x min / 8x excellent</span>
+                </div>
+            </div>
         </div>
-        <div class="alert-card skeleton-card">
-            <div class="skeleton-text"></div>
-            <div class="skeleton-text short"></div>
+
+        <div class="hero-card hero-card--accent">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="users" class="icon-sm"></i>
+                    Total Conversions
+                </div>
+                <div class="hero-card__value">
+                    <span class="counter" id="roiTotalConversions" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <span id="roiConversionsSub">YTD pipeline conversions</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-card hero-card--highlight">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="dollar-sign" class="icon-sm"></i>
+                    Total Ad Spend
+                </div>
+                <div class="hero-card__value">
+                    <span class="currency">$</span>
+                    <span class="counter" id="roiTotalSpend" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <span id="roiSpendSub">All platforms combined</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-card hero-card--countdown">
+            <div class="hero-card__glow"></div>
+            <div class="hero-card__content">
+                <div class="hero-card__label">
+                    <i data-lucide="zap" class="icon-sm"></i>
+                    LTV Revenue
+                </div>
+                <div class="hero-card__value">
+                    <span class="currency">$</span>
+                    <span class="counter" id="roiTotalRevenue" data-target="0">0</span>
+                </div>
+                <div class="hero-card__sub">
+                    <span id="roiRevenueSub">LTV-weighted total</span>
+                </div>
+            </div>
         </div>
     </div>
 </section>
+
+<!-- Pipeline Funnel Table -->
+<section class="section" id="sectionRoiFunnel">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="filter" class="icon-md"></i>
+            Pipeline Funnel
+        </h2>
+        <div class="section-meta">
+            <span class="badge badge--info" id="roiFunnelBadge">Loading</span>
+        </div>
+    </div>
+
+    <div class="roi-table-container">
+        <table class="roi-table" id="roiFunnelTable">
+            <thead>
+                <tr>
+                    <th class="roi-th-label">Stage</th>
+                    <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th>
+                    <th>May</th><th>Jun</th><th>Jul</th><th>Aug</th>
+                    <th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+                    <th class="roi-th-total">YTD</th>
+                </tr>
+            </thead>
+            <tbody id="roiFunnelBody">
+                <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Revenue & ROAS -->
+<section class="section" id="sectionRoiRevenue">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i data-lucide="line-chart" class="icon-md"></i>
+            Revenue & ROAS
+        </h2>
+        <div class="section-meta">
+            <span class="roi-ltv-source">LTV source: internal</span>
+            <button class="btn-export-roi" id="btnExportRoiCSV" title="Export ROI CSV">
+                <i data-lucide="download" class="icon-sm"></i>
+                Export CSV
+            </button>
+        </div>
+    </div>
+
+    <div class="roi-table-container">
+        <table class="roi-table" id="roiRevenueTable">
+            <thead>
+                <tr>
+                    <th class="roi-th-label">Metric</th>
+                    <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th>
+                    <th>May</th><th>Jun</th><th>Jul</th><th>Aug</th>
+                    <th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+                    <th class="roi-th-total">Annual</th>
+                </tr>
+            </thead>
+            <tbody id="roiRevenueBody">
+                <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- ROI Connection Status -->
+<section class="section" id="sectionRoiStatus">
+    <div class="connection-indicator">
+        <span class="status-dot" id="roiAcStatusDot"></span>
+        <span id="roiAcStatusText">ActiveCampaign: Checking...</span>
+        <span class="roi-status-sep">|</span>
+        <span class="status-dot" id="roiGadsStatusDot"></span>
+        <span id="roiGadsStatusText">Google Ads: Checking...</span>
+    </div>
+</section>
+
+</div><!-- /tab-roi -->
 
 {% endblock %}

@@ -1,5 +1,5 @@
 """
-Google Ads API v17 Connector Agent
+Google Ads API v23 Connector Agent
 Handles OAuth, data fetching, and caching for Google Ads via the REST API.
 """
 
@@ -10,13 +10,13 @@ from typing import Any, Dict, List, Optional
 
 from agents.data_connector.base_connector import BaseConnector
 
-# Google Ads REST API v17 base URL
-_BASE_URL = "https://googleads.googleapis.com/v17"
+# Google Ads REST API v23 base URL
+_BASE_URL = "https://googleads.googleapis.com/v23"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 class GoogleAdsConnector(BaseConnector):
-    """Connector for the Google Ads REST API (v17)."""
+    """Connector for the Google Ads REST API (v23)."""
 
     def __init__(
         self,
@@ -131,14 +131,13 @@ class GoogleAdsConnector(BaseConnector):
                 campaign.id,
                 campaign.name,
                 campaign.status,
-                campaign.start_date,
-                campaign.end_date,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
                 metrics.conversions
             FROM campaign
             WHERE segments.date BETWEEN '{sd}' AND '{ed}'
+              AND campaign.status = 'ENABLED'  
             ORDER BY campaign.name
         """
         rows = self._search_cached(query)
@@ -146,9 +145,7 @@ class GoogleAdsConnector(BaseConnector):
             {
                 "id": str(r["campaign"]["id"]),
                 "name": r["campaign"]["name"],
-                "status": r["campaign"]["status"],
-                "start_date": r["campaign"].get("startDate"),
-                "end_date": r["campaign"].get("endDate"),
+                "status": r["campaign"]["status"],                
                 "impressions": int(r["metrics"]["impressions"]),
                 "clicks": int(r["metrics"]["clicks"]),
                 "cost": int(r["metrics"]["costMicros"]) / 1_000_000,
@@ -238,16 +235,15 @@ class GoogleAdsConnector(BaseConnector):
             conversion_rate, cost_per_conversion, date_range
         """
         sd, ed = self._fmt(start_date), self._fmt(end_date)
+        # Query from campaign resource and aggregate in Python.
+        # (The customer resource with segments.date is unreliable in v23.)
         query = f"""
             SELECT
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
-                metrics.conversions,
-                metrics.ctr,
-                metrics.average_cpc,
-                metrics.cost_per_conversion
-            FROM customer
+                metrics.conversions
+            FROM campaign
             WHERE segments.date BETWEEN '{sd}' AND '{ed}'
         """
         rows = self._search_cached(query)
@@ -301,7 +297,7 @@ class GoogleAdsConnector(BaseConnector):
             "connected": self.test_connection(),
             "last_sync": self._last_sync,
             "customer_id": self.customer_id,
-            "api_version": "v17",
+            "api_version": "v23",
         }
 
     # ── connection test ─────────────────────────────────────────────────

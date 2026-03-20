@@ -20,6 +20,15 @@ from flask import Blueprint, jsonify, request
 
 logger = logging.getLogger(__name__)
 
+# ── Required environment variables for production ────────────────────────────
+# TOOLHUB_SERVICE_TOKEN  — 64-char shared secret (required in production)
+# TOOLHUB_ORIGIN         — ToolHub production URL, e.g. https://toolhub.cliniconex.com
+# PORT                   — Injected by Sevalla at runtime
+#
+# When TOOLHUB_SERVICE_TOKEN is not set, all API requests are allowed (dev mode).
+# When TOOLHUB_ORIGIN is not set, defaults to http://localhost:8080 (dev mode).
+# ─────────────────────────────────────────────────────────────────────────────
+
 api_bp = Blueprint("api", __name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────
@@ -31,17 +40,21 @@ EXECUTION_LOG_PATH = PROJECT_DIR / "agents" / "automation_engine" / "execution.l
 
 # ── Service Token Auth ────────────────────────────────────────────────────
 
-SERVICE_TOKEN = os.environ.get("TOOLHUB_SERVICE_TOKEN")
-
 
 def require_service_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not SERVICE_TOKEN:
-            return jsonify({"error": "Service token not configured"}), 500
+        service_token = os.environ.get("TOOLHUB_SERVICE_TOKEN")
+
+        # If no token configured, allow all requests (local dev mode)
+        if not service_token:
+            return f(*args, **kwargs)
+
+        # Token is configured — enforce it
         token = request.headers.get("X-Service-Token", "")
-        if not hmac.compare_digest(token, SERVICE_TOKEN):
+        if not hmac.compare_digest(token, service_token):
             return jsonify({"error": "Unauthorized"}), 401
+
         return f(*args, **kwargs)
     return decorated
 
@@ -706,3 +719,573 @@ def _extract_log_field(message: str, field: str) -> str:
     pattern = rf'{field}[=:]\s*"?([^"|,]+)"?'
     match = re.search(pattern, message, re.IGNORECASE)
     return match.group(1).strip() if match else ""
+
+
+# ── Shared query-param parser for new analytics endpoints ────────────────
+
+
+def _parse_time_params(req, thresholds):
+    """Parse common time + pipeline params from query string."""
+    pipeline_id = req.args.get(
+        "pipeline_id",
+        thresholds.get("activecampaign", {}).get("primary_pipeline_id"),
+        type=int,
+    )
+    quarter = _current_quarter()
+    q_start, q_end = _quarter_dates(quarter)
+    start_date = req.args.get("start_date", q_start.strftime("%Y-%m-%d"))
+    end_date = req.args.get("end_date", q_end.strftime("%Y-%m-%d"))
+    return pipeline_id, start_date, end_date
+
+
+def _compute_comparison_periods(mode, today):
+    """Auto-compute period A / period B dates based on comparison mode."""
+    if mode == "mom":
+        # Period A = this month, Period B = last month
+        a_start = today.replace(day=1)
+        a_end = today
+        b_end = a_start - timedelta(days=1)
+        b_start = b_end.replace(day=1)
+    elif mode == "qoq":
+        # Period A = this quarter, Period B = last quarter
+        q = _current_quarter()
+        q_num = int(q[1])
+        year = today.year
+        a_start, a_end = _quarter_dates(q, year)
+        if q_num == 1:
+            b_start, b_end = _quarter_dates("Q4", year - 1)
+        else:
+            b_start, b_end = _quarter_dates(f"Q{q_num - 1}", year)
+    elif mode == "yoy":
+        # Period A = this quarter, Period B = same quarter last year
+        q = _current_quarter()
+        year = today.year
+        a_start, a_end = _quarter_dates(q, year)
+        b_start, b_end = _quarter_dates(q, year - 1)
+    else:
+        raise ValueError(f"Unknown comparison mode: {mode}")
+
+    return (
+        a_start.strftime("%Y-%m-%d"),
+        a_end.strftime("%Y-%m-%d"),
+        b_start.strftime("%Y-%m-%d"),
+        b_end.strftime("%Y-%m-%d"),
+    )
+
+
+def _period_label(mode, start_str, end_str):
+    """Generate a human-readable label for a comparison period."""
+    start = datetime.strptime(start_str, "%Y-%m-%d")
+    if mode == "mom":
+        return start.strftime("%B %Y")
+    elif mode in ("qoq", "yoy"):
+        q_num = (start.month - 1) // 3 + 1
+        return f"Q{q_num} {start.year}"
+    return f"{start_str} to {end_str}"
+
+
+# ── New Analytics Endpoints ──────────────────────────────────────────────
+
+
+@api_bp.route("/api/pipeline-health")
+@require_service_token
+def pipeline_health():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id = request.args.get(
+            "pipeline_id",
+            thresholds.get("activecampaign", {}).get("primary_pipeline_id"),
+            type=int,
+        )
+        stall_threshold_days = request.args.get("stall_threshold_days", 14, type=int)
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "pipeline_id": pipeline_id,
+                "stall_threshold_days": stall_threshold_days,
+                "error": "ActiveCampaign not connected",
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        data = ac.fetch_pipeline_health(pipeline_id, stall_threshold_days)
+        return jsonify({
+            "pipeline_id": pipeline_id,
+            "stall_threshold_days": stall_threshold_days,
+            **data,
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Pipeline health API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/velocity")
+@require_service_token
+def velocity():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id = request.args.get(
+            "pipeline_id",
+            thresholds.get("activecampaign", {}).get("primary_pipeline_id"),
+            type=int,
+        )
+        days = request.args.get("days", 90, type=int)
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "pipeline_id": pipeline_id,
+                "days_analyzed": days,
+                "stages": [],
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        stages = ac.fetch_stage_velocity(pipeline_id, days)
+        return jsonify({
+            "pipeline_id": pipeline_id,
+            "days_analyzed": days,
+            "stages": stages,
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Velocity API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/acquisition")
+@require_service_token
+def acquisition():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id = request.args.get(
+            "pipeline_id",
+            thresholds.get("activecampaign", {}).get("primary_pipeline_id"),
+            type=int,
+        )
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "total_contacts_with_utm": 0,
+                "by_source": [],
+                "by_medium": [],
+                "by_campaign": [],
+                "top_campaigns": [],
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        contacts = ac.fetch_contacts_with_utm(pipeline_id)
+
+        # Aggregate by source
+        source_counts: dict[str, int] = {}
+        medium_counts: dict[str, int] = {}
+        campaign_details: dict[str, dict] = {}
+
+        for c in contacts:
+            src = (c.get("utm_source") or "unknown").lower()
+            med = (c.get("utm_medium") or "unknown").lower()
+            camp = c.get("utm_campaign") or "unknown"
+
+            source_counts[src] = source_counts.get(src, 0) + 1
+            medium_counts[med] = medium_counts.get(med, 0) + 1
+
+            camp_key = f"{camp}|{src}|{med}"
+            if camp_key not in campaign_details:
+                campaign_details[camp_key] = {
+                    "campaign": camp,
+                    "source": src,
+                    "medium": med,
+                    "count": 0,
+                }
+            campaign_details[camp_key]["count"] += 1
+
+        total = len(contacts)
+
+        by_source = sorted(
+            [
+                {"source": k, "count": v, "pct": round(v / total * 100, 1) if total else 0.0}
+                for k, v in source_counts.items()
+            ],
+            key=lambda x: x["count"],
+            reverse=True,
+        )
+        by_medium = sorted(
+            [
+                {"medium": k, "count": v, "pct": round(v / total * 100, 1) if total else 0.0}
+                for k, v in medium_counts.items()
+            ],
+            key=lambda x: x["count"],
+            reverse=True,
+        )
+        by_campaign = sorted(
+            list(campaign_details.values()),
+            key=lambda x: x["count"],
+            reverse=True,
+        )
+
+        return jsonify({
+            "total_contacts_with_utm": total,
+            "by_source": by_source,
+            "by_medium": by_medium,
+            "by_campaign": by_campaign,
+            "top_campaigns": by_campaign[:10],
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Acquisition API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/rep-performance")
+@require_service_token
+def rep_performance():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id, start_date, end_date = _parse_time_params(request, thresholds)
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "pipeline_id": pipeline_id,
+                "period": {"start": start_date, "end": end_date},
+                "reps": [],
+                "totals": {
+                    "total_deals": 0,
+                    "total_pipeline_value": 0.0,
+                    "total_won_value": 0.0,
+                    "overall_win_rate": 0.0,
+                },
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        reps = ac.fetch_deals_by_owner(pipeline_id, start_date, end_date)
+
+        # Sort by pipeline_value descending
+        reps = sorted(reps, key=lambda r: r.get("pipeline_value", 0), reverse=True)
+
+        # Compute totals
+        total_deals = sum(r.get("total_deals", 0) for r in reps)
+        total_pipeline = sum(r.get("pipeline_value", 0) for r in reps)
+        total_won = sum(r.get("won_value", 0) for r in reps)
+        total_won_deals = sum(r.get("won_deals", 0) for r in reps)
+        overall_win_rate = round(total_won_deals / total_deals * 100, 1) if total_deals else 0.0
+
+        return jsonify({
+            "pipeline_id": pipeline_id,
+            "period": {"start": start_date, "end": end_date},
+            "reps": reps,
+            "totals": {
+                "total_deals": total_deals,
+                "total_pipeline_value": round(total_pipeline, 2),
+                "total_won_value": round(total_won, 2),
+                "overall_win_rate": overall_win_rate,
+            },
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Rep performance API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/forecast-weighted")
+@require_service_token
+def forecast_weighted():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id, start_date, end_date = _parse_time_params(request, thresholds)
+
+        # Stage probability weights (position-based)
+        configured_weights = thresholds.get("stage_weights")
+        STAGE_WEIGHTS = {
+            0: 0.10,
+            1: 0.25,
+            2: 0.50,
+            3: 0.75,
+            4: 0.90,
+        }
+        if configured_weights and isinstance(configured_weights, dict):
+            STAGE_WEIGHTS.update({int(k): float(v) for k, v in configured_weights.items()})
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "pipeline_id": pipeline_id,
+                "period": {"start": start_date, "end": end_date},
+                "raw_pipeline_value": 0.0,
+                "weighted_forecast": 0.0,
+                "by_close_date": [],
+                "coverage_ratio": 0.0,
+                "remaining_target": 0.0,
+                "currency_breakdown": {},
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        # Fetch open deals and stage info
+        deals = ac.fetch_deals_for_range(start_date, end_date, pipeline_id)
+        # fetch_deals_with_stages returns (deals_list, stages_list) tuple
+        _, pipeline_stages = ac.fetch_deals_with_stages(pipeline_id=pipeline_id)
+
+        # Build stage position map from pipeline stages
+        stage_order = {}
+        for idx, s in enumerate(pipeline_stages):
+            sid = str(s.get("id", ""))
+            if sid:
+                stage_order[sid] = idx
+
+        raw_total = 0.0
+        weighted_total = 0.0
+        monthly: dict[str, dict] = {}
+        currency_raw: dict[str, float] = {}
+        currency_weighted: dict[str, float] = {}
+
+        for deal in deals:
+            # Only open deals (status 0)
+            status = deal.get("status")
+            if str(status) != "0":
+                continue
+
+            value = float(deal.get("value", 0))
+            stage_id = str(deal.get("stage", deal.get("stage_id", "")))
+            currency = (deal.get("currency", "usd") or "usd").lower()
+
+            # Determine stage position and weight
+            pos = stage_order.get(stage_id, 0)
+            weight = STAGE_WEIGHTS.get(pos, 0.90 if pos >= 4 else STAGE_WEIGHTS.get(min(pos, 4), 0.10))
+
+            weighted_value = value * weight
+            raw_total += value
+            weighted_total += weighted_value
+
+            # Currency breakdown
+            currency_raw[currency] = currency_raw.get(currency, 0.0) + value
+            currency_weighted[currency] = currency_weighted.get(currency, 0.0) + weighted_value
+
+            # Group by close month
+            close_date = deal.get("close_date") or deal.get("expected_close") or ""
+            if close_date:
+                try:
+                    month_key = close_date[:7]  # YYYY-MM
+                except (TypeError, IndexError):
+                    month_key = "unknown"
+            else:
+                month_key = "unknown"
+
+            if month_key not in monthly:
+                monthly[month_key] = {"month": month_key, "deals": 0, "raw_value": 0.0, "weighted_value": 0.0}
+            monthly[month_key]["deals"] += 1
+            monthly[month_key]["raw_value"] += value
+            monthly[month_key]["weighted_value"] += weighted_value
+
+        # Round monthly values
+        by_close_date = sorted(monthly.values(), key=lambda x: x["month"])
+        for m in by_close_date:
+            m["raw_value"] = round(m["raw_value"], 2)
+            m["weighted_value"] = round(m["weighted_value"], 2)
+
+        # Remaining target
+        quarter_key = f"{_current_quarter().lower()}_target"
+        revenue_target = thresholds.get("revenue", {}).get(quarter_key, 0)
+        remaining_target = max(revenue_target - raw_total, 0)
+        coverage_ratio = round(weighted_total / remaining_target, 2) if remaining_target > 0 else 0.0
+
+        currency_breakdown = {}
+        for cur in set(list(currency_raw.keys()) + list(currency_weighted.keys())):
+            currency_breakdown[cur] = {
+                "raw": round(currency_raw.get(cur, 0.0), 2),
+                "weighted": round(currency_weighted.get(cur, 0.0), 2),
+            }
+
+        return jsonify({
+            "pipeline_id": pipeline_id,
+            "period": {"start": start_date, "end": end_date},
+            "raw_pipeline_value": round(raw_total, 2),
+            "weighted_forecast": round(weighted_total, 2),
+            "by_close_date": by_close_date,
+            "coverage_ratio": coverage_ratio,
+            "remaining_target": round(remaining_target, 2),
+            "currency_breakdown": currency_breakdown,
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Forecast weighted API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/cohorts")
+@require_service_token
+def cohorts():
+    try:
+        creds = _load_credentials()
+        months = request.args.get("months", 12, type=int)
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "months_analyzed": months,
+                "cohorts": [],
+                "summary": {
+                    "avg_conversion_rate": 0.0,
+                    "avg_days_to_convert": 0.0,
+                    "best_cohort": None,
+                    "worst_cohort": None,
+                    "trend": "stable",
+                },
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        cohort_data = ac.fetch_cohort_data(months)
+
+        # Build summary
+        conversion_rates = [c.get("conversion_rate", 0) for c in cohort_data if c.get("conversion_rate") is not None]
+        days_to_convert = [c.get("avg_days_to_convert", 0) for c in cohort_data if c.get("avg_days_to_convert") is not None]
+
+        avg_conv = round(sum(conversion_rates) / len(conversion_rates), 2) if conversion_rates else 0.0
+        avg_days = round(sum(days_to_convert) / len(days_to_convert), 1) if days_to_convert else 0.0
+
+        best_cohort = None
+        worst_cohort = None
+        if cohort_data:
+            by_conv = sorted(cohort_data, key=lambda c: c.get("conversion_rate", 0), reverse=True)
+            best_cohort = {"month": by_conv[0].get("cohort_month", ""), "conversion_rate": by_conv[0].get("conversion_rate", 0)}
+            worst_cohort = {"month": by_conv[-1].get("cohort_month", ""), "conversion_rate": by_conv[-1].get("conversion_rate", 0)}
+
+        # Trend: compare avg conversion rate of last 3 months vs previous 3 months
+        trend = "stable"
+        if len(cohort_data) >= 6:
+            recent_3 = cohort_data[-3:]
+            prev_3 = cohort_data[-6:-3]
+            recent_avg = sum(c.get("conversion_rate", 0) for c in recent_3) / 3
+            prev_avg = sum(c.get("conversion_rate", 0) for c in prev_3) / 3
+            if prev_avg > 0:
+                delta_pct = ((recent_avg - prev_avg) / prev_avg) * 100
+                if delta_pct > 5:
+                    trend = "improving"
+                elif delta_pct < -5:
+                    trend = "declining"
+
+        return jsonify({
+            "months_analyzed": months,
+            "cohorts": cohort_data,
+            "summary": {
+                "avg_conversion_rate": avg_conv,
+                "avg_days_to_convert": avg_days,
+                "best_cohort": best_cohort,
+                "worst_cohort": worst_cohort,
+                "trend": trend,
+            },
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Cohorts API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/compare")
+@require_service_token
+def compare():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id = request.args.get(
+            "pipeline_id",
+            thresholds.get("activecampaign", {}).get("primary_pipeline_id"),
+            type=int,
+        )
+        mode = request.args.get("mode", "qoq")
+
+        today = datetime.now()
+
+        if mode == "custom":
+            a_start = request.args.get("period_a_start")
+            a_end = request.args.get("period_a_end")
+            b_start = request.args.get("period_b_start")
+            b_end = request.args.get("period_b_end")
+            if not all([a_start, a_end, b_start, b_end]):
+                return jsonify({
+                    "error": "Custom mode requires period_a_start, period_a_end, period_b_start, period_b_end",
+                }), 400
+            a_label = f"{a_start} to {a_end}"
+            b_label = f"{b_start} to {b_end}"
+        else:
+            a_start, a_end, b_start, b_end = _compute_comparison_periods(mode, today)
+            a_label = _period_label(mode, a_start, a_end)
+            b_label = _period_label(mode, b_start, b_end)
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "mode": mode,
+                "period_a_label": a_label,
+                "period_b_label": b_label,
+                "error": "ActiveCampaign not connected",
+                "generated_at": datetime.now().isoformat(),
+            })
+
+        data = ac.fetch_period_comparison(pipeline_id, a_start, a_end, b_start, b_end)
+
+        return jsonify({
+            "mode": mode,
+            "period_a_label": a_label,
+            "period_b_label": b_label,
+            **data,
+            "generated_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Compare API error")
+        return jsonify({"error": str(e), "status": 500}), 500
+
+
+@api_bp.route("/api/deals")
+@require_service_token
+def deals():
+    try:
+        thresholds = _load_thresholds()
+        creds = _load_credentials()
+        pipeline_id, start_date, end_date = _parse_time_params(request, thresholds)
+
+        status_filter = request.args.get("status", "all")
+        owner_id = request.args.get("owner_id", type=int)
+        stage_id = request.args.get("stage_id", type=int)
+        limit = request.args.get("limit", 50, type=int)
+        offset = request.args.get("offset", 0, type=int)
+
+        ac = _build_activecampaign(creds)
+        if not ac or not ac.test_connection():
+            return jsonify({
+                "deals": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "has_more": False,
+            })
+
+        all_deals = ac.fetch_deals_for_range(start_date, end_date, pipeline_id)
+
+        # Apply filters
+        if status_filter != "all":
+            all_deals = [d for d in all_deals if str(d.get("status")) == str(status_filter)]
+        if owner_id is not None:
+            all_deals = [d for d in all_deals if str(d.get("owner", d.get("owner_id", ""))) == str(owner_id)]
+        if stage_id is not None:
+            all_deals = [d for d in all_deals if str(d.get("stage", d.get("stage_id", ""))) == str(stage_id)]
+
+        total = len(all_deals)
+        paginated = all_deals[offset:offset + limit]
+        has_more = (offset + limit) < total
+
+        return jsonify({
+            "deals": paginated,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
+        })
+    except Exception as e:
+        logger.exception("Deals API error")
+        return jsonify({"error": str(e), "status": 500}), 500

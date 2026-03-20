@@ -14,6 +14,38 @@ const MICDashboard = (() => {
         sortDirection: 'desc',
         refreshTimer: null,
         isRefreshing: false,
+        activeTab: localStorage.getItem('mic_active_tab') || 'ac',
+        gadsLoaded: false,  // lazy-load flag — don't fetch until tab is opened
+        roiLoaded: false,   // lazy-load flag for Demand Gen ROI tab
+    };
+
+    // ── Tab Switching ─────────────────────────────────────────────────
+    const switchTab = (tabName) => {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+        const tabEl = document.getElementById(`tab-${tabName}`);
+        const btnEl = document.querySelector(`[data-tab="${tabName}"]`);
+        if (tabEl) tabEl.classList.remove('hidden');
+        if (btnEl) btnEl.classList.add('active');
+
+        state.activeTab = tabName;
+        localStorage.setItem('mic_active_tab', tabName);
+
+        // Lazy-load Google Ads data on first visit
+        if (tabName === 'gads' && !state.gadsLoaded) {
+            state.gadsLoaded = true;
+            loadGadsData();
+        }
+
+        // Lazy-load Demand Gen ROI data on first visit
+        if (tabName === 'roi' && !state.roiLoaded) {
+            state.roiLoaded = true;
+            loadRoiData();
+        }
+
+        // Re-init icons for the newly visible tab
+        initIcons();
     };
 
     // ── Init ────────────────────────────────────────────────────────────
@@ -21,7 +53,8 @@ const MICDashboard = (() => {
         initTheme();
         initIcons();
         bindEvents();
-        loadAllData();
+        switchTab(state.activeTab);  // restore saved tab
+        loadAcData();                // always load AC data on boot
         startAutoRefresh();
     };
 
@@ -64,6 +97,9 @@ const MICDashboard = (() => {
         document.getElementById('shortcutsModal')?.addEventListener('click', (e) => {
             if (e.target.id === 'shortcutsModal') toggleModal(false);
         });
+
+        // ROI CSV export
+        document.getElementById('btnExportRoiCSV')?.addEventListener('click', exportRoiCSV);
 
         // Campaign search & filters
         const debounced = debounce(filterCampaigns, 200);
@@ -128,24 +164,43 @@ const MICDashboard = (() => {
                 toggleModal(false);
                 closeCampaignDetail();
                 break;
-            case '1': scrollToSection('sectionMetrics'); break;
-            case '2': scrollToSection('sectionFunnel'); break;
-            case '3': scrollToSection('sectionCampaigns'); break;
-            case '4': scrollToSection('sectionTrends'); break;
-            case '5': scrollToSection('sectionAlerts'); break;
+            case '1': switchTab('ac'); scrollToSection('sectionMetrics'); break;
+            case '2': switchTab('ac'); scrollToSection('sectionFunnel'); break;
+            case '3': switchTab('gads'); scrollToSection('sectionCampaigns'); break;
+            case '4': switchTab('gads'); scrollToSection('sectionTrends'); break;
+            case '5': switchTab('ac'); scrollToSection('sectionAlerts'); break;
+            case '6': switchTab('roi'); scrollToSection('sectionRoiHero'); break;
         }
     };
 
     // ── Data Loading ────────────────────────────────────────────────────
-    const loadAllData = async () => {
+    const loadAcData = async () => {
         await Promise.all([
             loadMetrics(),
             loadFunnel(),
-            loadCampaigns(),
-            loadTrends(),
             loadAlerts(),
         ]);
         updateTimestamp();
+    };
+
+    const loadGadsData = async () => {
+        const params = (typeof GadsTimeState !== 'undefined') ? GadsTimeState.toParams() : '';
+        await Promise.all([
+            loadCampaigns(params),
+            loadTrends(params),
+        ]);
+        updateTimestamp();
+    };
+
+    const loadAllData = async () => {
+        // Refresh active tab data
+        if (state.activeTab === 'ac') {
+            await loadAcData();
+        } else if (state.activeTab === 'gads') {
+            await loadGadsData();
+        } else if (state.activeTab === 'roi') {
+            await loadRoiData();
+        }
     };
 
     const refreshAll = async () => {
@@ -155,7 +210,12 @@ const MICDashboard = (() => {
         const btn = document.getElementById('btnRefresh');
         btn?.classList.add('refreshing');
 
-        await loadAllData();
+        // Refresh all loaded tabs' data
+        await Promise.all([
+            loadAcData(),
+            state.gadsLoaded ? loadGadsData() : Promise.resolve(),
+            state.roiLoaded ? loadRoiData() : Promise.resolve(),
+        ]);
 
         btn?.classList.remove('refreshing');
         state.isRefreshing = false;
@@ -182,6 +242,11 @@ const MICDashboard = (() => {
     const loadMetrics = async () => {
         const data = await fetchAPI('/api/metrics');
         if (!data) return;
+
+        // Sync pipeline state for time intelligence
+        if (typeof PipelineState !== 'undefined' && data.pipeline) {
+            PipelineState.selectedId = data.pipeline.id;
+        }
 
         // Quarter label
         setText('metricQuarter', data.quarter);
@@ -240,7 +305,7 @@ const MICDashboard = (() => {
             }
         }
 
-        // Connection status
+        // Connection status (navbar — shows overall)
         const dot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const anyConnected = data.connections?.activecampaign || data.connections?.google_ads;
@@ -249,6 +314,30 @@ const MICDashboard = (() => {
         }
         if (statusText) {
             statusText.textContent = anyConnected ? 'Live Data' : 'Demo Mode';
+        }
+
+        // Per-tab AC connection indicator
+        const acDot = document.getElementById('acStatusDot');
+        const acText = document.getElementById('acStatusText');
+        if (acDot) {
+            acDot.className = 'status-dot ' + (data.connections?.activecampaign ? 'connected' : 'disconnected');
+        }
+        if (acText) {
+            acText.textContent = data.connections?.activecampaign
+                ? 'ActiveCampaign: Connected'
+                : 'ActiveCampaign: Not Connected';
+        }
+
+        // Per-tab Google Ads indicator (set from metrics since it includes both)
+        const gadsDot = document.getElementById('gadsStatusDot');
+        const gadsText = document.getElementById('gadsStatusText');
+        if (gadsDot) {
+            gadsDot.className = 'status-dot ' + (data.connections?.google_ads ? 'connected' : 'disconnected');
+        }
+        if (gadsText) {
+            gadsText.textContent = data.connections?.google_ads
+                ? 'Google Ads: Connected'
+                : 'Google Ads: Not Connected';
         }
     };
 
@@ -386,8 +475,9 @@ const MICDashboard = (() => {
     };
 
     // ── Campaigns ───────────────────────────────────────────────────────
-    const loadCampaigns = async () => {
-        const data = await fetchAPI('/api/campaigns');
+    const loadCampaigns = async (queryString) => {
+        const url = queryString ? `/api/campaigns?${queryString}` : '/api/campaigns';
+        const data = await fetchAPI(url);
         if (!data) return;
 
         state.campaigns = data.campaigns || [];
@@ -433,7 +523,7 @@ const MICDashboard = (() => {
 
             return `
                 <tr data-campaign-id="${c.id}" onclick="MICDashboard.showCampaignDetail('${c.id}')" style="animation: fadeInUp 0.3s ease-out ${i * 0.05}s both">
-                    <td><strong>${escapeHtml(c.name)}</strong></td>
+                    <td><strong>${c.ac_url ? `<a href="${escapeHtml(c.ac_url)}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-decoration-style: dotted;" onclick="event.stopPropagation()">${escapeHtml(c.name)}</a>` : escapeHtml(c.name)}</strong></td>
                     <td><span class="status-pill status-pill--${statusClass}">${statusLabel}</span></td>
                     <td class="num">${c.impressions.toLocaleString()}</td>
                     <td class="num">${c.clicks.toLocaleString()}</td>
@@ -568,8 +658,9 @@ const MICDashboard = (() => {
     };
 
     // ── Trends ──────────────────────────────────────────────────────────
-    const loadTrends = async () => {
-        const data = await fetchAPI('/api/trends');
+    const loadTrends = async (queryString) => {
+        const url = queryString ? `/api/trends?${queryString}` : '/api/trends';
+        const data = await fetchAPI(url);
         if (!data?.days) return;
 
         state.trendData = data.days;
@@ -598,6 +689,199 @@ const MICDashboard = (() => {
         MICCharts.createCTRChart('chartCTR', days);
         const avgCtr = days.reduce((s, d) => s + d.ctr, 0) / days.length;
         setText('avgCtrBadge', avgCtr.toFixed(2) + '%');
+    };
+
+    // ── Demand Gen ROI ──────────────────────────────────────────────────
+    const loadRoiData = async () => {
+        const data = await fetchAPI('/api/demand-gen-roi');
+        if (!data) return;
+
+        renderRoiHero(data);
+        renderRoiFunnel(data.funnel);
+        renderRoiRevenue(data);
+        renderRoiStatus(data.connections);
+        updateTimestamp();
+    };
+
+    const renderRoiHero = (data) => {
+        const annual = data.roas?.annual || {};
+        const target = data.target || {};
+
+        animateCounter('roiAnnualRoas', annual.roas || 0, { decimals: 1 });
+        animateCounter('roiTotalConversions', annual.total_conversions || 0, { decimals: 0, separator: true });
+        animateCounter('roiTotalSpend', annual.total_spend || 0, { decimals: 0, separator: true });
+        animateCounter('roiTotalRevenue', annual.ltv_weighted_revenue || 0, { decimals: 0, separator: true });
+
+        // ROAS progress bar
+        const bar = document.getElementById('roasProgressBar');
+        const label = document.getElementById('roasProgressLabel');
+        if (bar) {
+            setTimeout(() => { bar.style.width = Math.min(target.progress_pct || 0, 100) + '%'; }, 100);
+            // Color the bar based on ROAS class
+            bar.className = 'progress-bar ' + (data.annual_roas_class || '');
+        }
+        if (label) {
+            const current = annual.roas != null ? annual.roas.toFixed(1) + 'x' : 'N/A';
+            label.textContent = `${current} — Target: ${target.minimum}x min / ${target.excellent}x excellent`;
+        }
+    };
+
+    const renderRoiFunnel = (funnel) => {
+        const tbody = document.getElementById('roiFunnelBody');
+        const badge = document.getElementById('roiFunnelBadge');
+        if (!tbody) return;
+
+        if (badge) {
+            badge.className = 'badge badge--live';
+            badge.textContent = 'Pipeline 1';
+        }
+
+        const ytd = funnel.ytd_totals || {};
+        let html = '';
+
+        // Stage rows
+        const stageRows = [
+            { label: 'Demand Created', key: 'created' },
+            { label: 'Demand Engaged', key: 'engaged' },
+            { label: 'Demand Captured', key: 'captured' },
+            { label: 'Demand Converted', key: 'converted' },
+        ];
+
+        const rateRows = [
+            { label: 'Engaged Rate', key: 'engaged_rate', after: 'engaged' },
+            { label: 'Captured Rate', key: 'captured_rate', after: 'captured' },
+            { label: 'Converted Rate', key: 'converted_rate', after: 'converted' },
+        ];
+
+        stageRows.forEach(row => {
+            const vals = funnel[row.key] || [];
+            html += `<tr class="roi-stage-row">`;
+            html += `<td class="roi-td-label"><strong>${row.label}</strong></td>`;
+            vals.forEach(v => {
+                html += `<td class="roi-td-num">${v || ''}</td>`;
+            });
+            html += `<td class="roi-td-total"><strong>${ytd[row.key] || 0}</strong></td>`;
+            html += `</tr>`;
+
+            // Insert rate row after its stage
+            const rate = rateRows.find(r => r.after === row.key);
+            if (rate) {
+                const rateVals = funnel[rate.key] || [];
+                html += `<tr class="roi-rate-row">`;
+                html += `<td class="roi-td-label roi-rate-label">${rate.label}</td>`;
+                rateVals.forEach(v => {
+                    html += `<td class="roi-td-num roi-rate-cell">${v != null ? (v * 100).toFixed(1) + '%' : ''}</td>`;
+                });
+                const ytdRate = ytd[rate.key];
+                html += `<td class="roi-td-total roi-rate-cell">${ytdRate != null ? (ytdRate * 100).toFixed(1) + '%' : ''}</td>`;
+                html += `</tr>`;
+            }
+        });
+
+        tbody.innerHTML = html;
+    };
+
+    const renderRoiRevenue = (data) => {
+        const tbody = document.getElementById('roiRevenueBody');
+        if (!tbody) return;
+
+        const roas = data.roas || {};
+        const annual = roas.annual || {};
+        const thresholds = data.thresholds || {};
+        let html = '';
+
+        // Ad Spend row
+        html += '<tr class="roi-stage-row">';
+        html += '<td class="roi-td-label"><strong>Ad Spend</strong></td>';
+        (roas.total_spend || []).forEach(v => {
+            html += `<td class="roi-td-num">${v > 0 ? '$' + v.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : ''}</td>`;
+        });
+        html += `<td class="roi-td-total"><strong>$${(annual.total_spend || 0).toLocaleString()}</strong></td>`;
+        html += '</tr>';
+
+        // LTV row with outlier flags
+        html += '<tr class="roi-stage-row">';
+        html += '<td class="roi-td-label"><strong>LTV</strong></td>';
+        (roas.ltv || []).forEach((v, i) => {
+            const outlier = (roas.ltv_outlier_flags || [])[i];
+            const cls = outlier ? ' roi-outlier' : '';
+            const warn = outlier ? ' <span class="roi-outlier-icon" title="LTV > $50,000 — outlier">&#9888;</span>' : '';
+            html += `<td class="roi-td-num${cls}">${v > 0 ? '$' + v.toLocaleString() + warn : ''}</td>`;
+        });
+        html += '<td class="roi-td-total"></td>';
+        html += '</tr>';
+
+        // New Revenue row
+        html += '<tr class="roi-stage-row">';
+        html += '<td class="roi-td-label"><strong>New Revenue</strong></td>';
+        (roas.monthly_new_revenue || []).forEach(v => {
+            html += `<td class="roi-td-num">${v > 0 ? '$' + v.toLocaleString(undefined, {maximumFractionDigits: 0}) : ''}</td>`;
+        });
+        html += `<td class="roi-td-total"><strong>$${(annual.total_new_revenue || 0).toLocaleString()}</strong></td>`;
+        html += '</tr>';
+
+        // Cumulative ARR row
+        html += '<tr class="roi-stage-row">';
+        html += '<td class="roi-td-label"><strong>Cumulative ARR</strong></td>';
+        (roas.cumulative_arr || []).forEach(v => {
+            html += `<td class="roi-td-num">${v > 0 ? '$' + v.toLocaleString(undefined, {maximumFractionDigits: 0}) : ''}</td>`;
+        });
+        html += `<td class="roi-td-total"><strong>$${(annual.total_cumulative_arr || 0).toLocaleString()}</strong></td>`;
+        html += '</tr>';
+
+        // Blank separator
+        html += '<tr class="roi-separator"><td colspan="14"></td></tr>';
+
+        // ROAS rows
+        const roasRows = [
+            { label: 'ROAS A (Monthly New)', key: 'roas_a' },
+            { label: 'ROAS B (Cumulative ARR)', key: 'roas_b' },
+            { label: 'ROAS C (LTV-Weighted)', key: 'roas_c' },
+        ];
+
+        roasRows.forEach(row => {
+            html += '<tr class="roi-roas-row">';
+            html += `<td class="roi-td-label"><strong>${row.label}</strong></td>`;
+            (roas[row.key] || []).forEach(v => {
+                const cls = roasColorClass(v, thresholds);
+                html += `<td class="roi-td-num ${cls}">${v != null ? v.toFixed(1) + 'x' : ''}</td>`;
+            });
+            // Annual total for ROAS C only
+            if (row.key === 'roas_c' && annual.roas != null) {
+                const cls = roasColorClass(annual.roas, thresholds);
+                html += `<td class="roi-td-total ${cls}"><strong>${annual.roas.toFixed(1)}x</strong></td>`;
+            } else {
+                html += '<td class="roi-td-total"></td>';
+            }
+            html += '</tr>';
+        });
+
+        tbody.innerHTML = html;
+    };
+
+    const roasColorClass = (value, thresholds) => {
+        if (value == null) return '';
+        if (value >= (thresholds.roas_excellent || 8)) return 'roas-excellent';
+        if (value >= (thresholds.roas_good || 4)) return 'roas-good';
+        if (value >= (thresholds.roas_warning || 1)) return 'roas-warning';
+        return 'roas-critical';
+    };
+
+    const renderRoiStatus = (connections) => {
+        const acDot = document.getElementById('roiAcStatusDot');
+        const acText = document.getElementById('roiAcStatusText');
+        const gadsDot = document.getElementById('roiGadsStatusDot');
+        const gadsText = document.getElementById('roiGadsStatusText');
+
+        if (acDot) acDot.className = 'status-dot ' + (connections?.activecampaign ? 'connected' : 'disconnected');
+        if (acText) acText.textContent = connections?.activecampaign ? 'ActiveCampaign: Connected' : 'ActiveCampaign: Not Connected';
+        if (gadsDot) gadsDot.className = 'status-dot ' + (connections?.google_ads ? 'connected' : 'disconnected');
+        if (gadsText) gadsText.textContent = connections?.google_ads ? 'Google Ads: Connected' : 'Google Ads: Not Connected';
+    };
+
+    const exportRoiCSV = () => {
+        window.location.href = '/api/demand-gen-roi/export/csv';
+        showToast('Exporting ROI CSV...');
     };
 
     // ── Alerts ──────────────────────────────────────────────────────────
@@ -642,7 +926,7 @@ const MICDashboard = (() => {
             <div class="alert-card alert-${alert.level}" id="alert-${i}" style="animation-delay: ${i * 0.08}s">
                 <div class="alert-icon">${icons[alert.level] || '⚪'}</div>
                 <div class="alert-body">
-                    <div class="alert-campaign">${escapeHtml(alert.campaign)}</div>
+                    <div class="alert-campaign">${alert.ac_url ? `<a href="${escapeHtml(alert.ac_url)}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-decoration-style: dotted;" onclick="event.stopPropagation()">${escapeHtml(alert.campaign)}</a>` : escapeHtml(alert.campaign)}</div>
                     <div class="alert-message">${escapeHtml(alert.message)}</div>
                 </div>
                 <div class="alert-actions">
@@ -740,11 +1024,518 @@ const MICDashboard = (() => {
     // ── Public API ──────────────────────────────────────────────────────
     return {
         init,
+        switchTab,
         showCampaignDetail,
         dismissAlert,
         handleAlertAction,
+        loadGadsData,
     };
 })();
 
 // ── Boot ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', MICDashboard.init);
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Time Intelligence & Section Layout (Agent 3)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Pipeline State ────────────────────────────────────────────────────────
+const PipelineState = {
+    selectedId: null,
+};
+
+// ── Date Helpers ──────────────────────────────────────────────────────────
+function today() {
+    return new Date().toISOString().split('T')[0];
+}
+
+function firstDayOfMonth(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function getQuarterDates(d) {
+    const q = Math.floor(d.getMonth() / 3);
+    const startMonth = q * 3;
+    const start = new Date(d.getFullYear(), startMonth, 1);
+    const end = new Date(d.getFullYear(), startMonth + 3, 0);
+    return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+    };
+}
+
+function getLastQuarterDates(d) {
+    const q = Math.floor(d.getMonth() / 3);
+    const lastQ = q === 0 ? 3 : q - 1;
+    const year = q === 0 ? d.getFullYear() - 1 : d.getFullYear();
+    const startMonth = lastQ * 3;
+    const start = new Date(year, startMonth, 1);
+    const end = new Date(year, startMonth + 3, 0);
+    return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+    };
+}
+
+function getLastMonthDates(d) {
+    const start = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const end = new Date(d.getFullYear(), d.getMonth(), 0);
+    return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+    };
+}
+
+function getLastYearDates(d) {
+    const year = d.getFullYear() - 1;
+    return { start: `${year}-01-01`, end: `${year}-12-31` };
+}
+
+// ── Time State ────────────────────────────────────────────────────────────
+const TimeState = {
+    preset: 'qtd',
+    startDate: null,
+    endDate: null,
+    compareMode: 'none',
+
+    computeDates(preset) {
+        const now = new Date();
+        switch (preset) {
+            case 'qtd':          return getQuarterDates(now);
+            case 'mtd':          return { start: firstDayOfMonth(now), end: today() };
+            case 'ytd':          return { start: `${now.getFullYear()}-01-01`, end: today() };
+            case 'last_month':   return getLastMonthDates(now);
+            case 'last_quarter': return getLastQuarterDates(now);
+            case 'last_year':    return getLastYearDates(now);
+            default:             return getQuarterDates(now);
+        }
+    },
+
+    setPreset(preset) {
+        this.preset = preset;
+        const { start, end } = this.computeDates(preset);
+        this.startDate = start;
+        this.endDate = end;
+        this._notify();
+    },
+
+    setCustomRange(start, end) {
+        this.preset = 'custom';
+        this.startDate = start;
+        this.endDate = end;
+        this._notify();
+    },
+
+    setCompareMode(mode) {
+        this.compareMode = mode;
+        this._notify();
+    },
+
+    toParams(extra = {}) {
+        return new URLSearchParams({
+            start_date: this.startDate,
+            end_date: this.endDate,
+            pipeline_id: PipelineState.selectedId || 1,
+            ...extra,
+        }).toString();
+    },
+
+    _listeners: [],
+    subscribe(fn) { this._listeners.push(fn); },
+    _notify() {
+        this._listeners.forEach(fn => fn(this));
+        this._persistState();
+    },
+
+    _persistState() {
+        localStorage.setItem('mic_time_state', JSON.stringify({
+            preset: this.preset,
+            startDate: this.startDate,
+            endDate: this.endDate,
+            compareMode: this.compareMode,
+        }));
+    },
+
+    restore() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('mic_time_state') || '{}');
+            if (saved.preset) {
+                if (saved.preset === 'custom' && saved.startDate && saved.endDate) {
+                    this.setCustomRange(saved.startDate, saved.endDate);
+                } else {
+                    this.setPreset(saved.preset || 'qtd');
+                }
+                this.compareMode = saved.compareMode || 'none';
+            } else {
+                this.setPreset('qtd');
+            }
+        } catch {
+            this.setPreset('qtd');
+        }
+    }
+};
+
+// ── Section Loader ────────────────────────────────────────────────────────
+async function loadSection(sectionId, endpoint, params, renderFn) {
+    const body = document.getElementById(`body-${sectionId}`);
+    const loading = document.getElementById(`loading-${sectionId}`);
+    const error = document.getElementById(`error-${sectionId}`);
+
+    if (!body) return;
+
+    loading?.classList.remove('hidden');
+    error?.classList.add('hidden');
+
+    try {
+        const resp = await fetch(`${endpoint}?${params}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        loading?.classList.add('hidden');
+        renderFn(body, data);
+    } catch (err) {
+        loading?.classList.add('hidden');
+        error?.classList.remove('hidden');
+        if (error) error.querySelector('.error-msg').textContent =
+            `Failed to load: ${err.message}`;
+    }
+}
+
+// ── Section Subscriptions ─────────────────────────────────────────────────
+function initSectionSubscriptions() {
+    TimeState.subscribe((state) => {
+        const params = state.toParams();
+
+        if (typeof renderPipelineHealth === 'function')
+            loadSection('pipeline-health', '/api/pipeline-health', params, renderPipelineHealth);
+        if (typeof renderVelocity === 'function')
+            loadSection('velocity', '/api/velocity', params, renderVelocity);
+        if (typeof renderAcquisition === 'function')
+            loadSection('acquisition', '/api/acquisition', params, renderAcquisition);
+        if (typeof renderRepPerformance === 'function')
+            loadSection('rep-performance', '/api/rep-performance', params, renderRepPerformance);
+        if (typeof renderForecastWeighted === 'function')
+            loadSection('forecast', '/api/forecast-weighted', params, renderForecastWeighted);
+        if (typeof renderCohorts === 'function')
+            loadSection('cohorts', '/api/cohorts',
+                new URLSearchParams({ months: 12 }).toString(), renderCohorts);
+    });
+}
+
+// ── Delta Badge ───────────────────────────────────────────────────────────
+function renderDelta(container, delta) {
+    if (!delta || delta.direction === undefined) return;
+    const { value, pct, direction } = delta;
+    const sign = direction === 'up' ? '+' : direction === 'down' ? '-' : '';
+    const arrow = direction === 'up' ? '↑' : direction === 'down' ? '↓' : '→';
+    const color = direction === 'up' ? 'var(--success)' :
+                  direction === 'down' ? 'var(--error)' : 'var(--dgrey-100)';
+
+    const badge = document.createElement('span');
+    badge.className = 'delta-badge';
+    badge.style.color = color;
+    badge.textContent = `${sign}${Math.abs(pct).toFixed(1)}% ${arrow}`;
+    badge.title = `${sign}${formatCurrency(Math.abs(value))} vs comparison period`;
+    container.appendChild(badge);
+}
+
+function formatCurrency(val, currency = 'usd') {
+    return new Intl.NumberFormat('en-CA', {
+        style: 'currency',
+        currency: currency.toUpperCase(),
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(val);
+}
+
+// ── DOM Injection ─────────────────────────────────────────────────────────
+function injectTimeIntelligenceUI() {
+    const acTab = document.getElementById('tab-ac');
+    if (!acTab) return;
+
+    const metricsSection = document.getElementById('sectionMetrics');
+    if (!metricsSection) return;
+
+    // Time Intelligence Bar
+    const timeBarHTML = `
+    <div class="time-intelligence-bar" id="timeBar">
+        <div class="time-presets">
+            <button class="time-preset active" data-preset="qtd">QTD</button>
+            <button class="time-preset" data-preset="mtd">MTD</button>
+            <button class="time-preset" data-preset="ytd">YTD</button>
+            <button class="time-preset" data-preset="last_month">Last Month</button>
+            <button class="time-preset" data-preset="last_quarter">Last Quarter</button>
+            <button class="time-preset" data-preset="last_year">Last Year</button>
+            <button class="time-preset" data-preset="custom">Custom ▾</button>
+        </div>
+        <div class="time-custom-range hidden" id="customRange">
+            <input type="date" id="customStart" />
+            <span>\u2192</span>
+            <input type="date" id="customEnd" />
+            <button class="btn-apply-range" onclick="applyCustomRange()">Apply</button>
+        </div>
+        <div class="time-comparison">
+            <span class="compare-label">Compare to:</span>
+            <select id="compareMode">
+                <option value="none">None</option>
+                <option value="mom">Last Month</option>
+                <option value="qoq">Last Quarter</option>
+                <option value="yoy">Same Period Last Year</option>
+                <option value="custom">Custom Period</option>
+            </select>
+        </div>
+        <div class="time-active-period" id="activePeriodLabel">
+            Q1 2026: Jan 1 \u2013 Mar 31
+        </div>
+    </div>`;
+
+    // Section containers
+    const sections = [
+        { id: 'pipeline-health', icon: '\uD83D\uDCCA', title: 'Pipeline Health' },
+        { id: 'velocity',        icon: '\u26A1',       title: 'Deal Velocity' },
+        { id: 'acquisition',     icon: '\uD83D\uDC65', title: 'Contact Acquisition' },
+        { id: 'rep-performance', icon: '\uD83C\uDFC6', title: 'Rep Performance' },
+        { id: 'forecast',        icon: '\uD83D\uDCC8', title: 'Revenue Forecast' },
+        { id: 'cohorts',         icon: '\uD83D\uDD04', title: 'Cohort Analysis' },
+    ];
+
+    const sectionsHTML = sections.map(s => `
+    <section class="dashboard-section" id="section-${s.id}">
+        <div class="section-header">
+            <h2 class="section-title">
+                <span class="section-icon">${s.icon}</span>
+                ${s.title}
+            </h2>
+            <div class="section-actions">
+                <span class="section-badge live">Live</span>
+            </div>
+        </div>
+        <div class="section-body" id="body-${s.id}"></div>
+        <div class="section-loading hidden" id="loading-${s.id}">
+            <div class="skeleton-loader"></div>
+        </div>
+        <div class="section-error hidden" id="error-${s.id}">
+            <span class="error-msg"></span>
+        </div>
+    </section>`).join('\n');
+
+    // Insert time bar after metrics section
+    metricsSection.insertAdjacentHTML('afterend', timeBarHTML);
+
+    // Insert sections after time bar, before funnel
+    const timeBarEl = document.getElementById('timeBar');
+    timeBarEl.insertAdjacentHTML('afterend', sectionsHTML);
+}
+
+// ── Load CSS ──────────────────────────────────────────────────────────────
+function loadTimeIntelligenceStyles() {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/css/time-intelligence.css';
+    document.head.appendChild(link);
+}
+
+// ── Wire Up Controls ──────────────────────────────────────────────────────
+function wireTimeControls() {
+    document.querySelectorAll('.time-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = btn.dataset.preset;
+            if (preset === 'custom') {
+                document.getElementById('customRange').classList.toggle('hidden');
+                return;
+            }
+            document.querySelectorAll('.time-preset').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('customRange').classList.add('hidden');
+            TimeState.setPreset(preset);
+            updateActivePeriodLabel();
+        });
+    });
+
+    document.getElementById('compareMode')?.addEventListener('change', (e) => {
+        TimeState.setCompareMode(e.target.value);
+    });
+}
+
+function applyCustomRange() {
+    const start = document.getElementById('customStart').value;
+    const end = document.getElementById('customEnd').value;
+    if (!start || !end) return;
+    document.querySelectorAll('.time-preset').forEach(b => b.classList.remove('active'));
+    document.querySelector('.time-preset[data-preset="custom"]')?.classList.add('active');
+    TimeState.setCustomRange(start, end);
+    document.getElementById('customRange').classList.add('hidden');
+    updateActivePeriodLabel();
+}
+
+function updateActivePeriodLabel() {
+    const label = document.getElementById('activePeriodLabel');
+    if (!label) return;
+    const { startDate, endDate, preset } = TimeState;
+    const presetLabels = {
+        qtd: 'Quarter to Date', mtd: 'Month to Date', ytd: 'Year to Date',
+        last_month: 'Last Month', last_quarter: 'Last Quarter',
+        last_year: 'Last Year', custom: 'Custom Range',
+    };
+    label.textContent = `${presetLabels[preset] || preset}: ${startDate} \u2013 ${endDate}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Google Ads Time State
+// ═══════════════════════════════════════════════════════════════════════════
+
+const GadsTimeState = {
+    preset: 'qtd',
+    startDate: null,
+    endDate: null,
+
+    setPreset(preset) {
+        this.preset = preset;
+        const { start, end } = TimeState.computeDates(preset);
+        this.startDate = start;
+        this.endDate = end;
+        this._notify();
+        this._persist();
+    },
+
+    setCustomRange(start, end) {
+        this.preset = 'custom_gads';
+        this.startDate = start;
+        this.endDate = end;
+        this._notify();
+        this._persist();
+    },
+
+    toParams() {
+        return new URLSearchParams({
+            start_date: this.startDate,
+            end_date: this.endDate,
+        }).toString();
+    },
+
+    _listeners: [],
+    subscribe(fn) { this._listeners.push(fn); },
+    _notify() { this._listeners.forEach(fn => fn(this)); },
+
+    _persist() {
+        localStorage.setItem('mic_gads_time_state', JSON.stringify({
+            preset: this.preset,
+            startDate: this.startDate,
+            endDate: this.endDate,
+        }));
+    },
+
+    restore() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('mic_gads_time_state') || '{}');
+            if (saved.preset === 'custom_gads' && saved.startDate && saved.endDate) {
+                this.setCustomRange(saved.startDate, saved.endDate);
+            } else {
+                this.setPreset(saved.preset || 'qtd');
+            }
+        } catch {
+            this.setPreset('qtd');
+        }
+    }
+};
+
+// ── Inject Google Ads Time Bar ────────────────────────────────────────────
+function injectGadsTimeBar() {
+    const gadsTab = document.getElementById('tab-gads');
+    if (!gadsTab) return;
+
+    const campaignsSection = document.getElementById('sectionCampaigns');
+    if (!campaignsSection) return;
+
+    const timeBarHTML = `
+    <div class="time-intelligence-bar" id="timeBarGads">
+        <div class="time-presets">
+            <button class="time-preset-gads active" data-preset="qtd">QTD</button>
+            <button class="time-preset-gads" data-preset="mtd">MTD</button>
+            <button class="time-preset-gads" data-preset="ytd">YTD</button>
+            <button class="time-preset-gads" data-preset="last_month">Last Month</button>
+            <button class="time-preset-gads" data-preset="last_quarter">Last Quarter</button>
+            <button class="time-preset-gads" data-preset="last_year">Last Year</button>
+            <button class="time-preset-gads" data-preset="custom_gads">Custom \u25be</button>
+        </div>
+        <div class="time-custom-range hidden" id="customRangeGads">
+            <input type="date" id="customStartGads" />
+            <span>\u2192</span>
+            <input type="date" id="customEndGads" />
+            <button class="btn-apply-range" onclick="applyCustomRangeGads()">Apply</button>
+        </div>
+        <div class="time-active-period" id="activePeriodLabelGads">
+            Q1 2026: Jan 1 \u2013 Mar 31
+        </div>
+    </div>`;
+
+    campaignsSection.insertAdjacentHTML('beforebegin', timeBarHTML);
+}
+
+// ── Wire Google Ads Time Controls ─────────────────────────────────────────
+function wireGadsTimeControls() {
+    document.querySelectorAll('.time-preset-gads').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = btn.dataset.preset;
+            if (preset === 'custom_gads') {
+                document.getElementById('customRangeGads')?.classList.toggle('hidden');
+                return;
+            }
+            document.querySelectorAll('.time-preset-gads')
+                .forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('customRangeGads')?.classList.add('hidden');
+            GadsTimeState.setPreset(preset);
+            updateGadsActivePeriodLabel();
+        });
+    });
+}
+
+function applyCustomRangeGads() {
+    const start = document.getElementById('customStartGads').value;
+    const end = document.getElementById('customEndGads').value;
+    if (!start || !end) return;
+    document.querySelectorAll('.time-preset-gads').forEach(b => b.classList.remove('active'));
+    document.querySelector('.time-preset-gads[data-preset="custom_gads"]')?.classList.add('active');
+    GadsTimeState.setCustomRange(start, end);
+    document.getElementById('customRangeGads')?.classList.add('hidden');
+    updateGadsActivePeriodLabel();
+}
+
+function updateGadsActivePeriodLabel() {
+    const label = document.getElementById('activePeriodLabelGads');
+    if (!label) return;
+    const presetLabels = {
+        qtd: 'Quarter to Date', mtd: 'Month to Date', ytd: 'Year to Date',
+        last_month: 'Last Month', last_quarter: 'Last Quarter',
+        last_year: 'Last Year', custom_gads: 'Custom Range',
+    };
+    const { preset, startDate, endDate } = GadsTimeState;
+    label.textContent = `${presetLabels[preset] || preset}: ${startDate} \u2013 ${endDate}`;
+}
+
+// ── Google Ads Time Subscriptions ─────────────────────────────────────────
+function initGadsTimeSubscriptions() {
+    GadsTimeState.subscribe(() => {
+        // loadGadsData reads GadsTimeState.toParams() internally
+        MICDashboard.loadGadsData();
+        updateGadsActivePeriodLabel();
+    });
+}
+
+// ── Boot Time Intelligence ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadTimeIntelligenceStyles();
+    injectTimeIntelligenceUI();
+    TimeState.restore();
+    initSectionSubscriptions();
+    updateActivePeriodLabel();
+    TimeState._notify();
+
+    // Google Ads time bar
+    injectGadsTimeBar();
+    wireGadsTimeControls();
+    GadsTimeState.restore();
+    initGadsTimeSubscriptions();
+    updateGadsActivePeriodLabel();
+});
