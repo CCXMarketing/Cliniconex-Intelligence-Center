@@ -1924,7 +1924,7 @@ is explicitly requested."""
 
         gemini_url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.0-flash:generateContent?key={gemini_key}"
+            f"gemini-1.5-flash:generateContent?key={gemini_key}"
         )
 
         payload = {
@@ -1962,7 +1962,7 @@ is explicitly requested."""
 
             return jsonify({
                 "response": text,
-                "model": "gemini-2.0-flash",
+                "model": "gemini-1.5-flash",
                 "source": source,
             })
 
@@ -1977,8 +1977,8 @@ is explicitly requested."""
         except Exception as e:
             logger.exception("Gemini API error")
             return jsonify({
-                "response": f"Something went wrong with the AI Advisor. Error: {e}",
-                "error": str(e),
+                "response": "The AI Advisor encountered an error. Please try again.",
+                "error": "internal_error",
             })
 
     @app.route("/api/advisor/proactive", methods=["GET"])
@@ -2002,7 +2002,8 @@ is explicitly requested."""
                 return jsonify({"insight": None, "configured": True, "error": "AC not connected"})
             summary = ac.fetch_pipeline_summary(pipeline_id=pipeline_id)
         except Exception as e:
-            return jsonify({"insight": None, "error": str(e)})
+            logger.exception("Advisor proactive: pipeline fetch error")
+            return jsonify({"insight": None, "error": "internal_error"})
 
         hiro_rate = summary.get("hiro_rate_pct", 0)
         stalled = summary.get("stalled_count", 0)
@@ -2027,7 +2028,7 @@ is explicitly requested."""
 
         gemini_url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.0-flash:generateContent?key={gemini_key}"
+            f"gemini-1.5-flash:generateContent?key={gemini_key}"
         )
 
         try:
@@ -2054,7 +2055,8 @@ is explicitly requested."""
                 "stalled_count": stalled,
             })
         except Exception as e:
-            return jsonify({"insight": None, "configured": True, "error": str(e)})
+            logger.exception("Advisor proactive: Gemini call error")
+            return jsonify({"insight": None, "configured": True, "error": "internal_error"})
 
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 
