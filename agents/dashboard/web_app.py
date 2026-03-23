@@ -1922,10 +1922,7 @@ is explicitly requested."""
         if context_block:
             full_user_message += f"\n\nCurrent dashboard data:\n{context_block}"
 
-        gemini_url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-1.5-flash:generateContent?key={gemini_key}"
-        )
+        gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
         payload = {
             "system_instruction": {
@@ -1942,7 +1939,12 @@ is explicitly requested."""
         }
 
         try:
-            resp = http_requests.post(gemini_url, json=payload, timeout=30)
+            resp = http_requests.post(
+                gemini_url,
+                headers={"Content-Type": "application/json", "x-goog-api-key": gemini_key},
+                json=payload,
+                timeout=30,
+            )
             resp.raise_for_status()
             result = resp.json()
 
@@ -1962,7 +1964,7 @@ is explicitly requested."""
 
             return jsonify({
                 "response": text,
-                "model": "gemini-1.5-flash",
+                "model": "gemini-2.5-flash",
                 "source": source,
             })
 
@@ -2026,14 +2028,12 @@ is explicitly requested."""
             f"HIRO target met: {'Yes' if hiro_rate >= 25 else 'No'}\n"
         )
 
-        gemini_url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-1.5-flash:generateContent?key={gemini_key}"
-        )
+        gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
         try:
             resp = http_requests.post(
                 gemini_url,
+                headers={"Content-Type": "application/json", "x-goog-api-key": gemini_key},
                 json={
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.3, "maxOutputTokens": 150},
