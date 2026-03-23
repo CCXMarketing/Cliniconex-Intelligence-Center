@@ -74,15 +74,29 @@ def _load_yaml(filename: str) -> dict:
 
 
 def _load_credentials() -> dict:
-    """Load credentials from yaml file (local) or environment variables (Sevalla)."""
-    yaml_creds = _load_yaml("credentials.yaml")
-    if yaml_creds:
-        return yaml_creds
+    """Load credentials from yaml (local) or env vars (Sevalla)."""
+    yaml_path = CONFIG_DIR / "credentials.yaml"
+
+    if yaml_path.exists():
+        import yaml
+        with open(yaml_path) as f:
+            creds = yaml.safe_load(f) or {}
+        if creds:
+            logger.info("Credentials: loaded from credentials.yaml")
+            return creds
+
+    logger.info("Credentials: credentials.yaml not found, loading from environment variables")
+
+    ac_url = os.environ.get("AC_API_URL", "")
+    ac_key = os.environ.get("AC_API_KEY", "")
+
+    logger.info("Credentials: AC_API_URL=%s AC_API_KEY length=%d",
+                ac_url, len(ac_key))
 
     return {
         "activecampaign": {
-            "api_url": os.environ.get("AC_API_URL", ""),
-            "api_key": os.environ.get("AC_API_KEY", ""),
+            "api_url": ac_url,
+            "api_key": ac_key,
         },
         "google_ads": {
             "developer_token": os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN", ""),
@@ -92,8 +106,8 @@ def _load_credentials() -> dict:
             "customer_id": os.environ.get("GOOGLE_ADS_CUSTOMER_ID", ""),
             "login_customer_id": os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID", ""),
         },
-        "anthropic": {
-            "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        "gemini": {
+            "api_key": os.environ.get("GEMINI_API_KEY", ""),
         },
     }
 

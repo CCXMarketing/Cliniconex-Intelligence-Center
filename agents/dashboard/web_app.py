@@ -40,19 +40,31 @@ def _load_yaml(filename: str) -> dict:
 
 
 def _load_credentials() -> dict:
-    """Load credentials from yaml file (local) or environment variables (Sevalla)."""
+    """Load credentials from yaml (local) or env vars (Sevalla)."""
     import os
 
-    # Try yaml file first (local development)
-    yaml_creds = _load_yaml("credentials.yaml")
-    if yaml_creds:
-        return yaml_creds
+    yaml_path = CONFIG_DIR / "credentials.yaml"
 
-    # Fall back to environment variables (Sevalla production)
+    if yaml_path.exists():
+        import yaml
+        with open(yaml_path) as f:
+            creds = yaml.safe_load(f) or {}
+        if creds:
+            logger.info("Credentials: loaded from credentials.yaml")
+            return creds
+
+    logger.info("Credentials: credentials.yaml not found, loading from environment variables")
+
+    ac_url = os.environ.get("AC_API_URL", "")
+    ac_key = os.environ.get("AC_API_KEY", "")
+
+    logger.info("Credentials: AC_API_URL=%s AC_API_KEY length=%d",
+                ac_url, len(ac_key))
+
     return {
         "activecampaign": {
-            "api_url": os.environ.get("AC_API_URL", ""),
-            "api_key": os.environ.get("AC_API_KEY", ""),
+            "api_url": ac_url,
+            "api_key": ac_key,
         },
         "google_ads": {
             "developer_token": os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN", ""),
@@ -61,9 +73,6 @@ def _load_credentials() -> dict:
             "refresh_token": os.environ.get("GOOGLE_ADS_REFRESH_TOKEN", ""),
             "customer_id": os.environ.get("GOOGLE_ADS_CUSTOMER_ID", ""),
             "login_customer_id": os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID", ""),
-        },
-        "anthropic": {
-            "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
         },
         "gemini": {
             "api_key": os.environ.get("GEMINI_API_KEY", ""),
@@ -2057,6 +2066,23 @@ is explicitly requested."""
         except Exception as e:
             logger.exception("Advisor proactive: Gemini call error")
             return jsonify({"insight": None, "configured": True, "error": "internal_error"})
+
+    # ── API: Debug — connection diagnostic ──────────────────────────────
+
+    @app.route("/api/debug/connection")
+    def api_debug_connection():
+        import os
+        creds = _load_credentials()
+        ac = creds.get("activecampaign", {})
+        return jsonify({
+            "credentials_source": "yaml" if (CONFIG_DIR / "credentials.yaml").exists() else "env_vars",
+            "ac_url": ac.get("api_url", "NOT SET"),
+            "ac_key_set": bool(ac.get("api_key", "")),
+            "ac_key_length": len(ac.get("api_key", "")),
+            "ac_key_prefix": ac.get("api_key", "")[:8] + "..." if ac.get("api_key") else "NOT SET",
+            "env_AC_API_URL": os.environ.get("AC_API_URL", "NOT SET"),
+            "env_AC_API_KEY_length": len(os.environ.get("AC_API_KEY", "")),
+        })
 
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 
