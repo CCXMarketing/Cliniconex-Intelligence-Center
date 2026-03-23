@@ -582,7 +582,7 @@ document.getElementById('tabBarUpdated').textContent =
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <style>
 #cic-advisor-panel {
-    position: fixed; top: 0; right: 0; width: 380px; height: 100vh; height: 100dvh;
+    position: fixed; top: 0; right: 0; bottom: 0; width: 380px;
     background: #fff; border-left: 1px solid var(--neutral-300, #E1E6EF);
     display: flex; flex-direction: column; z-index: 1000;
     transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
@@ -678,7 +678,7 @@ document.getElementById('tabBarUpdated').textContent =
     30% { transform: translateY(-6px); opacity: 1; }
 }
 .advisor-input-area {
-    padding: 12px 16px; border-top: 1px solid var(--neutral-300, #E1E6EF);
+    padding: 12px 16px 16px; border-top: 1px solid var(--neutral-300, #E1E6EF);
     background: #fff; flex-shrink: 0;
 }
 .advisor-input-row { display: flex; gap: 8px; align-items: flex-end; }
