@@ -1,6 +1,9 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+*.pyc
 *$py.class
 *.so
 .Python
@@ -20,25 +23,40 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual environments
 venv/
-ENV/
+venv312/
+.venv/
 env/
-.venv
+ENV/
 
-# IDEs
+# Credentials — NEVER commit these
+config/credentials.yaml
+config/*.key
+*.pem
+*.key
+.env
+*.env
+secrets.yaml
+
+# Debug and dev files
+debug_*.py
+patch_*.py
+generate_token.py
+notepad
+3.9
+CLAUDE_PROJECT_KNOWLEDGE.md
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Credentials - NEVER COMMIT THESE
-config/credentials.yaml
-config/*.key
-*.pem
-.env
+# OS
+.DS_Store
+Thumbs.db
 
 # Cache
 .cache/

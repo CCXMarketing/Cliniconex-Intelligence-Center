@@ -18,6 +18,7 @@ click==8.1.7
 # Web Dashboard
 flask==3.0.0
 flask-cors==4.0.0
+gunicorn==21.2.0
 
 # AI/ML (for future predictive features)
 anthropic==0.8.1

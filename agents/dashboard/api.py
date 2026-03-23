@@ -74,11 +74,45 @@ def _load_yaml(filename: str) -> dict:
 
 
 def _load_credentials() -> dict:
-    return _load_yaml("credentials.yaml")
+    """Load credentials from yaml file (local) or environment variables (Sevalla)."""
+    yaml_creds = _load_yaml("credentials.yaml")
+    if yaml_creds:
+        return yaml_creds
+
+    return {
+        "activecampaign": {
+            "api_url": os.environ.get("AC_API_URL", ""),
+            "api_key": os.environ.get("AC_API_KEY", ""),
+        },
+        "google_ads": {
+            "developer_token": os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN", ""),
+            "client_id": os.environ.get("GOOGLE_ADS_CLIENT_ID", ""),
+            "client_secret": os.environ.get("GOOGLE_ADS_CLIENT_SECRET", ""),
+            "refresh_token": os.environ.get("GOOGLE_ADS_REFRESH_TOKEN", ""),
+            "customer_id": os.environ.get("GOOGLE_ADS_CUSTOMER_ID", ""),
+            "login_customer_id": os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID", ""),
+        },
+        "anthropic": {
+            "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        },
+    }
 
 
 def _load_thresholds() -> dict:
-    return _load_yaml("thresholds.yaml")
+    """Load thresholds config, return defaults if file missing."""
+    thresholds = _load_yaml("thresholds.yaml")
+    if not thresholds:
+        return {
+            "activecampaign": {"primary_pipeline_id": 1, "pipeline_name": "Prospect Demand Pipeline"},
+            "revenue": {"annual_target": 9000000,
+                        "q1_target": 2250000, "q2_target": 2250000,
+                        "q3_target": 2250000, "q4_target": 2250000},
+            "cpa": {"excellent": 75, "warning": 200, "critical": 300},
+            "deal_size": {"average": 1200},
+            "conversion_rates": {"contact_to_demo": 0.25,
+                                 "demo_to_deal": 0.35, "deal_to_won": 0.15},
+        }
+    return thresholds
 
 
 # ── Quarter helpers ───────────────────────────────────────────────────────
