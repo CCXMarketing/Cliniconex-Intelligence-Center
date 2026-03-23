@@ -50,16 +50,16 @@ def _load_credentials() -> dict:
         with open(yaml_path) as f:
             creds = yaml.safe_load(f) or {}
         if creds:
-            logger.info("Credentials: loaded from credentials.yaml")
+            print("CREDENTIALS: Loaded from credentials.yaml")
             return creds
 
-    logger.info("Credentials: credentials.yaml not found, loading from environment variables")
+    print("CREDENTIALS: Loading from environment variables")
 
     ac_url = os.environ.get("AC_API_URL", "")
     ac_key = os.environ.get("AC_API_KEY", "")
 
-    logger.info("Credentials: AC_API_URL=%s AC_API_KEY length=%d",
-                ac_url, len(ac_key))
+    print(f"CREDENTIALS: AC_API_URL = {ac_url}")
+    print(f"CREDENTIALS: AC_API_KEY length = {len(ac_key)}")
 
     return {
         "activecampaign": {
@@ -158,8 +158,13 @@ def _build_google_ads(creds: dict):
     ]
     if not all(ga.get(k) for k in required):
         return None
-    # Skip if placeholder credentials
-    if ga.get("refresh_token", "").startswith("PLACEHOLDER"):
+    # Skip if placeholder or clearly invalid refresh token
+    refresh_token = ga.get("refresh_token", "")
+    if not refresh_token or refresh_token.startswith("PLACEHOLDER"):
+        logger.warning("Google Ads: refresh token not configured")
+        return None
+    if len(refresh_token) < 20:
+        logger.warning("Google Ads: refresh token too short, skipping")
         return None
     return GoogleAdsConnector(
         developer_token=ga["developer_token"],
@@ -169,6 +174,24 @@ def _build_google_ads(creds: dict):
         customer_id=ga["customer_id"],
         login_customer_id=ga["login_customer_id"],
     )
+
+
+def _safe_gads_test_connection(gads) -> bool:
+    """Test Google Ads connection with a 5-second hard timeout."""
+    if not gads:
+        return False
+    try:
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(gads.test_connection)
+            try:
+                return bool(future.result(timeout=5))
+            except concurrent.futures.TimeoutError:
+                print("GOOGLE ADS: connection test timed out (5s) — skipping")
+                return False
+    except Exception as e:
+        print(f"GOOGLE ADS: connection test failed — {e}")
+        return False
 
 
 # ── Live data fetcher ──────────────────────────────────────────────────────
@@ -241,7 +264,7 @@ def _fetch_gads_data(creds: dict, start_date, end_date) -> dict:
     }
     try:
         gads = _build_google_ads(creds)
-        if gads and gads.test_connection():
+        if _safe_gads_test_connection(gads):
             result["connected"] = True
             result["campaigns"] = gads.fetch_campaigns(start_date, end_date)
             result["metrics"] = gads.fetch_performance_metrics(start_date, end_date)
@@ -676,17 +699,14 @@ def create_app() -> Flask:
 
         if ac["deals"]:
             sample = ac["deals"][0]
-            logger.info(
-                "Sample deal: id=%s value=%s value_cents=%s currency=%s",
-                sample.get("id"),
-                sample.get("value"),
-                sample.get("value_cents"),
-                sample.get("currency"),
-            )
-            logger.info(
-                "Pipeline value total: $%.2f from %d deals",
-                pipeline_value, deals_count,
-            )
+            print(f"DEAL SAMPLE: id={sample.get('id')} "
+                  f"value={sample.get('value')} "
+                  f"value_cents={sample.get('value_cents')} "
+                  f"currency={sample.get('currency')}")
+            print(f"PIPELINE TOTAL: {deals_count} deals, "
+                  f"total=${pipeline_value:.2f}")
+        else:
+            print("DEAL SAMPLE: No deals returned from AC")
 
         # Currency split
         currency_buckets: dict[str, float] = {}
@@ -703,14 +723,8 @@ def create_app() -> Flask:
         except Exception:
             pass
 
-        # Check Google Ads connectivity
-        gads_connected = False
-        try:
-            gads = _build_google_ads(creds)
-            if gads and gads.test_connection():
-                gads_connected = True
-        except Exception:
-            pass
+        # Check Google Ads connectivity (with timeout guard)
+        gads_connected = _safe_gads_test_connection(_build_google_ads(creds))
 
         # Revenue calculations (same logic as CLI main.py)
         try:
@@ -1683,7 +1697,7 @@ def create_app() -> Flask:
         gads_connected = False
         try:
             gads = _build_google_ads(creds)
-            if gads and gads.test_connection():
+            if _safe_gads_test_connection(gads):
                 gads_connected = True
                 # Fetch full year of data, month by month
                 google_monthly: dict[str, float] = {}
