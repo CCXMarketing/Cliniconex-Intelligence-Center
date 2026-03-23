@@ -1,0 +1,194 @@
+{
+  "ltv_per_conversion": 29000,
+  "platforms": [
+    "Google Ads",
+    "LinkedIn",
+    "Meta"
+  ],
+  "years": {
+    "2026": {
+      "months": {
+        "Jan": {
+          "ad_spend": {
+            "Google Ads": 7271,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 116000,
+          "arr": 116000,
+          "funnel": {
+            "demand_created": 22,
+            "demand_engaged": 11,
+            "demand_captured": 5,
+            "demand_converted": 4
+          }
+        },
+        "Feb": {
+          "ad_spend": {
+            "Google Ads": 7694,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Mar": {
+          "ad_spend": {
+            "Google Ads": 4925,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Apr": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "May": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Jun": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Jul": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Aug": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Sep": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Oct": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Nov": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        },
+        "Dec": {
+          "ad_spend": {
+            "Google Ads": 0,
+            "LinkedIn": 0,
+            "Meta": 0
+          },
+          "new_revenue": 0,
+          "arr": 0,
+          "funnel": {
+            "demand_created": 0,
+            "demand_engaged": 0,
+            "demand_captured": 0,
+            "demand_converted": 0
+          }
+        }
+      }
+    }
+  }
+}

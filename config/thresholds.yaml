@@ -64,3 +64,24 @@ ltv:
     "2026-01": 29000
     "2026-02": 32000
     "2026-03": 34000
+
+# ── ActiveCampaign API Behaviour ────────────────────────────────────────────
+activecampaign_api:
+  rate_limit_per_second: 5        # AC hard limit
+  max_retries: 4                  # Retry attempts before giving up
+  request_timeout_seconds: 30     # Per-request timeout
+  page_size: 100                  # Max records AC returns per page
+  stall_threshold_days: 14        # Days without update = stalled deal
+
+# ── Currency ─────────────────────────────────────────────────────────────────
+currency:
+  cad_to_usd_rate: 0.74           # Update monthly
+  rate_last_updated: "2026-03-01" # YYYY-MM-DD — warn if >30 days old
+  default_currency: "usd"
+
+# ── Pipeline Health Thresholds ────────────────────────────────────────────────
+pipeline_health:
+  hiro_target_rate: 0.25          # 25% of open deals should be in HIRO
+  hiro_warning_rate: 0.18         # Below this = trigger Slack alert
+  stall_warning_days: 14          # Days before flagging as stalled
+  stall_critical_days: 30         # Days before flagging as critical

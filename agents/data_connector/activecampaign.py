@@ -4,18 +4,30 @@ Handles authentication, data fetching, and caching for ActiveCampaign
 """
 
 import requests
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import json
 
 
+class ConnectionResult(dict):
+    """Dict subclass that is truthy when connected, falsy when not.
+
+    Allows ``if ac.test_connection():`` to keep working while also
+    providing structured diagnostic data via dict access.
+    """
+
+    def __bool__(self):
+        return bool(self.get("connected", False))
+
+
 class ActiveCampaignConnector:
     """Connector for ActiveCampaign API"""
-    
+
     def __init__(self, api_url: str, api_key: str):
         """
         Initialize ActiveCampaign connector
-        
+
         Args:
             api_url: Base API URL (e.g., https://yourcompany.api-us1.com)
             api_key: API key for authentication
@@ -26,27 +38,114 @@ class ActiveCampaignConnector:
             'Api-Token': self.api_key,
             'Content-Type': 'application/json'
         }
-    
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
+
+    def _make_request(
+        self,
+        endpoint: str,
+        params: Optional[Dict] = None,
+        max_retries: int = 4,
+    ) -> Dict:
         """
-        Make authenticated request to ActiveCampaign API
-        
+        Make authenticated request to ActiveCampaign API v3.
+
+        Handles AC-specific error codes with differentiated responses:
+          402 — Payment issue: halt immediately, do not retry
+          403 — Auth failure or no Deals permission: halt, do not retry
+          422 — Bad param or race condition: log + retry once after 1s
+          429 — Rate limited: respect Retry-After header, then retry
+          503 — AC sometimes returns this instead of 429: treat as 429
+
         Args:
-            endpoint: API endpoint (e.g., '/api/3/contacts')
-            params: Query parameters
-            
+            endpoint: API endpoint path (e.g. '/api/3/contacts')
+            params: Optional query parameters dict
+            max_retries: Maximum retry attempts for retryable errors
+
         Returns:
-            JSON response as dictionary
+            Parsed JSON response dict
+
+        Raises:
+            RuntimeError: For non-retryable errors (402, 403)
+            Exception: For exhausted retries
         """
         url = f"{self.api_url}{endpoint}"
-        
-        try:
-            response = requests.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching from ActiveCampaign: {e}")
-            raise
+        attempt = 0
+
+        while attempt <= max_retries:
+            try:
+                response = requests.get(
+                    url,
+                    headers=self.headers,
+                    params=params,
+                    timeout=30,
+                )
+
+                # Non-retryable: halt immediately
+                if response.status_code == 402:
+                    raise RuntimeError(
+                        f"[ActiveCampaign] Account payment issue (402). "
+                        f"Endpoint: {endpoint}. Check your AC subscription."
+                    )
+
+                if response.status_code == 403:
+                    raise RuntimeError(
+                        f"[ActiveCampaign] Authentication failed or insufficient "
+                        f"permissions (403). Endpoint: {endpoint}. "
+                        f"Verify Api-Token header and that your API user has "
+                        f"Deals permission enabled in their user group."
+                    )
+
+                # Rate limited: respect Retry-After header
+                if response.status_code in (429, 503):
+                    retry_after = int(response.headers.get('Retry-After', 2))
+                    print(
+                        f"[ActiveCampaign] Rate limited ({response.status_code}) "
+                        f"on {endpoint}. Waiting {retry_after}s before retry "
+                        f"(attempt {attempt + 1}/{max_retries})."
+                    )
+                    time.sleep(retry_after)
+                    attempt += 1
+                    continue
+
+                # Unprocessable: log full request, retry once (AC race condition)
+                if response.status_code == 422:
+                    print(
+                        f"[ActiveCampaign] 422 Unprocessable on {endpoint}. "
+                        f"Params: {params}. Response: {response.text[:500]}. "
+                        f"Retrying once after 1s (AC race condition possible)."
+                    )
+                    if attempt < 1:
+                        time.sleep(1)
+                        attempt += 1
+                        continue
+                    else:
+                        response.raise_for_status()
+
+                # All other errors
+                response.raise_for_status()
+                return response.json()
+
+            except RuntimeError:
+                raise  # Never swallow 402/403
+            except requests.exceptions.Timeout:
+                print(f"[ActiveCampaign] Timeout on {endpoint} (attempt {attempt + 1})")
+                attempt += 1
+                time.sleep(2 ** attempt)
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries:
+                    delay = 2 ** attempt
+                    print(
+                        f"[ActiveCampaign] Request error on {endpoint}: {e}. "
+                        f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})."
+                    )
+                    time.sleep(delay)
+                    attempt += 1
+                else:
+                    print(f"[ActiveCampaign] All retries exhausted for {endpoint}: {e}")
+                    raise
+
+        raise Exception(
+            f"[ActiveCampaign] {endpoint} failed after {max_retries} retries."
+        )
 
     @staticmethod
     def _normalize_deal(deal: Dict) -> Dict:
@@ -62,28 +161,93 @@ class ActiveCampaignConnector:
         deal["ac_url"] = f"https://cliniconexmarketing.activehosted.com/deals/{deal['id']}"
         return deal
 
+    def _validate_pipeline_filter(
+        self,
+        deals: List[Dict],
+        pipeline_id: int,
+        method_name: str,
+    ) -> List[Dict]:
+        """
+        Validate that pipeline filtering actually worked.
+
+        AC silently ignores invalid filter keys and returns unfiltered
+        results. This detects that by confirming all returned deals
+        belong to the expected pipeline. Applies client-side filter
+        as a safety net and logs a warning if the API filter failed.
+
+        Args:
+            deals: The list of deals returned from AC API
+            pipeline_id: The pipeline ID that was requested
+            method_name: Caller name for logging
+
+        Returns:
+            Filtered list of deals confirmed to be in pipeline_id.
+        """
+        if not deals:
+            return deals
+
+        confirmed = [
+            d for d in deals
+            if str(d.get("group", "")) == str(pipeline_id)
+        ]
+
+        if len(confirmed) < len(deals):
+            discarded = len(deals) - len(confirmed)
+            print(
+                f"[ActiveCampaign] WARNING in {method_name}: "
+                f"filters[group]={pipeline_id} may have partially failed. "
+                f"Got {len(deals)} deals, {discarded} were from other pipelines. "
+                f"Client-side filter applied."
+            )
+
+        return confirmed
+
     def fetch_contacts(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
-        Fetch contacts from ActiveCampaign
-        
+        Fetch contacts from ActiveCampaign using cursor-based pagination.
+
+        Uses id_greater for reliable pagination (AC-recommended for contacts).
+
         Args:
             limit: Number of contacts to fetch
-            offset: Pagination offset
-            
+            offset: Ignored (kept for backward compatibility)
+
         Returns:
             List of contact dictionaries
         """
         endpoint = '/api/3/contacts'
-        params = {'limit': limit, 'offset': offset}
-        
-        response = self._make_request(endpoint, params)
-        return response.get('contacts', [])
-    
+        all_contacts: List[Dict] = []
+        last_seen_id = 0
+        batch_size = min(limit, 100)
+
+        while len(all_contacts) < limit:
+            params = {
+                'limit': batch_size,
+                'orders[id]': 'ASC',
+                'id_greater': last_seen_id,
+            }
+
+            response = self._make_request(endpoint, params)
+            batch = response.get('contacts', [])
+
+            if not batch:
+                break
+
+            all_contacts.extend(batch)
+            last_seen_id = batch[-1].get('id', last_seen_id)
+
+            if len(batch) < batch_size:
+                break
+
+        return all_contacts[:limit]
+
     def fetch_deals(self, limit: int = 1000, offset: int = 0) -> List[Dict]:
         """
         Fetch deals from ActiveCampaign.
 
         Values are converted from cents to dollars automatically.
+        Note: Deals endpoint uses offset pagination with orders[id]=ASC
+        for stability (id_greater not supported on /api/3/deals).
 
         Args:
             limit: Number of deals to fetch
@@ -93,7 +257,8 @@ class ActiveCampaignConnector:
             List of deal dictionaries (value in dollars)
         """
         endpoint = '/api/3/deals'
-        params = {'limit': limit, 'offset': offset}
+        # Deals endpoint: offset pagination with stable ordering
+        params = {'limit': limit, 'offset': offset, 'orders[id]': 'ASC'}
 
         response = self._make_request(endpoint, params)
         return [self._normalize_deal(d) for d in response.get('deals', [])]
@@ -115,15 +280,18 @@ class ActiveCampaignConnector:
             List of deal dictionaries belonging to that pipeline (value in dollars)
         """
         endpoint = '/api/3/deals'
+        # Deals endpoint: offset pagination with stable ordering
         params = {
             'limit': limit,
             'offset': offset,
+            'orders[id]': 'ASC',
             'filters[group]': pipeline_id,
         }
 
         response = self._make_request(endpoint, params)
-        return [self._normalize_deal(d) for d in response.get('deals', [])]
-    
+        deals = [self._normalize_deal(d) for d in response.get('deals', [])]
+        return self._validate_pipeline_filter(deals, pipeline_id, 'fetch_deals_by_pipeline')
+
     def get_pipeline_stages(self, pipeline_id: Optional[int] = None) -> List[Dict]:
         """
         Get pipeline stages, optionally filtered to a single pipeline.
@@ -138,13 +306,22 @@ class ActiveCampaignConnector:
         params = {}
         if pipeline_id is not None:
             params['filters[d_groupid]'] = pipeline_id
+
         response = self._make_request(endpoint, params)
         stages = response.get('dealStages', [])
-        # Client-side filter as backup (some AC versions ignore the param)
+
         if pipeline_id is not None and stages:
-            stages = [s for s in stages if str(s.get("group")) == str(pipeline_id)]
+            filtered = [s for s in stages if str(s.get("group")) == str(pipeline_id)]
+            if len(filtered) < len(stages):
+                print(
+                    f"[ActiveCampaign] NOTE: get_pipeline_stages API filter returned "
+                    f"{len(stages)} stages total, client filter kept {len(filtered)} "
+                    f"for pipeline {pipeline_id}. API filter silently ignored."
+                )
+            return filtered
+
         return stages
-    
+
     def get_pipelines(self) -> List[Dict]:
         """
         Get all pipelines
@@ -194,7 +371,12 @@ class ActiveCampaignConnector:
         batch_size = 100  # AC API max per page
 
         while len(contact_ids) < limit:
-            params: Dict = {"limit": batch_size, "offset": offset}
+            # Deals endpoint: offset pagination with stable ordering
+            params: Dict = {
+                "limit": batch_size,
+                "offset": offset,
+                "orders[id]": "ASC",
+            }
             if pipeline_id is not None:
                 params["filters[group]"] = pipeline_id
 
@@ -225,55 +407,74 @@ class ActiveCampaignConnector:
         """
         Fetch contacts created within a date range.
 
+        Uses id_greater cursor pagination for reliable results.
+
         Args:
             start_date: ISO date string (e.g. '2026-01-01')
             end_date: ISO date string (e.g. '2026-03-31')
             limit: Number of contacts to fetch
-            offset: Pagination offset
+            offset: Ignored (kept for backward compatibility)
 
         Returns:
             List of contact dictionaries created in the range
         """
         endpoint = '/api/3/contacts'
-        params = {
-            'limit': limit,
-            'offset': offset,
-            'filters[created_after]': start_date,
-            'filters[created_before]': end_date,
-        }
+        all_contacts: List[Dict] = []
+        last_seen_id = 0
+        batch_size = min(limit, 100)
 
-        response = self._make_request(endpoint, params)
-        return response.get('contacts', [])
+        while len(all_contacts) < limit:
+            params = {
+                'limit': batch_size,
+                'orders[id]': 'ASC',
+                'id_greater': last_seen_id,
+                'filters[created_after]': start_date,
+                'filters[created_before]': end_date,
+            }
+
+            response = self._make_request(endpoint, params)
+            batch = response.get('contacts', [])
+
+            if not batch:
+                break
+
+            all_contacts.extend(batch)
+            last_seen_id = batch[-1].get('id', last_seen_id)
+
+            if len(batch) < batch_size:
+                break
+
+        return all_contacts[:limit]
 
     def fetch_contact_by_email(self, email: str) -> Optional[Dict]:
         """
         Fetch a specific contact by email
-        
+
         Args:
             email: Contact email address
-            
+
         Returns:
             Contact dictionary or None if not found
         """
         endpoint = '/api/3/contacts'
         params = {'email': email}
-        
+
         response = self._make_request(endpoint, params)
         contacts = response.get('contacts', [])
-        
+
         return contacts[0] if contacts else None
-    
+
     def get_deal_custom_fields(self) -> List[Dict]:
         """
         Get all custom deal fields
-        
+
         Returns:
             List of custom field definitions
         """
         endpoint = '/api/3/dealCustomFieldMeta'
         response = self._make_request(endpoint)
         return response.get('dealCustomFieldMeta', [])
-    
+
     def fetch_deals_with_stages(
         self, limit: int = 1000, pipeline_id: Optional[int] = None
     ) -> tuple:
@@ -328,7 +529,8 @@ class ActiveCampaignConnector:
                 "owner_email": user.get("email", ""),
                 "owner_name": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
             }
-        except Exception:
+        except Exception as e:
+            print(f"[ActiveCampaign] _get_owner_info: Could not fetch user {owner_id}: {e}")
             info = {"owner_id": owner_id, "owner_email": "", "owner_name": ""}
 
         self._owner_cache[owner_id] = info
@@ -356,9 +558,11 @@ class ActiveCampaignConnector:
             batch_size = 100
 
             while True:
+                # Deals endpoint: offset pagination with stable ordering
                 params: Dict = {
                     "limit": batch_size,
                     "offset": offset,
+                    "orders[id]": "ASC",
                     "filters[created_after]": start_date,
                     "filters[created_before]": end_date,
                 }
@@ -372,6 +576,11 @@ class ActiveCampaignConnector:
 
                 for deal in batch:
                     normalized = self._normalize_deal(deal)
+
+                    # Validate pipeline filter if applicable
+                    if pipeline_id is not None and str(normalized.get("group", "")) != str(pipeline_id):
+                        continue
+
                     owner_id = str(normalized.get("owner", ""))
                     owner_info = self._get_owner_info(owner_id)
                     deals.append({
@@ -398,7 +607,7 @@ class ActiveCampaignConnector:
 
             return deals
         except Exception as e:
-            print(f"Error fetching deals for range: {e}")
+            print(f"[ActiveCampaign] fetch_deals_for_range: {e}")
             return []
 
     def fetch_deal_stage_history(self, deal_id: str) -> List[Dict]:
@@ -452,7 +661,8 @@ class ActiveCampaignConnector:
                         "days_in_stage": days,
                     })
                 return history
-        except Exception:
+        except Exception as e:
+            print(f"[ActiveCampaign] fetch_deal_stage_history: activities fetch failed for deal {deal_id}: {e}")
             pass  # fall through to fallback
 
         # Fallback: use current deal data
@@ -477,7 +687,7 @@ class ActiveCampaignConnector:
                 "days_in_stage": days,
             }]
         except Exception as e:
-            print(f"Error fetching deal stage history for {deal_id}: {e}")
+            print(f"[ActiveCampaign] fetch_deal_stage_history: fallback failed for deal {deal_id}: {e}")
             return []
 
     def fetch_contacts_with_utm(
@@ -530,9 +740,11 @@ class ActiveCampaignConnector:
                 pipeline_contact_ids = set()
                 deal_offset = 0
                 while True:
+                    # Deals endpoint: offset pagination with stable ordering
                     resp = self._make_request("/api/3/deals", {
                         "limit": 100,
                         "offset": deal_offset,
+                        "orders[id]": "ASC",
                         "filters[group]": pipeline_id,
                     })
                     deals = resp.get("deals", [])
@@ -550,12 +762,14 @@ class ActiveCampaignConnector:
             contact_utm_map: Dict[str, Dict[str, Optional[str]]] = {}
 
             for field_id, utm_key in self._utm_field_cache.items():
+                # fieldValues endpoint: offset pagination with stable ordering
                 offset = 0
                 while True:
                     resp = self._make_request("/api/3/fieldValues", {
                         "filters[field]": field_id,
                         "limit": 100,
                         "offset": offset,
+                        "orders[id]": "ASC",
                     })
                     values = resp.get("fieldValues", [])
                     if not values:
@@ -591,7 +805,7 @@ class ActiveCampaignConnector:
 
             return results[:limit]
         except Exception as e:
-            print(f"Error fetching contacts with UTM: {e}")
+            print(f"[ActiveCampaign] fetch_contacts_with_utm: {e}")
             return []
 
     def fetch_deals_by_owner(
@@ -694,7 +908,7 @@ class ActiveCampaignConnector:
 
             return results
         except Exception as e:
-            print(f"Error fetching deals by owner: {e}")
+            print(f"[ActiveCampaign] fetch_deals_by_owner: {e}")
             return []
 
     def fetch_pipeline_health(
@@ -805,15 +1019,21 @@ class ActiveCampaignConnector:
                 "by_stage": list(stage_stats.values()),
             }
         except Exception as e:
-            print(f"Error fetching pipeline health: {e}")
+            print(f"[ActiveCampaign] fetch_pipeline_health: {e}")
             return empty_result
 
-    def fetch_cohort_data(self, months: int = 12) -> List[Dict]:
+    def fetch_cohort_data(
+        self, months: int = 12, pipeline_id: Optional[int] = None,
+    ) -> List[Dict]:
         """Build cohort data from deals — no per-month contact fetching.
 
         Groups deals by the month they were created, then computes
         conversion metrics per cohort. Uses a single bulk deal fetch
         instead of per-month + per-contact API calls.
+
+        Args:
+            months: Number of months to look back.
+            pipeline_id: If provided, restrict to this pipeline only.
 
         Returns:
             List of per-month cohort dicts.
@@ -825,13 +1045,13 @@ class ActiveCampaignConnector:
             end = now.strftime("%Y-%m-%d")
             start = (now - timedelta(days=months * 31)).strftime("%Y-%m-%d")
 
-            all_deals = self.fetch_deals_for_range(start, end)
+            all_deals = self.fetch_deals_for_range(start, end, pipeline_id=pipeline_id)
 
             # Build cohort map: month -> {created, won, value, days_list}
             cohorts: Dict[str, Dict] = {}
 
             for deal in all_deals:
-                created_str = deal.get("created_date", "")
+                created_str = deal.get("cdate") or deal.get("created_date") or ""
                 if not created_str:
                     continue
                 try:
@@ -852,12 +1072,17 @@ class ActiveCampaignConnector:
 
                 cohorts[cohort_month]["contacts_created"] += 1
 
-                if deal.get("status") == 1:  # won
+                # status may be int or string "1"
+                if str(deal.get("status", "")) == "1":  # won
                     cohorts[cohort_month]["converted_to_hiro"] += 1
-                    cohorts[cohort_month]["total_value_won"] += deal.get("value", 0.0)
+                    try:
+                        val = float(deal.get("value", 0) or 0)
+                    except (ValueError, TypeError):
+                        val = 0.0
+                    cohorts[cohort_month]["total_value_won"] += val
 
                     # Days to convert: created to updated (close approximation)
-                    updated_str = deal.get("updated_date", "")
+                    updated_str = deal.get("mdate") or deal.get("updated_date") or ""
                     if updated_str:
                         try:
                             updated = datetime.fromisoformat(
@@ -889,18 +1114,25 @@ class ActiveCampaignConnector:
 
             return results[-months:]
         except Exception as e:
-            print(f"Error fetching cohort data: {e}")
+            print(f"[ActiveCampaign] fetch_cohort_data: {e}")
             return []
 
     def fetch_stage_velocity(
         self,
         pipeline_id: Optional[int] = None,
         days: int = 90,
+        use_real_history: bool = True,
     ) -> List[Dict]:
         """Calculate average time deals spend in each stage.
 
-        Uses deal created_date and updated_date only — no per-deal API
-        calls. Estimates days in current stage from updated_date to now.
+        When use_real_history=True, calls fetch_deal_stage_history() per deal
+        for accurate stage timing via the dealActivities endpoint.
+        When False, uses the mdate-based estimate (faster but less accurate).
+
+        Args:
+            pipeline_id: Pipeline to analyze (optional)
+            days: Lookback period in days
+            use_real_history: Use activity-based history (True) or mdate estimate (False)
 
         Returns:
             List of per-stage velocity dicts.
@@ -920,11 +1152,37 @@ class ActiveCampaignConnector:
             now = datetime.now()
 
             for deal in deals:
+                deal_id = str(deal.get("id", ""))
+
+                if use_real_history and deal_id:
+                    # Use real activity-based history
+                    try:
+                        history = self.fetch_deal_stage_history(deal_id)
+                        for entry in history:
+                            sid = str(entry.get("stage_id", ""))
+                            if not sid:
+                                continue
+                            if sid not in stages:
+                                stage_info = stage_map.get(sid, {})
+                                stages[sid] = {
+                                    "stage_id": sid,
+                                    "stage_name": stage_info.get("title", f"Stage {sid}"),
+                                    "stage_order": int(stage_info.get("order", 0)),
+                                    "days_list": [],
+                                    "deal_count": 0,
+                                }
+                            stages[sid]["days_list"].append(entry.get("days_in_stage", 0))
+                            stages[sid]["deal_count"] += 1
+                        continue  # Skip the mdate fallback below
+                    except Exception as e:
+                        print(f"[ActiveCampaign] fetch_stage_velocity: history failed for deal {deal_id}, using mdate: {e}")
+                        # Fall through to mdate estimate
+
+                # mdate-based estimate (fallback or when use_real_history=False)
                 stage_id = str(deal.get("stage_id", ""))
                 if not stage_id:
                     continue
 
-                # Estimate days in stage from updated_date to now
                 updated_str = deal.get("updated_date", "")
                 days_in_stage = 0
                 if updated_str:
@@ -973,7 +1231,7 @@ class ActiveCampaignConnector:
 
             return sorted(results, key=lambda x: x["stage_order"])
         except Exception as e:
-            print(f"Error fetching stage velocity: {e}")
+            print(f"[ActiveCampaign] fetch_stage_velocity: {e}")
             return []
 
     def fetch_period_comparison(
@@ -1077,49 +1335,393 @@ class ActiveCampaignConnector:
                 "deltas": deltas,
             }
         except Exception as e:
-            print(f"Error fetching period comparison: {e}")
+            print(f"[ActiveCampaign] fetch_period_comparison: {e}")
             return empty
 
-    def test_connection(self) -> bool:
+    # ------------------------------------------------------------------
+    # New Methods — Value Additions
+    # ------------------------------------------------------------------
+
+    def fetch_deals_with_sideloading(
+        self,
+        pipeline_id: Optional[int] = None,
+        include: str = "contact,stage",
+        limit: int = 100,
+    ) -> List[Dict]:
         """
-        Test if API connection is working
+        Fetch deals with related resources sideloaded in one API call.
+
+        Uses AC's ?include= parameter to retrieve related data alongside
+        deals, reducing API calls significantly.
+
+        Args:
+            pipeline_id: Filter to this pipeline (optional)
+            include: Comma-separated relationships to sideload.
+            limit: Page size (max 100 per AC API)
 
         Returns:
-            True if connection successful, False otherwise
+            List of normalised deal dicts with sideloaded data.
+        """
+        all_deals: List[Dict] = []
+        offset = 0
+
+        while True:
+            # Deals endpoint: offset pagination with stable ordering
+            params: Dict = {
+                "limit": limit,
+                "orders[id]": "ASC",
+                "offset": offset,
+                "include": include,
+            }
+            if pipeline_id is not None:
+                params["filters[group]"] = pipeline_id
+
+            response = self._make_request("/api/3/deals", params)
+            batch = response.get("deals", [])
+
+            if not batch:
+                break
+
+            # Build lookup maps for sideloaded resources
+            contacts_map = {
+                str(c.get("id", "")): c
+                for c in response.get("contacts", [])
+            }
+            stages_map = {
+                str(s.get("id", "")): s
+                for s in response.get("dealStages", [])
+            }
+
+            for deal in batch:
+                normalized = self._normalize_deal(deal)
+
+                # Merge sideloaded contact
+                contact_id = str(normalized.get("contact", ""))
+                if contact_id in contacts_map:
+                    normalized["_contact"] = contacts_map[contact_id]
+
+                # Merge sideloaded stage
+                stage_id = str(normalized.get("stage", ""))
+                if stage_id in stages_map:
+                    normalized["_stage_title"] = stages_map[stage_id].get("title", "")
+                    normalized["_stage_order"] = int(
+                        stages_map[stage_id].get("order", 0)
+                    )
+
+                all_deals.append(normalized)
+
+            if len(batch) < limit:
+                break
+            offset += limit
+
+        return all_deals
+
+    def fetch_contact_scores(
+        self,
+        contact_ids: List[str],
+    ) -> Dict[str, Optional[float]]:
+        """
+        Fetch AC lead score values for a list of contact IDs.
+
+        Args:
+            contact_ids: List of AC contact ID strings to score
+
+        Returns:
+            Dict mapping contact_id -> highest score value (float),
+            or None if no score exists for that contact.
+        """
+        scores: Dict[str, Optional[float]] = {}
+
+        for contact_id in contact_ids:
+            try:
+                resp = self._make_request(
+                    f"/api/3/contacts/{contact_id}/scoreValues"
+                )
+                score_values = resp.get("scoreValues", [])
+                if score_values:
+                    scores[contact_id] = max(
+                        float(sv.get("score", 0)) for sv in score_values
+                    )
+                else:
+                    scores[contact_id] = None
+            except Exception as e:
+                print(
+                    f"[ActiveCampaign] fetch_contact_scores: "
+                    f"Could not fetch score for contact {contact_id}: {e}"
+                )
+                scores[contact_id] = None
+
+        return scores
+
+    def fetch_contact_activities(
+        self,
+        contact_id: str,
+        limit: int = 50,
+    ) -> List[Dict]:
+        """
+        Fetch behavioral activity log for a contact.
+
+        Returns email opens, link clicks, site visits, form submissions,
+        and other engagement events.
+
+        Args:
+            contact_id: AC contact ID string
+            limit: Max activities to return (newest first)
+
+        Returns:
+            List of activity dicts.
         """
         try:
-            self.fetch_contacts(limit=1)
-            return True
+            resp = self._make_request(
+                f"/api/3/contacts/{contact_id}/activities",
+                {"limit": limit},
+            )
+            activities = resp.get("activities", [])
+            return [
+                {
+                    "contact_id": contact_id,
+                    "type": a.get("type", ""),
+                    "timestamp": a.get("tstamp", ""),
+                    "campaign_id": str(a.get("campaignid", "")),
+                    "campaign_name": (
+                        a.get("campaign", {}).get("name", "")
+                        if isinstance(a.get("campaign"), dict) else ""
+                    ),
+                    "link_url": (
+                        a.get("link", {}).get("link", "")
+                        if isinstance(a.get("link"), dict) else ""
+                    ),
+                }
+                for a in activities
+            ]
         except Exception as e:
-            print(f"Connection test failed: {e}")
-            return False
+            print(
+                f"[ActiveCampaign] fetch_contact_activities: "
+                f"Could not fetch activities for contact {contact_id}: {e}"
+            )
+            return []
+
+    def fetch_pipeline_summary(
+        self,
+        pipeline_id: int = 1,
+        stall_threshold_days: int = 14,
+    ) -> Dict:
+        """
+        Fetch enriched summary of a pipeline's current health.
+
+        The single most important method for the MIC dashboard. Returns
+        all key metrics needed by the executive summary view, revenue
+        calculator, and Slack alerting system in one structured dict.
+
+        Args:
+            pipeline_id: Pipeline to summarise (default: 1)
+            stall_threshold_days: Days without update = stalled
+
+        Returns:
+            Dict with pipeline metrics including stages, HIRO stats, stall info.
+        """
+        try:
+            deals, stages = self.fetch_deals_with_stages(
+                limit=1000, pipeline_id=pipeline_id
+            )
+
+            open_deals = [d for d in deals if int(d.get("status", 0)) == 0]
+            won_deals  = [d for d in deals if int(d.get("status", 0)) == 1]
+            lost_deals = [d for d in deals if int(d.get("status", 0)) == 2]
+
+            usd_value = sum(
+                float(d.get("value", 0)) for d in open_deals
+                if d.get("currency", "usd") == "usd"
+            )
+            cad_value = sum(
+                float(d.get("value", 0)) for d in open_deals
+                if d.get("currency", "") == "cad"
+            )
+
+            # Stage breakdown ordered by stage position
+            stage_order = sorted(stages, key=lambda s: int(s.get("order", 0)))
+            stage_summary: List[Dict] = []
+            for s in stage_order:
+                sid = str(s.get("id", ""))
+                stage_deals = [
+                    d for d in open_deals
+                    if str(d.get("stage", "")) == sid
+                ]
+                stage_summary.append({
+                    "stage_id": sid,
+                    "stage_name": s.get("title", ""),
+                    "stage_order": int(s.get("order", 0)),
+                    "deal_count": len(stage_deals),
+                    "total_value": round(
+                        sum(float(d.get("value", 0)) for d in stage_deals), 2
+                    ),
+                })
+
+            # HIRO = last stage by order
+            hiro_stage = stage_order[-1] if stage_order else {}
+            hiro_stage_id = str(hiro_stage.get("id", ""))
+            hiro_deals = [
+                d for d in open_deals
+                if str(d.get("stage", "")) == hiro_stage_id
+            ]
+            hiro_rate = (
+                round(len(hiro_deals) / len(open_deals), 4)
+                if open_deals else 0.0
+            )
+
+            # Stall detection
+            now = datetime.now()
+            stalled = []
+            for d in open_deals:
+                updated = d.get("mdate", "")
+                if updated:
+                    try:
+                        updated_dt = datetime.fromisoformat(
+                            updated.replace("Z", "+00:00")
+                        ).replace(tzinfo=None)
+                        if (now - updated_dt).days > stall_threshold_days:
+                            stalled.append(d)
+                    except Exception:
+                        pass
+
+            # Resolve pipeline name
+            pipeline_name = "Pipeline " + str(pipeline_id)
+            try:
+                pipelines = self.fetch_all_pipelines()
+                for p in pipelines:
+                    if p.get("id") == pipeline_id or str(p.get("id")) == str(pipeline_id):
+                        pipeline_name = p.get("title", pipeline_name)
+                        break
+            except Exception:
+                pass
+
+            return {
+                "pipeline_id": pipeline_id,
+                "pipeline_name": pipeline_name,
+                "total_deals": len(deals),
+                "open_deals": len(open_deals),
+                "won_deals": len(won_deals),
+                "lost_deals": len(lost_deals),
+                "total_value_usd": round(usd_value, 2),
+                "total_value_cad": round(cad_value, 2),
+                "stages": stage_summary,
+                "hiro_stage_id": hiro_stage_id,
+                "hiro_stage_name": hiro_stage.get("title", "HIRO"),
+                "hiro_deal_count": len(hiro_deals),
+                "hiro_rate": hiro_rate,
+                "hiro_rate_pct": round(hiro_rate * 100, 1),
+                "hiro_target_met": hiro_rate >= 0.25,
+                "stalled_count": len(stalled),
+                "stalled_value": round(
+                    sum(float(d.get("value", 0)) for d in stalled), 2
+                ),
+                "as_of": datetime.now().isoformat(),
+            }
+
+        except Exception as e:
+            print(f"[ActiveCampaign] fetch_pipeline_summary: {e}")
+            return {}
+
+    def test_connection(self) -> Dict:
+        """
+        Test API connectivity and permissions comprehensively.
+
+        Tests contacts access, deals access, and Pipeline 1 accessibility.
+        Returns a structured diagnostic dict instead of a bare bool.
+
+        Returns:
+            Dict with keys: connected, api_version, contacts_ok, deals_ok,
+            pipeline_ok, pipeline_deal_count, errors
+        """
+        result = ConnectionResult({
+            "connected": False,
+            "api_version": "v3",
+            "contacts_ok": False,
+            "deals_ok": False,
+            "pipeline_ok": False,
+            "pipeline_deal_count": 0,
+            "errors": [],
+        })
+
+        # Test 1: Contacts (confirms Api-Token is valid)
+        try:
+            resp = self._make_request("/api/3/contacts", {"limit": 1})
+            result["contacts_ok"] = "contacts" in resp
+        except RuntimeError as e:
+            result["errors"].append(str(e))
+            return result  # 402/403 — no point continuing
+        except Exception as e:
+            result["errors"].append(f"Contacts: {e}")
+
+        # Test 2: Deals permission (separate from contacts in AC user groups)
+        try:
+            resp = self._make_request("/api/3/deals", {"limit": 1})
+            result["deals_ok"] = "deals" in resp
+        except RuntimeError as e:
+            result["errors"].append(
+                "Deals (403): API user may lack Deals permission. "
+                "Check Settings > Users > Groups in AC."
+            )
+        except Exception as e:
+            result["errors"].append(f"Deals: {e}")
+
+        # Test 3: Primary pipeline (Pipeline 1)
+        try:
+            resp = self._make_request(
+                "/api/3/deals",
+                {"limit": 1, "filters[group]": 1},
+            )
+            deals = resp.get("deals", [])
+            total = int(resp.get("meta", {}).get("total", 0))
+            result["pipeline_ok"] = True
+            result["pipeline_deal_count"] = total
+
+            # Validate filter worked
+            if deals and str(deals[0].get("group", "")) != "1":
+                result["errors"].append(
+                    "WARNING: Pipeline 1 filter may have silently failed."
+                )
+        except Exception as e:
+            result["errors"].append(f"Pipeline 1: {e}")
+
+        result["connected"] = result["contacts_ok"] and result["deals_ok"]
+        return result
 
 
 if __name__ == "__main__":
     # Example usage
     import yaml
-    
+
     # Load credentials
-    with open('config/credentials.yaml', 'r') as f:        config = yaml.safe_load(f)
-    
+    with open('config/credentials.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
     # Initialize connector
     ac = ActiveCampaignConnector(
         api_url=config['activecampaign']['api_url'],
         api_key=config['activecampaign']['api_key']
     )
-    
+
     # Test connection
-    if ac.test_connection():
+    diag = ac.test_connection()
+    if diag["connected"]:
         print("✅ ActiveCampaign connection successful!")
-        
+        print(f"   Contacts: {'✅' if diag['contacts_ok'] else '❌'}")
+        print(f"   Deals: {'✅' if diag['deals_ok'] else '❌'}")
+        print(f"   Pipeline 1: {'✅' if diag['pipeline_ok'] else '❌'} ({diag['pipeline_deal_count']} deals)")
+        if diag["errors"]:
+            print(f"   Warnings: {diag['errors']}")
+
         # Fetch sample data
         contacts = ac.fetch_contacts(limit=5)
         print(f"\n📊 Fetched {len(contacts)} contacts")
-        
+
         deals = ac.fetch_deals(limit=5)
         print(f"📊 Fetched {len(deals)} deals")
-        
+
         pipelines = ac.get_pipelines()
         print(f"📊 Found {len(pipelines)} pipelines")
     else:
         print("❌ ActiveCampaign connection failed")
+        for err in diag["errors"]:
+            print(f"   {err}")

@@ -5,7 +5,11 @@
 <!-- TAB BAR                                                                -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="tab-bar" id="tabBar">
-    <button class="tab-btn active" data-tab="ac" onclick="MICDashboard.switchTab('ac')">
+    <button class="tab-btn" data-tab="exec" onclick="ExecDashboard.show()">
+        <i data-lucide="layout-dashboard" class="icon-sm"></i>
+        Overview
+    </button>
+    <button class="tab-btn" data-tab="ac" onclick="MICDashboard.switchTab('ac')">
         <i data-lucide="database" class="icon-sm"></i>
         ActiveCampaign Metrics
     </button>
@@ -17,12 +21,76 @@
         <i data-lucide="trending-up" class="icon-sm"></i>
         Demand Gen ROI
     </button>
+    <div class="tab-bar__spacer"></div>
+    <span class="tab-bar__updated" id="tabBarUpdated"></span>
+    <button class="tab-bar__refresh" onclick="location.reload()">&#8635; Refresh</button>
+</div>
+<script>
+document.getElementById('tabBarUpdated').textContent =
+    'Last updated: ' + new Date().toLocaleTimeString();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- EXECUTIVE DASHBOARD                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="exec-dashboard" class="exec-dashboard">
+    <!-- Quarter Status Bar -->
+    <div class="exec-status-bar" id="execStatusBar">
+        <div class="exec-status-bar__left">
+            <span class="exec-status-bar__quarter" id="execQuarter">Q1 2026</span>
+            <span class="exec-status-bar__days" id="execDays">— days remaining</span>
+        </div>
+        <div class="exec-status-bar__center">
+            <div class="exec-progress-container">
+                <div class="exec-progress-track">
+                    <div class="exec-progress-fill" id="execProgressFill" style="width:0%"></div>
+                </div>
+                <span class="exec-progress-label" id="execProgressLabel">Loading...</span>
+            </div>
+        </div>
+        <div class="exec-status-bar__right">
+            <span class="exec-status-badge" id="execStatusBadge">Loading</span>
+        </div>
+    </div>
+    <div class="exec-status-forecast" id="execForecast"></div>
+
+    <!-- Row 1: Three cards -->
+    <div class="exec-grid-row-1">
+        <div class="exec-card" id="execCardRevenue" data-modal="revenue">
+            <div class="exec-card-skeleton"></div>
+        </div>
+        <div class="exec-card" id="execCardEfficiency" data-modal="efficiency">
+            <div class="exec-card-skeleton"></div>
+        </div>
+        <div class="exec-card" id="execCardPipeline" data-modal="pipeline">
+            <div class="exec-card-skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Row 2: One full-width card -->
+    <div class="exec-grid-row-2">
+        <div class="exec-card" id="execCardFunnel" data-modal="funnel">
+            <div class="exec-card-skeleton"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Executive Modal -->
+<div class="exec-modal-overlay" id="execModal">
+    <div class="exec-modal">
+        <div class="exec-modal-header">
+            <h2 class="exec-modal-title" id="execModalTitle"></h2>
+            <button class="exec-modal-close" id="execModalClose">&times;</button>
+        </div>
+        <div class="exec-modal-body" id="execModalBody"></div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- TAB 1: ActiveCampaign Metrics                                         -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<div class="tab-content" id="tab-ac">
+<div class="tab-content hidden" id="tab-ac">
+<button class="back-to-overview" onclick="ExecDashboard.show()">&larr; Overview</button>
 
 <!-- SECTION 1: Hero Metrics -->
 <section class="section" id="sectionMetrics">
@@ -188,6 +256,7 @@
 <!-- TAB 2: Google Ads Metrics                                             -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="tab-content hidden" id="tab-gads">
+<button class="back-to-overview" onclick="ExecDashboard.show()">&larr; Overview</button>
 
 <!-- SECTION 3: Campaign Performance -->
 <section class="section" id="sectionCampaigns">
@@ -324,6 +393,21 @@
 <!-- TAB 3: Demand Gen ROI                                                  -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="tab-content hidden" id="tab-roi">
+<button class="back-to-overview" onclick="ExecDashboard.show()">&larr; Overview</button>
+
+<!-- ROI Controls Bar -->
+<div class="roi-controls-bar" id="roiControlsBar">
+    <div class="roi-controls-left">
+        <select id="roi-year-selector" class="roi-year-select">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+        </select>
+    </div>
+    <div class="roi-controls-right">
+        <span id="roi-cancel-btn" class="roi-cancel-link" style="display:none;">Cancel</span>
+        <button id="roi-edit-btn" class="roi-edit-toggle">&#9998; Edit Data</button>
+    </div>
+</div>
 
 <!-- ROI Hero Metrics -->
 <section class="section" id="sectionRoiHero">
@@ -395,6 +479,11 @@
                 <div class="hero-card__sub">
                     <span id="roiRevenueSub">LTV-weighted total</span>
                 </div>
+                <div class="hero-card__sub roi-ltv-edit-row" id="roiLtvEditRow" style="display:none;">
+                    <span class="roi-ltv-edit-label">LTV/conversion:</span>
+                    <span class="roi-ltv-display" id="roiLtvDisplay"></span>
+                    <input type="number" class="roi-ltv-input" id="roiLtvInput" style="display:none;" />
+                </div>
             </div>
         </div>
     </div>
@@ -465,6 +554,13 @@
                 <tr class="skeleton-row"><td colspan="14"><div class="skeleton-text"></div></td></tr>
             </tbody>
         </table>
+    </div>
+    <div id="roiAddPlatformArea" class="roi-add-platform-area" style="display:none;">
+        <button id="roiAddPlatformBtn" class="roi-add-platform-btn">+ Add Platform</button>
+        <div id="roiAddPlatformForm" class="roi-add-platform-form" style="display:none;">
+            <input type="text" id="roiNewPlatformName" placeholder="Platform name" class="roi-platform-input" />
+            <button id="roiAddPlatformSubmit" class="roi-add-platform-submit">Add</button>
+        </div>
     </div>
 </section>
 

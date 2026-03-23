@@ -534,11 +534,14 @@ function renderVelocity(container, data) {
     const fastest = stages.reduce((a, b) => (a.avg_days_in_stage || 999) < (b.avg_days_in_stage || 999) ? a : b);
     const slowest = stages.reduce((a, b) => (a.avg_days_in_stage || 0) > (b.avg_days_in_stage || 0) ? a : b);
     const totalAvg = data.total_avg_days || (stages.reduce((s, st) => s + (st.avg_days_in_stage || 0), 0) / stages.length);
+    const creationToClose = data.creation_to_close_avg_days || stages.reduce((s, st) => s + (st.avg_days_in_stage || 0), 0);
+    const pipelineName = data.pipeline_name || '';
 
     let html = `
     <div class="velocity-grid">
         <div class="velocity-chart-col">
             <h4 class="ph-subtitle">Stage Velocity</h4>
+            ${pipelineName ? `<p class="ph-subtitle-detail">${_escapeHtml(pipelineName)}</p>` : ''}
             <div style="height:${Math.max(stages.length * 48 + 60, 200)}px;position:relative;">
                 <canvas id="velocity-bar-chart"></canvas>
             </div>
@@ -556,6 +559,10 @@ function renderVelocity(container, data) {
                 <span class="ph-summary-label">Total Avg</span>
                 <span class="ph-summary-value" id="velocity-total-avg">${totalAvg.toFixed(1)} days</span>
             </div>
+            <div class="ph-summary-item">
+                <span class="ph-summary-label">Avg Time: Creation → Close</span>
+                <span class="ph-summary-value">${creationToClose.toFixed(1)} days</span>
+            </div>
         </div>
     </div>`;
 
@@ -568,18 +575,27 @@ function renderVelocity(container, data) {
         opts.indexAxis = 'y';
         opts.plugins.legend = { display: false };
         opts.scales.x.title = { display: true, text: 'Avg Days in Stage', font: { family: 'Nunito Sans', size: 11, weight: '600' }, color: MICCharts.getColors().textMuted };
+        const totalDays = stages.reduce((s, st) => s + (st.avg_days_in_stage || 0), 0);
         opts.plugins.tooltip.callbacks = {
+            title: function(items) {
+                return stages[items[0].dataIndex]?.stage_name || stages[items[0].dataIndex]?.name || '';
+            },
             label: function(c) {
                 const stageData = stages[c.dataIndex];
+                const avg = stageData.avg_days_in_stage || 0;
+                const pctOfTotal = totalDays > 0 ? ((avg / totalDays) * 100).toFixed(1) : '0';
+                const lines = [
+                    ` Avg: ${c.parsed.x} days`,
+                    ` Deals: ${stageData.deal_count || 0}`,
+                    ` ${pctOfTotal}% of total pipeline time`,
+                ];
                 const median = stageData.median_days_in_stage;
-                let label = ` Avg: ${c.parsed.x} days`;
-                if (median != null) label += ` | Median: ${median} days`;
-                label += ` | ${stageData.deal_count || 0} deals`;
-                return label;
+                if (median != null) lines.splice(1, 0, ` Median: ${median} days`);
+                return lines;
             }
         };
 
-        const labels = stages.map(s => s.name || s.stage || '');
+        const labels = stages.map(s => s.stage_name || s.name || s.stage || '');
         const avgDays = stages.map(s => s.avg_days_in_stage || 0);
         const colors = avgDays.map(d => d < 7 ? BRAND.green : d <= 21 ? BRAND.warning : BRAND.error);
 
@@ -855,9 +871,22 @@ function renderForecastWeighted(container, data) {
     const usdWeighted = data.usd_weighted || 0;
     const cadRaw = data.cad_raw || 0;
     const cadWeighted = data.cad_weighted || 0;
+    const cadToUsd = data.cad_to_usd_rate || 0.73;
+
+    // Currency display helper
+    function fcFmt(val, cur) {
+        if (cur === 'cad') return 'CA$' + Math.round(val).toLocaleString() + ' CAD';
+        return '$' + Math.round(val).toLocaleString() + ' USD';
+    }
 
     let html = `
     <div class="forecast-grid">
+        <div class="forecast-currency-toggle" style="margin-bottom:12px;">
+            <span style="font-size:12px;font-weight:600;color:var(--text-muted);margin-right:8px;">Currency:</span>
+            <button class="fc-cur-btn fc-cur-btn--active" data-fc-cur="all">All (USD equiv)</button>
+            <button class="fc-cur-btn" data-fc-cur="usd">USD</button>
+            ${cadRaw > 0 ? '<button class="fc-cur-btn" data-fc-cur="cad">CAD</button>' : ''}
+        </div>
         <div class="forecast-kpis">
             <div class="ph-summary-item">
                 <span class="ph-summary-label">Raw Pipeline</span>
@@ -944,6 +973,29 @@ function renderForecastWeighted(container, data) {
         }
     }
 
+    // Wire currency toggle
+    container.querySelectorAll('.fc-cur-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            container.querySelectorAll('.fc-cur-btn').forEach(b => b.classList.remove('fc-cur-btn--active'));
+            btn.classList.add('fc-cur-btn--active');
+            const cur = btn.dataset.fcCur;
+            const rawEl = document.getElementById('fc-raw');
+            const wtEl = document.getElementById('fc-weighted');
+            if (cur === 'usd') {
+                if (rawEl) rawEl.textContent = fcFmt(usdRaw, 'usd');
+                if (wtEl) wtEl.textContent = fcFmt(usdWeighted, 'usd');
+            } else if (cur === 'cad') {
+                if (rawEl) rawEl.textContent = fcFmt(cadRaw, 'cad');
+                if (wtEl) wtEl.textContent = fcFmt(cadWeighted, 'cad');
+            } else { // all — convert CAD to USD
+                const allRaw = usdRaw + cadRaw * cadToUsd;
+                const allWt = usdWeighted + cadWeighted * cadToUsd;
+                if (rawEl) rawEl.textContent = '$' + Math.round(allRaw).toLocaleString() + ' USD equiv';
+                if (wtEl) wtEl.textContent = '$' + Math.round(allWt).toLocaleString() + ' USD equiv';
+            }
+        });
+    });
+
     fetchComparison('section=forecast').then(cmp => {
         if (!cmp) return;
         const raw = document.getElementById('fc-raw');
@@ -1010,9 +1062,11 @@ function renderCohorts(container, data) {
         </div>
         <div class="cohort-chart-col">
             <h4 class="ph-subtitle">Conversion Trend</h4>
+            <p class="ph-subtitle-detail">Pipeline 1 · Prospect Demand Pipeline · HIRO conversions · ${_escapeHtml((cohorts[cohorts.length - 1]?.month || '') + ' – ' + (cohorts[0]?.month || ''))}</p>
             <div style="height:260px;position:relative;">
                 <canvas id="cohort-trend-chart"></canvas>
             </div>
+            <p class="ph-annotation">Conversion Rate = contacts that reached HIRO stage ÷ contacts created that month. Days to Convert = avg days from Contact Created to HIRO.</p>
         </div>
         <div class="cohort-badges-row">
             <div class="ph-summary-item">
@@ -1091,7 +1145,6 @@ function renderCohorts(container, data) {
 window.renderPipelineHealth = renderPipelineHealth;
 window.renderVelocity = renderVelocity;
 window.renderAcquisition = renderAcquisition;
-window.renderRepPerformance = renderRepPerformance;
 window.renderForecastWeighted = renderForecastWeighted;
 window.renderCohorts = renderCohorts;
 window.fetchComparison = fetchComparison;

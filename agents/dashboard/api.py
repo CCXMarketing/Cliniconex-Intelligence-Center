@@ -844,10 +844,29 @@ def velocity():
             })
 
         stages = ac.fetch_stage_velocity(pipeline_id, days)
+
+        # Pipeline name
+        pipeline_name = "Pipeline " + str(pipeline_id)
+        try:
+            pipeline_stages_meta = ac.get_pipeline_stages(pipeline_id)
+            if pipeline_stages_meta:
+                pipelines = ac.fetch_all_pipelines()
+                for p in pipelines:
+                    if p.get("id") == pipeline_id or str(p.get("id")) == str(pipeline_id):
+                        pipeline_name = p.get("title", pipeline_name)
+                        break
+        except Exception:
+            pass
+
+        # Creation to close: sum of avg_days across all stages
+        creation_to_close = sum(s.get("avg_days_in_stage", 0) for s in stages)
+
         return jsonify({
             "pipeline_id": pipeline_id,
+            "pipeline_name": pipeline_name,
             "days_analyzed": days,
             "stages": stages,
+            "creation_to_close_avg_days": round(creation_to_close, 1),
             "generated_at": datetime.now().isoformat(),
         })
     except Exception as e:
@@ -907,7 +926,7 @@ def acquisition():
 
         by_source = sorted(
             [
-                {"source": k, "count": v, "pct": round(v / total * 100, 1) if total else 0.0}
+                {"name": k, "count": v, "pct": round(v / total * 100, 1) if total else 0.0}
                 for k, v in source_counts.items()
             ],
             key=lambda x: x["count"],
@@ -915,22 +934,27 @@ def acquisition():
         )
         by_medium = sorted(
             [
-                {"medium": k, "count": v, "pct": round(v / total * 100, 1) if total else 0.0}
+                {"name": k, "count": v, "pct": round(v / total * 100, 1) if total else 0.0}
                 for k, v in medium_counts.items()
             ],
             key=lambda x: x["count"],
             reverse=True,
         )
         by_campaign = sorted(
-            list(campaign_details.values()),
+            [
+                {"name": v["campaign"], "source": v["source"], "medium": v["medium"], "count": v["count"]}
+                for v in campaign_details.values()
+            ],
             key=lambda x: x["count"],
             reverse=True,
         )
 
         return jsonify({
+            "total_contacts": total,
             "total_contacts_with_utm": total,
             "by_source": by_source,
             "by_medium": by_medium,
+            "campaigns": by_campaign,
             "by_campaign": by_campaign,
             "top_campaigns": by_campaign[:10],
             "generated_at": datetime.now().isoformat(),
@@ -1101,15 +1125,48 @@ def forecast_weighted():
                 "weighted": round(currency_weighted.get(cur, 0.0), 2),
             }
 
+        # Alias monthly data for renderer (expects raw/weighted keys)
+        by_month = []
+        for m in by_close_date:
+            by_month.append({
+                "month": m["month"],
+                "label": m["month"],
+                "deals": m["deals"],
+                "raw": m["raw_value"],
+                "value": m["raw_value"],
+                "weighted": m["weighted_value"],
+                "raw_value": m["raw_value"],
+                "weighted_value": m["weighted_value"],
+            })
+
+        gap_to_weighted = weighted_total - remaining_target
+
+        # Currency convenience fields for renderer
+        usd_raw = currency_raw.get("usd", 0.0)
+        usd_weighted = currency_weighted.get("usd", 0.0)
+        cad_raw = currency_raw.get("cad", 0.0)
+        cad_weighted = currency_weighted.get("cad", 0.0)
+
+        # Exchange rate for CAD→USD conversion
+        cad_to_usd = thresholds.get("currency", {}).get("cad_to_usd_rate", 0.73)
+
         return jsonify({
             "pipeline_id": pipeline_id,
             "period": {"start": start_date, "end": end_date},
+            "raw_pipeline": round(raw_total, 2),
             "raw_pipeline_value": round(raw_total, 2),
             "weighted_forecast": round(weighted_total, 2),
             "by_close_date": by_close_date,
+            "by_month": by_month,
             "coverage_ratio": coverage_ratio,
             "remaining_target": round(remaining_target, 2),
+            "gap_to_weighted": round(gap_to_weighted, 2),
             "currency_breakdown": currency_breakdown,
+            "usd_raw": round(usd_raw, 2),
+            "usd_weighted": round(usd_weighted, 2),
+            "cad_raw": round(cad_raw, 2),
+            "cad_weighted": round(cad_weighted, 2),
+            "cad_to_usd_rate": cad_to_usd,
             "generated_at": datetime.now().isoformat(),
         })
     except Exception as e:
@@ -1139,7 +1196,29 @@ def cohorts():
                 "generated_at": datetime.now().isoformat(),
             })
 
-        cohort_data = ac.fetch_cohort_data(months)
+        raw_cohort_data = ac.fetch_cohort_data(months)
+
+        # Normalise cohort fields: add 'month' alias from 'cohort_month',
+        # pretty-print month labels, guard value against NaN
+        cohort_data = []
+        for c in raw_cohort_data:
+            cm = c.get("cohort_month", "")
+            # Pretty label: "2026-01" → "Jan 2026"
+            try:
+                from calendar import month_abbr
+                parts = cm.split("-")
+                pretty = month_abbr[int(parts[1])] + " " + parts[0] if len(parts) == 2 else cm
+            except Exception:
+                pretty = cm
+            cohort_data.append({
+                **c,
+                "month": pretty,
+                "cohort": pretty,
+                "contacts": c.get("contacts_created", 0),
+                "converted": c.get("converted_to_hiro", 0),
+                "won_value": float(c.get("total_value_won", 0) or 0),
+                "conversion_rate": round((c.get("conversion_rate", 0) or 0) * 100, 1),
+            })
 
         # Build summary
         conversion_rates = [c.get("conversion_rate", 0) for c in cohort_data if c.get("conversion_rate") is not None]
@@ -1152,8 +1231,8 @@ def cohorts():
         worst_cohort = None
         if cohort_data:
             by_conv = sorted(cohort_data, key=lambda c: c.get("conversion_rate", 0), reverse=True)
-            best_cohort = {"month": by_conv[0].get("cohort_month", ""), "conversion_rate": by_conv[0].get("conversion_rate", 0)}
-            worst_cohort = {"month": by_conv[-1].get("cohort_month", ""), "conversion_rate": by_conv[-1].get("conversion_rate", 0)}
+            best_cohort = {"month": by_conv[0].get("month", ""), "conversion_rate": by_conv[0].get("conversion_rate", 0)}
+            worst_cohort = {"month": by_conv[-1].get("month", ""), "conversion_rate": by_conv[-1].get("conversion_rate", 0)}
 
         # Trend: compare avg conversion rate of last 3 months vs previous 3 months
         trend = "stable"
@@ -1172,6 +1251,10 @@ def cohorts():
         return jsonify({
             "months_analyzed": months,
             "cohorts": cohort_data,
+            "trend": trend,
+            "best_cohort": best_cohort,
+            "worst_cohort": worst_cohort,
+            "avg_days_to_convert": avg_days,
             "summary": {
                 "avg_conversion_rate": avg_conv,
                 "avg_days_to_convert": avg_days,
@@ -1289,3 +1372,96 @@ def deals():
     except Exception as e:
         logger.exception("Deals API error")
         return jsonify({"error": str(e), "status": 500}), 500
+
+
+# ── ROI Data (local JSON store) ──────────────────────────────────────────
+
+ROI_DATA_PATH = CONFIG_DIR / "roi_data.json"
+
+
+def _deep_merge(base: dict, updates: dict) -> dict:
+    """Recursively merge *updates* into *base* dict."""
+    result = base.copy()
+    for key, value in updates.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+@api_bp.route("/api/roi-data")
+def roi_data_get():
+    if not ROI_DATA_PATH.exists():
+        return jsonify({"error": "roi_data.json not found"}), 404
+    with open(ROI_DATA_PATH) as f:
+        return jsonify(json.load(f))
+
+
+@api_bp.route("/api/roi-data", methods=["POST"])
+def roi_data_update():
+    existing = {}
+    if ROI_DATA_PATH.exists():
+        with open(ROI_DATA_PATH) as f:
+            existing = json.load(f)
+
+    updates = request.get_json()
+    if not updates:
+        return jsonify({"error": "No JSON body"}), 400
+
+    merged = _deep_merge(existing, updates)
+    with open(ROI_DATA_PATH, "w") as f:
+        json.dump(merged, f, indent=2)
+
+    return jsonify({"status": "saved"})
+
+
+@api_bp.route("/api/roi-data/add-platform", methods=["POST"])
+def roi_data_add_platform():
+    body = request.get_json()
+    platform = (body or {}).get("platform", "").strip()
+    if not platform:
+        return jsonify({"error": "platform name required"}), 400
+
+    existing = {}
+    if ROI_DATA_PATH.exists():
+        with open(ROI_DATA_PATH) as f:
+            existing = json.load(f)
+
+    platforms = existing.get("platforms", [])
+    if platform in platforms:
+        return jsonify({"error": "platform already exists"}), 409
+    platforms.append(platform)
+    existing["platforms"] = platforms
+
+    # Add to every month in every year
+    for year_data in existing.get("years", {}).values():
+        for month_data in year_data.get("months", {}).values():
+            ad_spend = month_data.get("ad_spend", {})
+            if platform not in ad_spend:
+                ad_spend[platform] = 0
+            month_data["ad_spend"] = ad_spend
+
+    with open(ROI_DATA_PATH, "w") as f:
+        json.dump(existing, f, indent=2)
+
+    return jsonify({"status": "added", "platform": platform})
+
+
+@api_bp.route("/api/roi-data/ltv", methods=["POST"])
+def roi_data_ltv():
+    body = request.get_json()
+    ltv = (body or {}).get("ltv_per_conversion")
+    if ltv is None:
+        return jsonify({"error": "ltv_per_conversion required"}), 400
+
+    existing = {}
+    if ROI_DATA_PATH.exists():
+        with open(ROI_DATA_PATH) as f:
+            existing = json.load(f)
+
+    existing["ltv_per_conversion"] = float(ltv)
+    with open(ROI_DATA_PATH, "w") as f:
+        json.dump(existing, f, indent=2)
+
+    return jsonify({"status": "saved", "ltv_per_conversion": float(ltv)})
