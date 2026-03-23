@@ -743,7 +743,7 @@ body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-righ
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
             <button class="advisor-btn-icon" onclick="advisorRefreshInsight()" title="Refresh insight">&#8635;</button>
-            <button class="advisor-btn-icon advisor-close-btn" onclick="advisorCollapse()" title="Close">&times;</button>
+            <button onclick="advisorCollapse()" title="Close" style="width:34px;height:34px;border-radius:8px;border:2px solid rgba(255,255,255,0.5);background:rgba(255,255,255,0.2);color:#fff;font-size:22px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">X</button>
         </div>
     </div>
     <div class="advisor-insight-banner loading" id="advisor-insight-banner">
