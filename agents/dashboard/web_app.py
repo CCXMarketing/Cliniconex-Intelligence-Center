@@ -65,6 +65,9 @@ def _load_credentials() -> dict:
         "anthropic": {
             "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
         },
+        "gemini": {
+            "api_key": os.environ.get("GEMINI_API_KEY", ""),
+        },
     }
 
 
@@ -1808,6 +1811,250 @@ def create_app() -> Flask:
         except Exception as e:
             logger.exception("ROI config save error")
             return jsonify({"saved": False, "error": str(e)}), 400
+
+    # ── API: Gemini CIC Advisor ─────────────────────────────────────────
+
+    @app.route("/api/advisor/chat", methods=["POST"])
+    def api_advisor_chat():
+        """Gemini AI Advisor chat endpoint."""
+        import requests as http_requests
+
+        creds = _load_credentials()
+        gemini_key = creds.get("gemini", {}).get("api_key", "")
+
+        if not gemini_key:
+            return jsonify({
+                "error": "Gemini API key not configured.",
+                "response": (
+                    "The AI Advisor is not configured yet. "
+                    "Add your GEMINI_API_KEY to the environment variables."
+                ),
+            }), 200
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No request body"}), 400
+
+        user_message = data.get("message", "").strip()
+        context = data.get("context", {})
+        source = context.get("source", "chat")
+
+        if not user_message:
+            return jsonify({"error": "No message provided"}), 400
+
+        system_prompt = """You are the CIC Advisor — the AI intelligence assistant
+for Cliniconex's internal Intelligence Center dashboard.
+
+Your role:
+- Answer questions about the marketing pipeline, deal velocity,
+  revenue forecasting, Google Ads performance, and campaign strategy
+- Provide specific, actionable recommendations — never generic advice
+- Be direct and concise — this is a business tool, not a chatbot
+- When you don't have enough data to answer confidently, say so clearly
+- Always ground your answers in the context data provided
+
+Business context you must always apply:
+- Company: Cliniconex (healthcare communication software)
+- Annual revenue target: $9M ($2.25M per quarter)
+- Primary pipeline: Prospect Demand Pipeline (Pipeline 1 in ActiveCampaign)
+- Pipeline stages: Contact Created > Contact Engaged > MQL/PQM > HIRO
+- HIRO target: 25% of open deals should be in HIRO stage
+- CPA thresholds: Excellent ≤$75 | Warning ≤$200 | Critical >$300
+- Average LTV: ~$29,000
+- Currencies: USD and CAD deals in pipeline
+
+Tone: Friendly, direct, informative. Use plain language.
+Format: Use short paragraphs. Use bullet points only when listing
+3 or more items. Never use corporate jargon.
+Length: Keep responses under 250 words unless a detailed analysis
+is explicitly requested."""
+
+        # Build context block from dashboard data
+        context_block = ""
+        ps = context.get("pipeline_summary", {})
+        if ps:
+            context_block += (
+                f"\nCurrent pipeline snapshot:\n"
+                f"- Open deals: {ps.get('deals', ps.get('open_deals', 'N/A'))}\n"
+                f"- Pipeline value: ${ps.get('pipeline_value', 0):,.0f}\n"
+                f"- Quarter: {ps.get('quarter', 'N/A')}\n"
+                f"- Progress: {ps.get('pct_complete', 0):.1f}%\n"
+                f"- Status: {ps.get('status', 'N/A')}\n"
+                f"- Days remaining: {ps.get('days_remaining', 'N/A')}\n"
+            )
+
+        alerts = context.get("alerts", [])
+        if alerts:
+            context_block += f"\nActive alerts ({len(alerts)} total):\n"
+            for a in alerts[:5]:
+                context_block += (
+                    f"- [{a.get('level', '').upper()}] "
+                    f"{a.get('campaign', '')}: {a.get('message', '')}\n"
+                )
+
+        vel = context.get("velocity", {})
+        vel_stages = vel.get("stages", [])
+        if vel_stages:
+            context_block += "\nDeal velocity by stage:\n"
+            for s in vel_stages:
+                context_block += (
+                    f"- {s.get('stage_name', '')}: "
+                    f"avg {s.get('avg_days_in_stage', 0):.1f} days "
+                    f"({s.get('deal_count', 0)} deals)\n"
+                )
+
+        # Source-specific prompt shaping
+        if source == "alert_explain":
+            prompt_prefix = (
+                "The user wants you to explain why this alert is happening "
+                "and what they should do about it. Be specific. "
+            )
+        elif source == "campaign_rec":
+            prompt_prefix = (
+                "The user wants specific Google Ads budget recommendations. "
+                "Focus on which campaigns to scale, pause, or shift budget "
+                "based on CPA performance relative to our thresholds. "
+            )
+        else:
+            prompt_prefix = ""
+
+        full_user_message = f"{prompt_prefix}{user_message}"
+        if context_block:
+            full_user_message += f"\n\nCurrent dashboard data:\n{context_block}"
+
+        gemini_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.0-flash:generateContent?key={gemini_key}"
+        )
+
+        payload = {
+            "system_instruction": {
+                "parts": [{"text": system_prompt}]
+            },
+            "contents": [
+                {"role": "user", "parts": [{"text": full_user_message}]}
+            ],
+            "generationConfig": {
+                "temperature": 0.4,
+                "maxOutputTokens": 600,
+                "topP": 0.9,
+            },
+        }
+
+        try:
+            resp = http_requests.post(gemini_url, json=payload, timeout=30)
+            resp.raise_for_status()
+            result = resp.json()
+
+            candidates = result.get("candidates", [])
+            if not candidates:
+                return jsonify({
+                    "response": "I couldn't generate a response. Please try again.",
+                    "error": "No candidates in Gemini response",
+                })
+
+            text = (
+                candidates[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+            )
+
+            return jsonify({
+                "response": text,
+                "model": "gemini-2.0-flash",
+                "source": source,
+            })
+
+        except http_requests.exceptions.Timeout:
+            return jsonify({
+                "response": (
+                    "The AI Advisor is taking longer than expected. "
+                    "Please try again in a moment."
+                ),
+                "error": "timeout",
+            })
+        except Exception as e:
+            logger.exception("Gemini API error")
+            return jsonify({
+                "response": f"Something went wrong with the AI Advisor. Error: {e}",
+                "error": str(e),
+            })
+
+    @app.route("/api/advisor/proactive", methods=["GET"])
+    def api_advisor_proactive():
+        """Generate a proactive insight based on current pipeline state."""
+        import requests as http_requests
+
+        creds = _load_credentials()
+        gemini_key = creds.get("gemini", {}).get("api_key", "")
+
+        if not gemini_key:
+            return jsonify({"insight": None, "configured": False})
+
+        thresholds = _load_thresholds()
+        pcfg = _pipeline_config(thresholds)
+        pipeline_id = request.args.get("pipeline_id", type=int) or pcfg["pipeline_id"]
+
+        try:
+            ac = _build_activecampaign(creds)
+            if not ac or not ac.test_connection():
+                return jsonify({"insight": None, "configured": True, "error": "AC not connected"})
+            summary = ac.fetch_pipeline_summary(pipeline_id=pipeline_id)
+        except Exception as e:
+            return jsonify({"insight": None, "error": str(e)})
+
+        hiro_rate = summary.get("hiro_rate_pct", 0)
+        stalled = summary.get("stalled_count", 0)
+        open_deals = summary.get("open_deals", 0)
+        pipeline_value = summary.get("total_value_usd", 0)
+
+        prompt = (
+            "You are the CIC Advisor for Cliniconex.\n"
+            "Based on this pipeline snapshot, give ONE short proactive insight "
+            "(2-3 sentences max) — the single most important thing the marketing "
+            "team should know or act on right now.\n\n"
+            "Be specific. Use the numbers. Don't ask questions. Don't offer a list.\n"
+            "Just state the most important observation and what to do about it.\n\n"
+            f"Pipeline snapshot:\n"
+            f"- Open deals: {open_deals}\n"
+            f"- Pipeline value: ${pipeline_value:,.2f}\n"
+            f"- HIRO rate: {hiro_rate}% (target: 25%)\n"
+            f"- Stalled deals: {stalled}\n"
+            f"- Won deals: {summary.get('won_deals', 0)}\n\n"
+            f"HIRO target met: {'Yes' if hiro_rate >= 25 else 'No'}\n"
+        )
+
+        gemini_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.0-flash:generateContent?key={gemini_key}"
+        )
+
+        try:
+            resp = http_requests.post(
+                gemini_url,
+                json={
+                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.3, "maxOutputTokens": 150},
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            text = (
+                result.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+            )
+            return jsonify({
+                "insight": text,
+                "configured": True,
+                "hiro_rate": hiro_rate,
+                "stalled_count": stalled,
+            })
+        except Exception as e:
+            return jsonify({"insight": None, "configured": True, "error": str(e)})
 
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 

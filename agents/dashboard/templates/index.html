@@ -577,4 +577,323 @@ document.getElementById('tabBarUpdated').textContent =
 
 </div><!-- /tab-roi -->
 
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CIC ADVISOR PANEL                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<style>
+#cic-advisor-panel {
+    position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+    background: #fff; border-left: 1px solid var(--neutral-300, #E1E6EF);
+    display: flex; flex-direction: column; z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+    font-family: 'Nunito Sans', sans-serif;
+}
+#cic-advisor-panel.collapsed { transform: translateX(100%); }
+.advisor-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; background: var(--teal-100, #02475A); color: #fff; flex-shrink: 0;
+}
+.advisor-header-left { display: flex; align-items: center; gap: 10px; }
+.advisor-avatar {
+    width: 32px; height: 32px; background: var(--green-100, #ADC837);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+}
+.advisor-name { font-size: 15px; font-weight: 700; color: #fff; }
+.advisor-subtitle { font-size: 11px; color: rgba(255,255,255,0.7); }
+.advisor-btn-icon {
+    width: 28px; height: 28px; border: none; background: rgba(255,255,255,0.15);
+    border-radius: 6px; color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    transition: background 0.15s;
+}
+.advisor-btn-icon:hover { background: rgba(255,255,255,0.25); }
+.advisor-insight-banner {
+    padding: 12px 16px; background: rgba(2,71,90,0.05);
+    border-bottom: 1px solid var(--neutral-300, #E1E6EF);
+    font-size: 13px; color: var(--dgrey-100, #404041); line-height: 1.5;
+    flex-shrink: 0; min-height: 60px;
+}
+.advisor-insight-banner.loading { display: flex; align-items: center; gap: 8px; color: #888; }
+.advisor-insight-label {
+    font-size: 10px; font-weight: 700; color: var(--teal-100, #02475A);
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px;
+}
+.advisor-quick-prompts {
+    padding: 12px 16px; border-bottom: 1px solid var(--neutral-300, #E1E6EF); flex-shrink: 0;
+}
+.advisor-quick-label {
+    font-size: 11px; font-weight: 700; color: #888;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+}
+.quick-prompt-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.quick-chip {
+    height: 26px; padding: 0 10px; border-radius: 13px;
+    border: 1px solid var(--neutral-300, #E1E6EF); background: #fff;
+    color: var(--teal-100, #02475A); font-size: 11px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    font-family: 'Nunito Sans', sans-serif;
+}
+.quick-chip:hover {
+    background: var(--teal-100, #02475A); color: #fff;
+    border-color: var(--teal-100, #02475A);
+}
+.advisor-messages {
+    flex: 1; overflow-y: auto; padding: 16px; display: flex;
+    flex-direction: column; gap: 12px; background: var(--lgrey-100, #F4F4F4);
+}
+.advisor-msg { display: flex; flex-direction: column; max-width: 90%; }
+.advisor-msg.user { align-self: flex-end; align-items: flex-end; }
+.advisor-msg.ai { align-self: flex-start; align-items: flex-start; }
+.advisor-msg-bubble {
+    padding: 10px 14px; border-radius: 12px; font-size: 13px;
+    line-height: 1.55; color: var(--dgrey-100, #404041);
+}
+.advisor-msg.user .advisor-msg-bubble {
+    background: var(--teal-100, #02475A); color: #fff; border-radius: 12px 12px 2px 12px;
+}
+.advisor-msg.ai .advisor-msg-bubble {
+    background: #fff; border: 1px solid var(--neutral-300, #E1E6EF);
+    border-radius: 12px 12px 12px 2px;
+}
+.advisor-msg-time { font-size: 10px; color: #aaa; margin-top: 3px; padding: 0 4px; }
+.advisor-typing {
+    display: flex; align-items: center; gap: 4px; padding: 10px 14px;
+    background: #fff; border: 1px solid var(--neutral-300, #E1E6EF);
+    border-radius: 12px 12px 12px 2px; width: fit-content;
+}
+.typing-dot {
+    width: 6px; height: 6px; background: var(--cyan-100, #029FB5);
+    border-radius: 50%; animation: typing-bounce 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+}
+.advisor-input-area {
+    padding: 12px 16px; border-top: 1px solid var(--neutral-300, #E1E6EF);
+    background: #fff; flex-shrink: 0;
+}
+.advisor-input-row { display: flex; gap: 8px; align-items: flex-end; }
+#advisor-input {
+    flex: 1; min-height: 40px; max-height: 120px; padding: 10px 12px;
+    border: 1px solid #D2D5DA; border-radius: 20px;
+    font-family: 'Nunito Sans', sans-serif; font-size: 13px;
+    color: var(--dgrey-100, #404041); resize: none; outline: none;
+    line-height: 1.4; overflow-y: auto;
+}
+#advisor-input:focus { border-color: var(--teal-100, #02475A); box-shadow: 0 0 0 1px var(--teal-100, #02475A); }
+#advisor-send-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: var(--green-100, #ADC837); color: var(--dgrey-120, #303030);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0; transition: background 0.15s;
+}
+#advisor-send-btn:hover { background: #C6DC65; }
+#advisor-send-btn:disabled { background: #ddd; cursor: not-allowed; }
+#cic-advisor-fab {
+    position: fixed; bottom: 28px; right: 28px; width: 52px; height: 52px;
+    border-radius: 50%; background: var(--teal-100, #02475A); border: none;
+    cursor: pointer; display: none; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(2,71,90,0.35); z-index: 999;
+    transition: all 0.2s; color: #fff; font-size: 20px;
+}
+#cic-advisor-fab:hover { background: #035570; transform: scale(1.05); }
+#cic-advisor-fab.visible { display: flex; }
+#cic-advisor-fab .fab-dot {
+    position: absolute; top: 10px; right: 10px; width: 8px; height: 8px;
+    background: var(--green-100, #ADC837); border-radius: 50%;
+    border: 2px solid #fff; display: none;
+}
+#cic-advisor-fab .fab-dot.visible { display: block; }
+body.advisor-open .main-content { margin-right: 380px; transition: margin-right 0.3s cubic-bezier(0.4,0,0.2,1); }
+body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-right 0.3s cubic-bezier(0.4,0,0.2,1); }
+@media (max-width: 1100px) {
+    body.advisor-open .main-content { margin-right: 0; }
+    #cic-advisor-panel { box-shadow: -8px 0 32px rgba(0,0,0,0.15); }
+}
+[data-theme="dark"] #cic-advisor-panel { background: var(--bg-card, #1E2130); }
+[data-theme="dark"] .advisor-messages { background: var(--bg-primary, #0F1117); }
+[data-theme="dark"] .advisor-msg.ai .advisor-msg-bubble { background: var(--bg-card, #1E2130); border-color: var(--border-color); color: var(--text-primary); }
+[data-theme="dark"] .advisor-input-area { background: var(--bg-card, #1E2130); }
+[data-theme="dark"] #advisor-input { background: var(--bg-secondary, #1A1D27); color: var(--text-primary); border-color: var(--border-color); }
+[data-theme="dark"] .advisor-insight-banner { background: rgba(2,71,90,0.15); color: var(--text-secondary); }
+[data-theme="dark"] .quick-chip { background: var(--bg-card, #1E2130); color: var(--text-secondary); border-color: var(--border-color); }
+</style>
+
+<div id="cic-advisor-panel">
+    <div class="advisor-header">
+        <div class="advisor-header-left">
+            <div class="advisor-avatar">&#10022;</div>
+            <div>
+                <div class="advisor-name">CIC Advisor</div>
+                <div class="advisor-subtitle">Cliniconex Intelligence</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <button class="advisor-btn-icon" onclick="advisorRefreshInsight()" title="Refresh insight">&#8635;</button>
+            <button class="advisor-btn-icon" onclick="advisorCollapse()" title="Collapse panel">&#10005;</button>
+        </div>
+    </div>
+    <div class="advisor-insight-banner loading" id="advisor-insight-banner">
+        <span>&#9203;</span><span>Analysing your pipeline...</span>
+    </div>
+    <div class="advisor-quick-prompts">
+        <div class="advisor-quick-label">Quick questions</div>
+        <div class="quick-prompt-chips">
+            <button class="quick-chip" onclick="advisorSendQuick('Why is my HIRO rate low?','alert_explain')">Why is HIRO low?</button>
+            <button class="quick-chip" onclick="advisorSendQuick('Which Google Ads campaigns should I scale or pause this week?','campaign_rec')">Budget recommendations</button>
+            <button class="quick-chip" onclick="advisorSendQuick('Which deals are most at risk of stalling?','chat')">At-risk deals</button>
+            <button class="quick-chip" onclick="advisorSendQuick('Are we on track to hit our quarterly target?','chat')">Quarterly pace</button>
+            <button class="quick-chip" onclick="advisorSendQuick('What is the biggest issue in my pipeline right now?','chat')">Biggest issue</button>
+        </div>
+    </div>
+    <div class="advisor-messages" id="advisor-messages">
+        <div class="advisor-msg ai">
+            <div class="advisor-msg-bubble">
+                Hi! I'm your CIC Advisor. I have access to your live
+                pipeline data and can help you understand what's
+                happening and what to do about it. What would you
+                like to know?
+            </div>
+            <div class="advisor-msg-time" id="advisor-welcome-time"></div>
+        </div>
+    </div>
+    <div class="advisor-input-area">
+        <div class="advisor-input-row">
+            <textarea id="advisor-input" placeholder="Ask about your pipeline, campaigns, or metrics..." rows="1" onkeydown="advisorHandleKey(event)" oninput="advisorAutoResize(this)"></textarea>
+            <button id="advisor-send-btn" onclick="advisorSend()">&#10148;</button>
+        </div>
+    </div>
+</div>
+<button id="cic-advisor-fab" onclick="advisorExpand()" title="Open CIC Advisor">&#10022;<div class="fab-dot" id="fab-dot"></div></button>
+
+<script>
+const CICAdvisor = { isOpen: true, isLoading: false, conversationHistory: [],
+    async gatherContext() {
+        try {
+            const pid = (typeof PipelineState !== 'undefined' && PipelineState.selectedId) || 1;
+            const [m, a, v] = await Promise.allSettled([
+                fetch('/api/metrics?pipeline_id=' + pid).then(r => r.json()),
+                fetch('/api/alerts').then(r => r.json()),
+                fetch('/api/velocity?pipeline_id=' + pid).then(r => r.json()),
+            ]);
+            return {
+                pipeline_summary: m.status === 'fulfilled' ? m.value : {},
+                alerts: a.status === 'fulfilled' ? (a.value.alerts || []) : [],
+                velocity: v.status === 'fulfilled' ? v.value : {},
+            };
+        } catch { return {}; }
+    }
+};
+function advisorCollapse() {
+    document.getElementById('cic-advisor-panel').classList.add('collapsed');
+    document.getElementById('cic-advisor-fab').classList.add('visible');
+    document.body.classList.remove('advisor-open');
+    CICAdvisor.isOpen = false;
+}
+function advisorExpand() {
+    document.getElementById('cic-advisor-panel').classList.remove('collapsed');
+    document.getElementById('cic-advisor-fab').classList.remove('visible');
+    document.body.classList.add('advisor-open');
+    CICAdvisor.isOpen = true;
+    document.getElementById('fab-dot').classList.remove('visible');
+}
+function advisorAddMessage(text, role) {
+    const c = document.getElementById('advisor-messages');
+    const msg = document.createElement('div');
+    msg.className = 'advisor-msg ' + role;
+    const t = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n- /g, '<br>&bull; ')
+        .replace(/\n/g, '<br>');
+    msg.innerHTML = '<div class="advisor-msg-bubble"><p>' + formatted + '</p></div><div class="advisor-msg-time">' + t + '</div>';
+    c.appendChild(msg);
+    c.scrollTop = c.scrollHeight;
+    CICAdvisor.conversationHistory.push({ role: role, text: text });
+}
+function advisorShowTyping() {
+    const c = document.getElementById('advisor-messages');
+    const d = document.createElement('div');
+    d.id = 'advisor-typing-indicator';
+    d.className = 'advisor-msg ai';
+    d.innerHTML = '<div class="advisor-typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+    c.appendChild(d);
+    c.scrollTop = c.scrollHeight;
+}
+function advisorRemoveTyping() { const t = document.getElementById('advisor-typing-indicator'); if (t) t.remove(); }
+async function advisorSend(source) {
+    const input = document.getElementById('advisor-input');
+    const message = input.value.trim();
+    if (!message || CICAdvisor.isLoading) return;
+    input.value = '';
+    input.style.height = '40px';
+    advisorAddMessage(message, 'user');
+    CICAdvisor.isLoading = true;
+    document.getElementById('advisor-send-btn').disabled = true;
+    advisorShowTyping();
+    try {
+        const context = await CICAdvisor.gatherContext();
+        context.source = source || 'chat';
+        const resp = await fetch('/api/advisor/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: message, context: context })
+        });
+        const data = await resp.json();
+        advisorRemoveTyping();
+        advisorAddMessage(data.response || 'Sorry, I could not generate a response.', 'ai');
+    } catch (e) {
+        advisorRemoveTyping();
+        advisorAddMessage('Something went wrong. Please check your connection and try again.', 'ai');
+    } finally {
+        CICAdvisor.isLoading = false;
+        document.getElementById('advisor-send-btn').disabled = false;
+    }
+}
+function advisorSendQuick(message, source) {
+    document.getElementById('advisor-input').value = message;
+    advisorSend(source);
+}
+function advisorHandleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); advisorSend(); } }
+function advisorAutoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+async function advisorLoadInsight() {
+    const banner = document.getElementById('advisor-insight-banner');
+    banner.className = 'advisor-insight-banner loading';
+    banner.innerHTML = '<span>&#9203;</span><span>Analysing your pipeline...</span>';
+    try {
+        const pid = (typeof PipelineState !== 'undefined' && PipelineState.selectedId) || 1;
+        const resp = await fetch('/api/advisor/proactive?pipeline_id=' + pid);
+        const data = await resp.json();
+        if (data.insight) {
+            banner.className = 'advisor-insight-banner';
+            banner.innerHTML = '<div class="advisor-insight-label">Right now</div><div>' + data.insight + '</div>';
+            if (!CICAdvisor.isOpen) document.getElementById('fab-dot').classList.add('visible');
+        } else if (!data.configured) {
+            banner.className = 'advisor-insight-banner';
+            banner.innerHTML = '<div class="advisor-insight-label">Setup required</div><div>Add your GEMINI_API_KEY to enable AI insights.</div>';
+        } else {
+            banner.className = 'advisor-insight-banner';
+            banner.innerHTML = '<div class="advisor-insight-label">Ready</div><div>Pipeline data loaded. Ask me anything below.</div>';
+        }
+    } catch {
+        banner.className = 'advisor-insight-banner';
+        banner.innerHTML = '<div class="advisor-insight-label">Ready</div><div>Unable to load insight. Ask me anything below.</div>';
+    }
+}
+function advisorRefreshInsight() { advisorLoadInsight(); }
+document.addEventListener('DOMContentLoaded', function() {
+    var wt = document.getElementById('advisor-welcome-time');
+    if (wt) wt.textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    document.body.classList.add('advisor-open');
+    setTimeout(advisorLoadInsight, 2000);
+});
+</script>
+
 {% endblock %}
