@@ -613,11 +613,14 @@ document.getElementById('tabBarUpdated').textContent =
 }
 .advisor-btn-icon:hover { background: rgba(255,255,255,0.25); }
 .advisor-close-btn {
-    font-size: 22px; font-weight: 700; width: 34px; height: 34px;
-    background: rgba(255,255,255,0.25); color: #fff;
-    border: 1px solid rgba(255,255,255,0.4); border-radius: 8px;
+    width: 34px !important; height: 34px !important;
+    font-size: 22px !important; font-weight: 700 !important;
+    background: rgba(255,255,255,0.3) !important; color: #fff !important;
+    border: 2px solid #fff !important; border-radius: 8px !important;
+    display: flex !important; align-items: center; justify-content: center;
+    cursor: pointer;
 }
-.advisor-close-btn:hover { background: #EF4444; border-color: #EF4444; color: #fff; }
+.advisor-close-btn:hover { background: #EF4444 !important; border-color: #EF4444 !important; }
 .advisor-insight-banner {
     padding: 12px 16px; background: rgba(2,71,90,0.05);
     border-bottom: 1px solid var(--neutral-300, #E1E6EF);
@@ -745,8 +748,7 @@ body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-righ
         </div>
         <div class="advisor-header-actions">
             <button class="advisor-btn-icon" onclick="advisorRefreshInsight()" title="Refresh">&#8635;</button>
-            <button class="advisor-btn-icon" onclick="advisorCollapse()" title="Close"
-                    style="background:rgba(255,255,255,0.2);border:2px solid #fff;font-size:16px;font-weight:700;">&#10005;</button>
+            <button class="advisor-btn-icon advisor-close-btn" onclick="advisorCollapse()" title="Close">&#10005;</button>
         </div>
     </div>
     <div class="advisor-insight-banner loading" id="advisor-insight-banner">
