@@ -592,11 +592,12 @@ document.getElementById('tabBarUpdated').textContent =
 }
 #cic-advisor-panel.collapsed { transform: translateX(100%); }
 .advisor-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 12px 12px 16px; background: var(--teal-100, #02475A); color: #fff;
-    flex-shrink: 0; gap: 8px; min-height: 56px; box-sizing: border-box;
+    display: flex !important; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: #02475A !important; color: #fff !important;
+    flex-shrink: 0; min-height: 56px; box-sizing: border-box;
 }
-.advisor-header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; overflow: hidden; }
+.advisor-header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.advisor-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .advisor-avatar {
     width: 32px; height: 32px; background: var(--green-100, #ADC837);
     border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -742,9 +743,10 @@ body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-righ
                 <div class="advisor-subtitle">Cliniconex Intelligence</div>
             </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <button class="advisor-btn-icon" onclick="advisorRefreshInsight()" title="Refresh insight">&#8635;</button>
-            <button onclick="advisorCollapse()" title="Close" style="width:36px;height:36px;border-radius:8px;border:2px solid #fff;background:rgba(255,255,255,0.25);color:#fff;font-size:20px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">X</button>
+        <div class="advisor-header-actions">
+            <button class="advisor-btn-icon" onclick="advisorRefreshInsight()" title="Refresh">&#8635;</button>
+            <button class="advisor-btn-icon" onclick="advisorCollapse()" title="Close"
+                    style="background:rgba(255,255,255,0.2);border:2px solid #fff;font-size:16px;font-weight:700;">&#10005;</button>
         </div>
     </div>
     <div class="advisor-insight-banner loading" id="advisor-insight-banner">

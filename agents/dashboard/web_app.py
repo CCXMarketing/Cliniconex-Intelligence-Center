@@ -674,6 +674,20 @@ def create_app() -> Flask:
         deals_count = len(ac["deals"])
         pipeline_value = sum(float(d.get("value", 0)) for d in ac["deals"])
 
+        if ac["deals"]:
+            sample = ac["deals"][0]
+            logger.info(
+                "Sample deal: id=%s value=%s value_cents=%s currency=%s",
+                sample.get("id"),
+                sample.get("value"),
+                sample.get("value_cents"),
+                sample.get("currency"),
+            )
+            logger.info(
+                "Pipeline value total: $%.2f from %d deals",
+                pipeline_value, deals_count,
+            )
+
         # Currency split
         currency_buckets: dict[str, float] = {}
         for d in ac["deals"]:
@@ -2035,6 +2049,7 @@ is explicitly requested."""
             f"- Stalled deals: {stalled}\n"
             f"- Won deals: {summary.get('won_deals', 0)}\n\n"
             f"HIRO target met: {'Yes' if hiro_rate >= 25 else 'No'}\n"
+            f"\nComplete your response in full. Do not trail off."
         )
 
         gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -2045,7 +2060,7 @@ is explicitly requested."""
                 headers={"Content-Type": "application/json", "x-goog-api-key": gemini_key},
                 json={
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.3, "maxOutputTokens": 150},
+                    "generationConfig": {"temperature": 0.3, "maxOutputTokens": 300},
                 },
                 timeout=15,
             )
