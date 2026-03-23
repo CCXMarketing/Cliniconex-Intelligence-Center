@@ -582,12 +582,13 @@ document.getElementById('tabBarUpdated').textContent =
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <style>
 #cic-advisor-panel {
-    position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+    position: fixed; top: 0; right: 0; width: 380px; height: 100vh; height: 100dvh;
     background: #fff; border-left: 1px solid var(--neutral-300, #E1E6EF);
     display: flex; flex-direction: column; z-index: 1000;
     transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
     box-shadow: -4px 0 24px rgba(0,0,0,0.08);
     font-family: 'Nunito Sans', sans-serif;
+    overflow: hidden;
 }
 #cic-advisor-panel.collapsed { transform: translateX(100%); }
 .advisor-header {
@@ -609,6 +610,8 @@ document.getElementById('tabBarUpdated').textContent =
     transition: background 0.15s;
 }
 .advisor-btn-icon:hover { background: rgba(255,255,255,0.25); }
+.advisor-close-btn { font-size: 20px; font-weight: 700; width: 32px; height: 32px; }
+.advisor-close-btn:hover { background: rgba(239,68,68,0.6); }
 .advisor-insight-banner {
     padding: 12px 16px; background: rgba(2,71,90,0.05);
     border-bottom: 1px solid var(--neutral-300, #E1E6EF);
@@ -725,7 +728,7 @@ body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-righ
 [data-theme="dark"] .quick-chip { background: var(--bg-card, #1E2130); color: var(--text-secondary); border-color: var(--border-color); }
 </style>
 
-<div id="cic-advisor-panel">
+<div id="cic-advisor-panel" class="collapsed">
     <div class="advisor-header">
         <div class="advisor-header-left">
             <div class="advisor-avatar">&#10022;</div>
@@ -736,7 +739,7 @@ body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-righ
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
             <button class="advisor-btn-icon" onclick="advisorRefreshInsight()" title="Refresh insight">&#8635;</button>
-            <button class="advisor-btn-icon" onclick="advisorCollapse()" title="Collapse panel">&#10005;</button>
+            <button class="advisor-btn-icon advisor-close-btn" onclick="advisorCollapse()" title="Close">&times;</button>
         </div>
     </div>
     <div class="advisor-insight-banner loading" id="advisor-insight-banner">
@@ -770,10 +773,10 @@ body:not(.advisor-open) .main-content { margin-right: 0; transition: margin-righ
         </div>
     </div>
 </div>
-<button id="cic-advisor-fab" onclick="advisorExpand()" title="Open CIC Advisor">&#10022;<div class="fab-dot" id="fab-dot"></div></button>
+<button id="cic-advisor-fab" class="visible" onclick="advisorExpand()" title="Open CIC Advisor">&#10022;<div class="fab-dot" id="fab-dot"></div></button>
 
 <script>
-const CICAdvisor = { isOpen: true, isLoading: false, conversationHistory: [],
+const CICAdvisor = { isOpen: false, isLoading: false, conversationHistory: [],
     async gatherContext() {
         try {
             const pid = (typeof PipelineState !== 'undefined' && PipelineState.selectedId) || 1;
@@ -892,7 +895,8 @@ function advisorRefreshInsight() { advisorLoadInsight(); }
 document.addEventListener('DOMContentLoaded', function() {
     var wt = document.getElementById('advisor-welcome-time');
     if (wt) wt.textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    document.body.classList.add('advisor-open');
+    // Panel starts collapsed — FAB visible, no margin shift
+    CICAdvisor.isOpen = false;
     setTimeout(advisorLoadInsight, 2000);
 });
 </script>
