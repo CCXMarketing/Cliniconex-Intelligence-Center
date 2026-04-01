@@ -1,0 +1,112 @@
+<div class="dept-header">
+  <div class="dept-header__left">
+    <h2>Customer Success</h2>
+    <p>Retention, health scores, at-risk accounts, churn prevention, and expansion</p>
+  </div>
+  <div class="dept-header__right">
+    <span class="dept-header__meta">Accountable</span>
+    <span class="badge badge--green-solid">Cathy</span>
+    <span class="badge badge--teal">Salesforce</span>
+  </div>
+</div>
+
+<!-- Key Retention Metrics -->
+<div class="section-header">
+  <h3>Retention Overview</h3>
+</div>
+<div class="kpi-grid" id="cs-retention-grid">
+  <!-- Populated by customer-success.js -->
+</div>
+
+<!-- Health Score Distribution -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+  <div class="chart-card">
+    <div class="chart-card__title">Health Score Distribution</div>
+    <div class="chart-card__subtitle">Current month — % of accounts by health status</div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="cs-health-donut"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card__title">Health Score Trend</div>
+    <div class="chart-card__subtitle">Monthly evolution — Green / Yellow / Red %</div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="cs-health-trend"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- At-Risk Accounts -->
+<div class="section-header">
+  <h3>At-Risk Account Value</h3>
+  <p>Accounts in Red health status — weekly priority list</p>
+</div>
+<div class="kpi-card kpi-card--red" style="max-width: 360px; margin-bottom: 16px;">
+  <div class="kpi-cadence">Weekly</div>
+  <div class="kpi-label">Total At-Risk MRR</div>
+  <div class="kpi-value" id="cs-at-risk-value">—</div>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th>Segment</th>
+        <th class="col-right">MRR</th>
+        <th>Risk Reason</th>
+        <th class="col-center">Health</th>
+      </tr>
+    </thead>
+    <tbody id="cs-at-risk-tbody">
+      <!-- Populated by customer-success.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Churn Rate by Segment -->
+<div class="section-header">
+  <h3>Churn Rate by Segment</h3>
+  <p>Monthly churn rate actual vs. target</p>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Segment</th>
+        <th class="col-right">Actual Churn %</th>
+        <th class="col-right">Target</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="cs-churn-tbody">
+      <!-- Populated by customer-success.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Churn Revenue Tracker -->
+<div class="section-header">
+  <h3>Churn Revenue — Actual vs. Budget</h3>
+</div>
+<div class="kpi-grid" id="cs-churn-revenue-grid">
+  <!-- Populated by customer-success.js -->
+</div>
+
+<!-- Time to Value Chart -->
+<div class="section-header">
+  <h3>Time-to-Value (Implementation)</h3>
+  <p>Average days from contract signed to customer live — target: 28 days</p>
+</div>
+<div class="chart-card">
+  <div class="chart-container" style="height: 200px;">
+    <canvas id="cs-ttv-chart"></canvas>
+  </div>
+</div>
+
+<!-- Additional KPIs -->
+<div class="section-header">
+  <h3>Additional Metrics</h3>
+</div>
+<div class="kpi-grid" id="cs-additional-grid">
+  <!-- Populated by customer-success.js -->
+</div>

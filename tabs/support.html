@@ -1,0 +1,80 @@
+<div class="dept-header">
+  <div class="dept-header__left">
+    <h2>Customer Support</h2>
+    <p>Ticket volume, resolution time, escalation rates, and operational efficiency</p>
+  </div>
+  <div class="dept-header__right">
+    <span class="dept-header__meta">Accountable</span>
+    <span class="badge badge--grey">TBD</span>
+    <span class="badge badge--teal">Salesforce</span>
+    <span class="badge badge--blue">JIRA</span>
+  </div>
+</div>
+
+<!-- KPI Overview -->
+<div class="kpi-grid" id="support-kpi-grid">
+  <!-- Populated by support.js -->
+</div>
+
+<!-- Ticket Volume Chart -->
+<div class="section-header">
+  <h3>Ticket Volume Trend</h3>
+  <p>External (Salesforce) vs. Internal (JIRA) — lower is better</p>
+</div>
+<div class="chart-card">
+  <div class="chart-container" style="height: 240px;">
+    <canvas id="support-volume-chart"></canvas>
+  </div>
+</div>
+
+<!-- Resolution Time by Priority -->
+<div class="section-header">
+  <h3>Average Resolution Time by Priority</h3>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th class="col-right">Actual (hours)</th>
+        <th class="col-right">Target</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="support-resolution-tbody">
+      <!-- Populated by support.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- FCR and Escalation -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+  <div class="chart-card">
+    <div class="chart-card__title">First-Contact Resolution Trend</div>
+    <div class="chart-container" style="height: 200px;">
+      <canvas id="support-fcr-chart"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card__title">Escalation Rate Trend</div>
+    <div class="chart-container" style="height: 200px;">
+      <canvas id="support-escalation-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Efficiency Metrics -->
+<div class="section-header">
+  <h3>Operational Efficiency</h3>
+</div>
+<div class="kpi-grid" id="support-efficiency-grid">
+  <!-- Populated by support.js -->
+</div>
+
+<!-- Not Yet Measurable -->
+<div class="section-header">
+  <h3>Pending Implementation</h3>
+</div>
+<div id="support-pending-grid" class="kpi-grid">
+  <!-- CES card rendered by support.js -->
+</div>

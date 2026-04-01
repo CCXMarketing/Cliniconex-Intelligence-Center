@@ -1,0 +1,105 @@
+<div class="dept-header">
+  <div class="dept-header__left">
+    <h2>Channel Partnerships</h2>
+    <p>Partner revenue concentration, MxC ramp, new channel development, and Senior Living growth</p>
+  </div>
+  <div class="dept-header__right">
+    <span class="dept-header__meta">Accountable</span>
+    <span class="badge badge--green-solid">Bex / Ange</span>
+    <span class="badge badge--teal">Salesforce</span>
+    <span class="badge badge--blue">PRM</span>
+  </div>
+</div>
+
+<!-- Concentration Risk Alert -->
+<div class="highlights-list" id="partnerships-alerts">
+  <!-- Populated by partnerships.js -->
+</div>
+
+<!-- Partner Revenue Mix -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+  <div class="chart-card">
+    <div class="chart-card__title">Partner Revenue Mix (Current Month)</div>
+    <div class="chart-card__subtitle">Target: PCC + QHR below 80%</div>
+    <div class="chart-container" style="height: 260px;">
+      <canvas id="partners-donut-chart"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card__title">Partner Concentration Trend</div>
+    <div class="chart-card__subtitle">PCC + QHR combined % of total MRR</div>
+    <div class="chart-container" style="height: 260px;">
+      <canvas id="partners-concentration-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Partner MRR Table -->
+<div class="section-header">
+  <h3>Revenue by Partner</h3>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Partner</th>
+        <th class="col-right">Current MRR</th>
+        <th class="col-right">% of Total</th>
+        <th>Trend (4 mo)</th>
+      </tr>
+    </thead>
+    <tbody id="partners-mrr-tbody">
+      <!-- Populated by partnerships.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- MxC Ramp -->
+<div class="section-header">
+  <h3>MatrixCare Revenue Ramp</h3>
+  <p>Actual MRR growth vs. trajectory to $409K annual target</p>
+</div>
+<div class="chart-card">
+  <div class="chart-container" style="height: 220px;">
+    <canvas id="partners-mxc-chart"></canvas>
+  </div>
+</div>
+
+<!-- Partner Pipeline Coverage -->
+<div class="section-header">
+  <h3>Partner Pipeline Coverage</h3>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Partner</th>
+        <th class="col-right">Pipeline</th>
+        <th class="col-right">Target</th>
+        <th class="col-right">Coverage</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="partners-pipeline-tbody">
+      <!-- Populated by partnerships.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- SL Partner Revenue -->
+<div class="section-header">
+  <h3>Senior Living Partner Revenue</h3>
+  <p>PCC SL and MxC SL — target: $327K annual</p>
+</div>
+<div id="partners-sl-grid" class="kpi-grid">
+  <!-- Populated by partnerships.js -->
+</div>
+
+<!-- New Channel Development -->
+<div class="section-header">
+  <h3>New Channel Development</h3>
+  <p>Non-reseller deals, new partner activation, outreach volume</p>
+</div>
+<div id="partners-new-channel-grid" class="kpi-grid">
+  <!-- Populated by partnerships.js -->
+</div>
