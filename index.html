@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cliniconex Intelligence Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/shell.css">
+</head>
+<body>
+
+  <nav id="main-nav">
+    <div class="nav-brand">Cliniconex Intelligence Center</div>
+    <div class="nav-tabs" id="nav-tabs">
+      <!-- Tabs injected by router -->
+    </div>
+    <div class="scenario-toggle" id="scenario-toggle">
+      <button data-scenario="threshold">Threshold</button>
+      <button data-scenario="target" class="active">Target</button>
+      <button data-scenario="overachieve">Overachieve</button>
+    </div>
+  </nav>
+
+  <main id="tab-viewport">
+    <div class="tab-loading">Loading</div>
+  </main>
+
+  <script type="module" src="js/router.js"></script>
+
+</body>
+</html>

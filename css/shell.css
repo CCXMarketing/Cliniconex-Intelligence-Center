@@ -1,0 +1,148 @@
+/* ── Shell — nav bar, layout chrome, loading state ── */
+
+body {
+  margin: 0;
+  padding-top: 0;
+  font-family: 'Nunito Sans', sans-serif;
+  background: #F4F4F4;
+}
+
+/* ── Nav bar ── */
+
+#main-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: 52px;
+  background: #02475A;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+}
+
+.nav-brand {
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Tab buttons ── */
+
+.nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-tab {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-tab:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+.nav-tab.active {
+  background: #ADC837;
+  color: #404041;
+  font-weight: 700;
+}
+.nav-tab.active:hover {
+  color: #404041;
+}
+
+/* ── Scenario toggle ── */
+
+.scenario-toggle {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.scenario-toggle button {
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+.scenario-toggle button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.scenario-toggle button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-right: none;
+}
+.scenario-toggle button.active {
+  background: #ADC837;
+  color: #404041;
+  font-weight: 700;
+}
+
+/* ── Main content area ── */
+
+#tab-viewport {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  background: #F4F4F4;
+  padding: 24px;
+}
+
+/* ── Loading state ── */
+
+.tab-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #02475A;
+  font-size: 14px;
+  font-weight: 600;
+}
+.tab-loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ADC837;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-left: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
