@@ -1,0 +1,64 @@
+<div class="dept-header">
+  <div class="dept-header__left">
+    <h2>Marketing</h2>
+    <p>Demand generation, campaign performance, and pipeline contribution</p>
+  </div>
+  <div class="dept-header__right">
+    <span class="dept-header__meta">Accountable</span>
+    <span class="badge badge--green-solid">Ger</span>
+    <span class="badge badge--teal">ActiveCampaign</span>
+  </div>
+</div>
+
+<!-- KPI Overview -->
+<div class="section-header">
+  <h3>Key Performance Indicators</h3>
+  <p>Monthly metrics — data source: ActiveCampaign</p>
+</div>
+<div class="kpi-grid" id="mkt-kpi-grid">
+  <!-- Populated by marketing.js -->
+</div>
+
+<!-- Pipeline by Segment -->
+<div class="section-header">
+  <h3>Pipeline by Segment</h3>
+  <p>Actual pipeline value vs. target by vertical segment</p>
+</div>
+<div class="chart-card">
+  <div class="chart-container" style="height: 280px;">
+    <canvas id="mkt-segment-chart"></canvas>
+  </div>
+</div>
+
+<!-- HIRO Conversion Trend -->
+<div class="section-header">
+  <h3>MOFU-to-BOFU Conversion Trend (HIRO)</h3>
+  <p>Monthly HIRO conversion rate — target: 30%</p>
+</div>
+<div class="chart-card">
+  <div class="chart-container" style="height: 220px;">
+    <canvas id="mkt-hiro-chart"></canvas>
+  </div>
+</div>
+
+<!-- Campaign ROI Table -->
+<div class="section-header">
+  <h3>Campaign and Program ROI</h3>
+  <p>Quarterly attribution — requires closed-loop model</p>
+</div>
+<div class="table-wrapper">
+  <table class="data-table" id="mkt-campaign-table">
+    <thead>
+      <tr>
+        <th>Campaign</th>
+        <th class="col-right">Spend</th>
+        <th class="col-right">Attributed Revenue</th>
+        <th class="col-right">ROI</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="mkt-campaign-tbody">
+      <!-- Populated by marketing.js -->
+    </tbody>
+  </table>
+</div>

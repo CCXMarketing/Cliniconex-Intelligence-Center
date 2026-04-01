@@ -1,0 +1,126 @@
+<div class="dept-header">
+  <div class="dept-header__left">
+    <h2>Direct Sales</h2>
+    <p>Revenue attainment, quota performance, pipeline health, and new segment growth</p>
+  </div>
+  <div class="dept-header__right">
+    <span class="dept-header__meta">Accountable</span>
+    <span class="badge badge--green-solid">Zach</span>
+    <span class="badge badge--teal">Salesforce</span>
+    <span class="badge badge--blue">ActiveCampaign</span>
+  </div>
+</div>
+
+<!-- MRR Target Tracker -->
+<div class="section-header">
+  <h3>New MRR Added — Scenario Tracker</h3>
+  <p>Current month actual vs. Threshold / Target / Overachieve scenarios</p>
+</div>
+<div class="target-tracker" id="sales-mrr-tracker">
+  <!-- Populated by sales.js -->
+</div>
+
+<!-- KPI Cards -->
+<div class="section-header">
+  <h3>Key Performance Indicators</h3>
+</div>
+<div class="kpi-grid" id="sales-kpi-grid">
+  <!-- Populated by sales.js -->
+</div>
+
+<!-- Quota Attainment by Rep -->
+<div class="section-header">
+  <h3>Quota Attainment by Rep</h3>
+  <p>Individual performance vs. monthly quota</p>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Rep</th>
+        <th class="col-right">Quota</th>
+        <th class="col-right">Actual</th>
+        <th>Attainment</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="sales-quota-tbody">
+      <!-- Populated by sales.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Revenue Mix Chart -->
+<div class="section-header">
+  <h3>Revenue Mix — New Logo vs. Expansion</h3>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+  <div class="chart-card">
+    <div class="chart-card__title">Current Month Mix</div>
+    <div class="chart-container" style="height: 220px;">
+      <canvas id="sales-mix-chart"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card__title">New MRR Trend</div>
+    <div class="chart-container" style="height: 220px;">
+      <canvas id="sales-mrr-trend-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- New Segment Bookings -->
+<div class="section-header">
+  <h3>New Segment Bookings</h3>
+  <p>Senior Living, US Medical, Hospital — actual vs. monthly target</p>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Segment</th>
+        <th class="col-right">Actual MRR</th>
+        <th class="col-right">Monthly Target</th>
+        <th class="col-right">Annual Target</th>
+        <th>Progress</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="sales-segment-tbody">
+      <!-- Populated by sales.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Sales Cycle by Segment -->
+<div class="section-header">
+  <h3>Sales Cycle Length by Segment</h3>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Segment</th>
+        <th class="col-right">Avg Days to Close</th>
+        <th class="col-right">Target</th>
+      </tr>
+    </thead>
+    <tbody id="sales-cycle-tbody">
+      <!-- Populated by sales.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Adjacent Vertical Deals -->
+<div class="section-header">
+  <h3>Adjacent Vertical Deals</h3>
+  <p>Target: 5 deals in one adjacent vertical by year-end</p>
+</div>
+<div class="kpi-card kpi-card--red" style="max-width: 400px; margin-bottom: 16px;">
+  <div class="kpi-label">Deals Closed YTD</div>
+  <div class="kpi-value" id="sales-adj-value">—</div>
+  <div class="kpi-target">Target: 5 cumulative by year-end</div>
+</div>
+<div class="table-wrapper" id="sales-adj-table-wrap">
+  <!-- Populated by sales.js -->
+</div>
