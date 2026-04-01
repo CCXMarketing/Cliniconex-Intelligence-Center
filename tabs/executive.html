@@ -1,0 +1,41 @@
+<!-- Company Health Strip -->
+<div class="health-strip" id="exec-health-strip">
+  <!-- Populated by executive.js -->
+</div>
+
+<!-- Scenario Toggle -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="color: #404041; font-size: 18px;">Revenue Performance</h2>
+  <div class="scenario-toggle" id="exec-scenario-toggle">
+    <button data-scenario="threshold">Threshold</button>
+    <button data-scenario="target">Target</button>
+    <button data-scenario="overachieve">Overachieve</button>
+  </div>
+</div>
+
+<!-- MRR Chart -->
+<div class="chart-card" style="margin-bottom: 24px;">
+  <div class="chart-card__title">Monthly MRR — Actual vs. Scenario Targets (2026)</div>
+  <div class="chart-card__subtitle">Bars: actual MRR | Lines: Threshold / Target / Overachieve targets</div>
+  <div class="chart-container" style="height: 300px;">
+    <canvas id="exec-mrr-chart"></canvas>
+  </div>
+</div>
+
+<!-- Highlights -->
+<div class="section-header">
+  <h3>Executive Highlights</h3>
+  <p>Auto-generated from current KPI status</p>
+</div>
+<div class="highlights-list" id="exec-highlights">
+  <!-- Populated by executive.js -->
+</div>
+
+<!-- Department Summary -->
+<div class="section-header">
+  <h3>Department Overview</h3>
+  <p>Key metrics from each department — click a department name to navigate</p>
+</div>
+<div class="exec-summary-grid" id="exec-dept-grid">
+  <!-- Populated by executive.js -->
+</div>
