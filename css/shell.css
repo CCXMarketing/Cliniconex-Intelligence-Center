@@ -76,45 +76,6 @@ body {
   font-weight: 700;
 }
 
-.scenario-toggle {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.3);
-  margin: 0 16px 0 auto;
-  flex-shrink: 0;
-}
-
-.scenario-toggle button {
-  padding: 0 16px !important;
-  height: 32px !important;
-  font-family: 'Nunito Sans', sans-serif !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  background-color: rgba(255,255,255,0.12) !important;
-  color: rgba(255,255,255,0.8) !important;
-  border: none !important;
-  border-right: 1px solid rgba(255,255,255,0.2) !important;
-  cursor: pointer !important;
-  transition: background-color 0.15s !important;
-  white-space: nowrap !important;
-}
-
-.scenario-toggle button:last-child {
-  border-right: none !important;
-}
-
-.scenario-toggle button.active {
-  background-color: #ADC837 !important;
-  color: #404041 !important;
-}
-
-.scenario-toggle button:hover:not(.active) {
-  background-color: rgba(255,255,255,0.22) !important;
-  color: white !important;
-}
-
 /* ── Main content area ── */
 
 #scenario-banner {
@@ -219,4 +180,46 @@ body {
   color: #9E9E9E;
   font-family: 'Nunito Sans', sans-serif;
   font-style: italic;
+}
+
+/* ── Scenario Toggle (ID selector for guaranteed specificity) ── */
+
+#scenario-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin: 0 16px !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+}
+
+#scenario-toggle button {
+  padding: 0 16px !important;
+  height: 32px !important;
+  font-family: 'Nunito Sans', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  background: rgba(255,255,255,0.12) !important;
+  color: rgba(255,255,255,0.8) !important;
+  border: none !important;
+  border-right: 1px solid rgba(255,255,255,0.15) !important;
+  cursor: pointer !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+#scenario-toggle button:last-child {
+  border-right: none !important;
+}
+
+#scenario-toggle button.active {
+  background: #ADC837 !important;
+  color: #404041 !important;
+}
+
+#scenario-toggle button:hover:not(.active) {
+  background: rgba(255,255,255,0.22) !important;
+  color: white !important;
 }
