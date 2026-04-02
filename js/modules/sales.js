@@ -16,9 +16,10 @@ export default {
     this._renderCycleTable(data);
     this._renderAdjacentDeals(containerEl, data);
 
-    CIC.onScenarioChange(() => {
+    CIC.onScenarioChange((scenario) => {
       this._renderMRRTracker(containerEl, data);
       this._renderKPICards(containerEl, data);
+      this._refreshScenarioTargets(containerEl, data, scenario);
     });
   },
 
@@ -199,6 +200,21 @@ export default {
     if (key === 'quota_attainment') return 'Rep Attainment';
     if (key === 'new_segment_bookings') return 'Segment Bookings';
     return 'Breakdown';
+  },
+
+  _refreshScenarioTargets(containerEl, data, scenario) {
+    const s = scenario || CIC.getScenario();
+
+    // Update Opportunities Created target label
+    const oppTargets = data.kpis.opportunities_created.targets;
+    const oppTarget = oppTargets[s] || oppTargets.target;
+    const oppCard = containerEl.querySelector('[data-drilldown="opportunities_created"]');
+    if (oppCard) {
+      const targetEl = oppCard.querySelector('.kpi-target');
+      if (targetEl) targetEl.textContent = `Target: ${oppTarget.toLocaleString()}`;
+      const status = data.kpis.opportunities_created.value >= oppTarget ? 'green' : 'yellow';
+      oppCard.className = oppCard.className.replace(/kpi-card--\w+/, `kpi-card--${status}`);
+    }
   },
 
   // ── Quota Attainment Table ──

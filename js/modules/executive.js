@@ -23,6 +23,7 @@ export default {
     this._scenarioUnsub = (scenario) => {
       this._updateMRRChart(scenario);
       this._updateToggleButtons(containerEl, scenario);
+      this._updateHealthStripTarget(scenario);
     };
     CIC.onScenarioChange(this._scenarioUnsub);
   },
@@ -57,7 +58,7 @@ export default {
       <div class="health-metric">
         <div class="health-metric__label">Current MRR</div>
         <div class="health-metric__value">${CIC.formatCurrency(r.current_mrr)}</div>
-        <div class="health-metric__sub health-metric__status">vs Target ${CIC.formatCurrency(r.mrr_targets.target)} &#10003;</div>
+        <div class="health-metric__sub health-metric__status" id="exec-mrr-sub">vs Target ${CIC.formatCurrency(r.mrr_targets.target)} &#10003;</div>
       </div>
       <div class="health-metric">
         <div class="health-metric__label">YTD Revenue</div>
@@ -103,6 +104,24 @@ export default {
     buttons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.scenario === scenario);
     });
+  },
+
+  _updateHealthStripTarget(scenario) {
+    if (!this._targets || !this._data) return;
+    const monthKey = this._targets.current_month;
+    const scenarioData = this._targets.scenarios[scenario];
+    if (!scenarioData) return;
+    const mrrTarget = scenarioData.monthly[monthKey].eom_mrr;
+    const mrrSub = document.getElementById('exec-mrr-sub');
+    if (mrrSub) {
+      const actual = this._data.revenue.current_mrr;
+      const label = scenario.charAt(0).toUpperCase() + scenario.slice(1);
+      const diff = actual >= mrrTarget ? '\u2713' : '\u2014 behind';
+      mrrSub.textContent = `vs ${label} ${CIC.formatCurrency(mrrTarget)} ${diff}`;
+      mrrSub.className = actual >= mrrTarget
+        ? 'health-metric__sub health-metric__status'
+        : 'health-metric__sub health-metric__status--warn';
+    }
   },
 
   // ── Highlights ──

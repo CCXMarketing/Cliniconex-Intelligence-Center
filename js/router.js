@@ -141,7 +141,7 @@ async function navigateTo(tabId) {
     const mod = await import(tab.module);
     const data = await CIC.getData(tabId);
     if (mod.default && typeof mod.default.init === 'function') {
-      mod.default.init(viewport, data);
+      mod.default.init(viewport, data, CIC.getScenario());
       currentModule = mod.default;
     }
   } catch {
@@ -176,9 +176,21 @@ function initScenarioToggle() {
   });
 }
 
+function updateScenarioBanner(scenario) {
+  const labels = {
+    threshold:   'Threshold Scenario \u2014 $9.6M Annual Revenue Target',
+    target:      'Target Scenario \u2014 $10M Annual Revenue Target',
+    overachieve: 'Overachieve Scenario \u2014 $10.4M Annual Revenue Target'
+  };
+  const banner = document.getElementById('scenario-banner');
+  if (banner) banner.textContent = 'Viewing: ' + (labels[scenario] || labels.target);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   buildNav();
   initScenarioToggle();
+  updateScenarioBanner(CIC.getScenario());
+  CIC.onScenarioChange(updateScenarioBanner);
 
   const hash = window.location.hash.replace('#', '') || 'executive';
   navigateTo(hash);

@@ -297,7 +297,7 @@
 /* ── Partner Detail Panel ── */
 .partner-panel {
   position: fixed;
-  top: 52px;
+  top: 80px;
   right: -420px;
   width: 400px;
   bottom: 0;

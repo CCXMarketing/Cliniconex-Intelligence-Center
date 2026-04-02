@@ -131,9 +131,17 @@ body {
 
 /* ── Main content area ── */
 
-#tab-viewport {
+#scenario-banner {
   position: fixed;
   top: 52px;
+  left: 0;
+  right: 0;
+  z-index: 999;
+}
+
+#tab-viewport {
+  position: fixed;
+  top: 80px;
   left: 0;
   right: 0;
   bottom: 0;
