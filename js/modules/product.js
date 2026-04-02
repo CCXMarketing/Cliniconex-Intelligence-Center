@@ -1,10 +1,11 @@
 import { Drilldown, wireEditableCards } from './drilldown.js';
+import { renderInlineEntry } from './datepicker.js';
 
 export default {
   charts: [],
   _data: null,
 
-  init(containerEl, data) {
+  async init(containerEl, data) {
     this._data = data;
     this._renderAIGrid(containerEl, data);
     this._renderRoadmap(containerEl, data);
@@ -32,6 +33,19 @@ export default {
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireEditableCards(containerEl, 'product');
+
+    await renderInlineEntry(containerEl, {
+      id: 'product-actuals',
+      title: 'Product Actuals',
+      department: 'product',
+      insertAfterSelector: '#product-delivery-grid',
+      fields: [
+        { key: 'pilots_completed',    label: 'AI Skills Pilots Completed', type: 'number', placeholder: '12' },
+        { key: 'validations_count',   label: 'Customer Validations',       type: 'number', placeholder: '2' },
+        { key: 'say_do_pct',          label: 'Say/Do Ratio (%)',           type: 'number', placeholder: '84', unit: 'percent' },
+        { key: 'case_studies_count',  label: 'AI Case Studies Published',  type: 'number', placeholder: '1' }
+      ]
+    });
   },
 
   _wireClickHandlers(containerEl, data) {

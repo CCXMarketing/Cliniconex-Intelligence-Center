@@ -1,4 +1,5 @@
 import { Drilldown } from './drilldown.js';
+import { renderInlineEntry } from './datepicker.js';
 
 export default {
   charts: [],
@@ -18,6 +19,17 @@ export default {
     this._renderHighlights(containerEl, data);
     this._renderMRRChart(data, targets);
     await this._renderDeptGrid(containerEl);
+
+    await renderInlineEntry(containerEl, {
+      id: 'exec-finance',
+      title: 'Finance Actuals',
+      department: 'executive',
+      insertAfterSelector: '#exec-highlights',
+      fields: [
+        { key: 'ebitda_actual_ytd', label: 'EBITDA Actual YTD ($)', type: 'number', placeholder: '241000', unit: 'currency' },
+        { key: 'ebitda_actual_mtd', label: 'EBITDA Actual MTD ($)', type: 'number', placeholder: '80000',  unit: 'currency' }
+      ]
+    });
 
     // Subscribe to scenario changes
     this._scenarioUnsub = (scenario) => {

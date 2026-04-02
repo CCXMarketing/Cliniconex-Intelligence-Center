@@ -1,4 +1,5 @@
 import { Drilldown, wireEditableCards } from './drilldown.js';
+import { renderInlineEntry } from './datepicker.js';
 
 // ── Customer Support tab module ──
 
@@ -40,6 +41,19 @@ export default {
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireEditableCards(containerEl, 'support');
+
+    await renderInlineEntry(containerEl, {
+      id: 'support-ops',
+      title: 'Operations Data',
+      department: 'support',
+      insertAfterSelector: '#support-efficiency-grid',
+      fields: [
+        { key: 'support_dept_cost', label: 'Support Dept Cost (Month)', type: 'number', placeholder: '40000', unit: 'currency' },
+        { key: 'total_headcount',   label: 'Total FTE Headcount',       type: 'number', placeholder: '82' },
+        { key: 'new_hires',         label: 'New Hires This Month',      type: 'number', placeholder: '0' },
+        { key: 'departures',        label: 'Departures This Month',     type: 'number', placeholder: '0' }
+      ]
+    });
   },
 
   // ── KPI Overview Grid ──

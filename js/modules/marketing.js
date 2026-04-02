@@ -1,4 +1,5 @@
 import { Drilldown, wireEditableCards } from './drilldown.js';
+import { renderInlineEntry } from './datepicker.js';
 
 export default {
   charts: [],
@@ -16,6 +17,20 @@ export default {
     this._initROASCalculator(containerEl, data);
 
     CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
+
+    await renderInlineEntry(containerEl, {
+      id: 'mkt-spend',
+      title: 'Marketing Spend Inputs',
+      department: 'marketing',
+      insertAfterSelector: '#mkt-kpi-grid',
+      fields: [
+        { key: 'ltv',           label: 'LTV (Lifetime Value)',    type: 'number', placeholder: '29000', unit: 'currency' },
+        { key: 'spend_paid_search', label: 'Paid Search Spend',  type: 'number', placeholder: '8000',  unit: 'currency' },
+        { key: 'spend_paid_social', label: 'Paid Social Spend',  type: 'number', placeholder: '4000',  unit: 'currency' },
+        { key: 'spend_content',     label: 'Content / SEO',      type: 'number', placeholder: '2000',  unit: 'currency' },
+        { key: 'spend_events',      label: 'Events Spend',       type: 'number', placeholder: '1500',  unit: 'currency' }
+      ]
+    });
   },
 
   destroy() {

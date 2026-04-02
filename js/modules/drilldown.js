@@ -1,3 +1,5 @@
+import { CICDatePicker } from './datepicker.js';
+
 // ── CIC Drilldown Modal Engine ──────────────────────────────────
 // Called by any tab module: Drilldown.open({ title, data, type })
 
@@ -73,7 +75,11 @@ export const Drilldown = {
           <button class="dd-compare-btn" data-period="custom">Custom</button>
         </div>
         <div class="dd-custom-picker" id="dd-custom-picker" style="display:none">
-          <input type="month" id="dd-custom-date" min="2024-01" max="2026-03" value="2025-12" class="dd-month-input">
+          <button class="cic-datepicker-trigger" id="dd-datepicker-trigger">
+            <span class="cic-datepicker-trigger__icon">📅</span>
+            <span class="cic-datepicker-trigger__text">Select month</span>
+            <span class="cic-datepicker-trigger__arrow">▾</span>
+          </button>
         </div>
         <button class="dd-compare-clear" id="dd-compare-clear" style="display:none">\u2715 Clear</button>
       </div>
@@ -283,9 +289,24 @@ export const Drilldown = {
   _wirePeriodComparison(config) {
     const btns         = document.querySelectorAll('.dd-compare-btn');
     const customPicker = document.getElementById('dd-custom-picker');
-    const customDate   = document.getElementById('dd-custom-date');
     const clearBtn     = document.getElementById('dd-compare-clear');
     const compBar      = document.getElementById('dd-comparison-bar');
+
+    // Wire up the date picker for custom comparison
+    let dpInstance = null;
+    let customSelectedDate = null;
+    const triggerEl = document.getElementById('dd-datepicker-trigger');
+    if (triggerEl) {
+      dpInstance = new CICDatePicker(triggerEl, {
+        mode: 'month',
+        showQuickRanges: false,
+        maxDate: new Date()
+      });
+      dpInstance.onChange = (sel) => {
+        customSelectedDate = sel.start;
+        showComparison('custom');
+      };
+    }
 
     const getComparisonValue = (period) => {
       const trend = config.trend || [];
@@ -309,11 +330,9 @@ export const Drilldown = {
       }
       if (period === 'last-year') return 'March 2025 (est.)';
       if (period === 'custom') {
-        const val = customDate?.value;
-        if (!val) return 'Custom Period';
-        const [y, m] = val.split('-');
+        if (!customSelectedDate) return 'Custom Period';
         const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        return monthNames[parseInt(m) - 1] + ' ' + y;
+        return monthNames[customSelectedDate.getMonth()] + ' ' + customSelectedDate.getFullYear();
       }
       return '\u2014';
     };
@@ -354,6 +373,7 @@ export const Drilldown = {
       clearBtn.style.display = 'none';
       customPicker.style.display = 'none';
       btns.forEach(b => b.classList.remove('active'));
+      if (dpInstance) dpInstance.close();
       const note = document.querySelector('.dd-phase2-note');
       if (note) note.remove();
     };
@@ -364,11 +384,11 @@ export const Drilldown = {
         const isActive = btn.classList.contains('active');
         btns.forEach(b => b.classList.remove('active'));
         customPicker.style.display = 'none';
+        if (dpInstance) dpInstance.close();
         if (isActive) { clearComparison(); return; }
         btn.classList.add('active');
         if (period === 'custom') {
           customPicker.style.display = 'flex';
-          customDate.addEventListener('change', () => showComparison('custom'));
           showComparison('custom');
         } else {
           showComparison(period);

@@ -1,4 +1,5 @@
 import { Drilldown, PartnerPanel, wireEditableCards } from './drilldown.js';
+import { renderInlineEntry } from './datepicker.js';
 
 // ── Channel Partnerships tab module ──
 
@@ -65,6 +66,20 @@ export default {
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireEditableCards(containerEl, 'partnerships');
+
+    await renderInlineEntry(containerEl, {
+      id: 'pcc-data',
+      title: 'PCC and QHR Partner Data',
+      department: 'partnerships',
+      insertAfterSelector: '#partners-new-channel-grid',
+      fields: [
+        { key: 'pcc_self_serve_new',  label: 'PCC Self-Serve New Customers', type: 'number', placeholder: '0' },
+        { key: 'pcc_pipeline_est',    label: 'PCC Pipeline Estimate ($)',     type: 'number', placeholder: '0', unit: 'currency' },
+        { key: 'pcc_active_accounts', label: 'PCC Active Accounts',           type: 'number', placeholder: '0' },
+        { key: 'qhr_new_customers',   label: 'QHR New Customers',             type: 'number', placeholder: '0' },
+        { key: 'qhr_pipeline_est',    label: 'QHR Pipeline Estimate ($)',      type: 'number', placeholder: '0', unit: 'currency' }
+      ]
+    });
   },
 
   // ── Partner Donut ──
