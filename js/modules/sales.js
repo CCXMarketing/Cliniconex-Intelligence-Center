@@ -132,12 +132,12 @@ export default {
   _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
-      : unit === 'multiplier' ? value.toFixed(1) + 'x'
+      : unit === 'multiplier' ? value.toFixed(1) + ':1'
       : value.toLocaleString();
 
     const fmtTarget = unit === 'currency' ? CIC.formatCurrency(target)
       : unit === 'percent' ? CIC.formatPercent(target)
-      : unit === 'multiplier' ? target.toFixed(1) + 'x'
+      : unit === 'multiplier' ? target.toFixed(1) + ':1'
       : target?.toLocaleString();
 
     let deltaHtml = '';

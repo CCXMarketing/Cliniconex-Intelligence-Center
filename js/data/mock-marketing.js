@@ -71,10 +71,10 @@ export const data = {
       trend: [2.8, 3.0, 3.1, 3.2],
       trend_labels: ['Dec', 'Jan', 'Feb', 'Mar'],
       status: 'yellow',
-      unit: 'multiplier',
+      unit: 'ratio',
       cadence: 'Monthly',
       okr: 'KR3: Maintain or reduce current CAC',
-      note: 'Requires marketing spend data linked to lead source'
+      note: 'Displayed as X:1 ratio (e.g. 3.2:1 means $3.20 return per $1 spent)'
     },
     direct_channel_pipeline_pct: {
       label: 'Direct-Channel Pipeline %',

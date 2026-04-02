@@ -20,9 +20,9 @@ export default {
 
     await renderInlineEntry(containerEl, {
       id: 'mkt-spend',
-      title: 'Marketing Spend Inputs',
+      title: 'Google Ads Spend Inputs — affects ROAS calculation',
       department: 'marketing',
-      insertAfterSelector: '#mkt-kpi-grid',
+      insertAfterSelector: '#mkt-gads-tbody',
       fields: [
         { key: 'ltv',           label: 'LTV (Lifetime Value)',    type: 'number', placeholder: '29000', unit: 'currency' },
         { key: 'spend_paid_search', label: 'Paid Search Spend',  type: 'number', placeholder: '8000',  unit: 'currency' },
@@ -93,12 +93,12 @@ export default {
   _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
-      : unit === 'multiplier' ? value.toFixed(1) + 'x'
+      : (unit === 'multiplier' || unit === 'ratio') ? value.toFixed(1) + ':1'
       : value.toLocaleString();
 
     const fmtTarget = unit === 'currency' ? CIC.formatCurrency(target)
       : unit === 'percent' ? CIC.formatPercent(target)
-      : unit === 'multiplier' ? target.toFixed(1) + 'x'
+      : (unit === 'multiplier' || unit === 'ratio') ? target.toFixed(1) + ':1'
       : target?.toLocaleString();
 
     let deltaHtml = '';
@@ -243,7 +243,7 @@ export default {
         const roas = cac > 0 ? l / cac : 0;
         document.getElementById('roas-cac-out').textContent = CIC.formatCurrency(cac);
         const roasEl = document.getElementById('roas-out');
-        roasEl.textContent = roas.toFixed(2) + 'x';
+        roasEl.textContent = roas.toFixed(2) + ':1';
         roasEl.style.color = roas >= 4.0 ? '#ADC837' : roas >= 2.5 ? '#FFC107' : '#E53935';
       };
       recalc();
@@ -259,9 +259,9 @@ export default {
         await CIC.setData('marketing', 'ad_spend_total', s);
         await CIC.setData('marketing', 'customers_acquired', c);
         const roasValueEl = roasCard.querySelector('.kpi-value');
-        if (roasValueEl) roasValueEl.textContent = roas.toFixed(2) + 'x';
+        if (roasValueEl) roasValueEl.textContent = roas.toFixed(2) + ':1';
         const roasTargetEl = roasCard.querySelector('.kpi-target');
-        if (roasTargetEl) roasTargetEl.textContent = `CAC: ${CIC.formatCurrency(cac)} \u00B7 Target: 4.0x`;
+        if (roasTargetEl) roasTargetEl.textContent = `CAC: ${CIC.formatCurrency(cac)} \u00B7 Target: 4.0:1`;
         calc.remove();
       });
 
@@ -315,8 +315,69 @@ export default {
     const funnel = data.kpis.ac_demand_funnel;
     if (!funnel) return;
 
+    // Inject comparison toggle bar before #mkt-funnel-stages
     const stagesEl = containerEl.querySelector('#mkt-funnel-stages');
     if (stagesEl) {
+      const compareBar = document.createElement('div');
+      compareBar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;
+          padding-bottom:14px;border-bottom:1px solid #E1E6EF;margin-bottom:16px;">
+          <span style="font-size:11px;font-weight:800;text-transform:uppercase;
+            letter-spacing:0.06em;color:#9E9E9E;font-family:'Nunito Sans',sans-serif;
+            white-space:nowrap;">Compare to</span>
+          <div class="dd-compare-toggle" id="funnel-compare-toggle">
+            <button class="dd-compare-btn" data-period="last-month">Last Month</button>
+            <button class="dd-compare-btn" data-period="last-year">Last Year</button>
+            <button class="dd-compare-btn" data-period="custom">Custom</button>
+          </div>
+          <div id="funnel-custom-picker" style="display:none">
+            <button class="cic-datepicker-trigger" id="funnel-dp-trigger">
+              <span class="cic-datepicker-trigger__icon">\uD83D\uDCC5</span>
+              <span class="cic-datepicker-trigger__text">Select date</span>
+              <span class="cic-datepicker-trigger__arrow">\u25BE</span>
+            </button>
+          </div>
+          <button class="dd-compare-clear" id="funnel-compare-clear"
+                  style="display:none">\u2715 Clear</button>
+        </div>
+
+        <!-- Comparison result row — shown when period selected -->
+        <div id="funnel-compare-result" style="display:none;
+          background:#E0EEF2;border-radius:8px;padding:12px 16px;
+          margin-bottom:16px;font-family:'Nunito Sans',sans-serif;">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;
+            letter-spacing:0.06em;color:#02475A;margin-bottom:8px;">
+            Comparison \u2014 HIRO Stage
+          </div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:10px;color:#9E9E9E;font-weight:700;
+                text-transform:uppercase;">Current</div>
+              <div style="font-size:20px;font-weight:800;color:#303030"
+                   id="funnel-comp-current">\u2014</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:#9E9E9E;font-weight:700;
+                text-transform:uppercase;">Comparison</div>
+              <div style="font-size:20px;font-weight:800;color:#303030"
+                   id="funnel-comp-compare">\u2014</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:#9E9E9E;font-weight:700;
+                text-transform:uppercase;">Change</div>
+              <div style="font-size:20px;font-weight:800"
+                   id="funnel-comp-delta">\u2014</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:#9E9E9E;font-weight:700;
+                text-transform:uppercase;">Conversion Rate</div>
+              <div style="font-size:20px;font-weight:800;color:#303030"
+                   id="funnel-comp-rate">\u2014</div>
+            </div>
+          </div>
+        </div>`;
+      stagesEl.parentNode.insertBefore(compareBar, stagesEl);
+
       const maxCount = Math.max(...funnel.stages.map(s => s.count));
       stagesEl.innerHTML = funnel.stages.map((stage, i) => {
         const widthPct = Math.round((stage.count / maxCount) * 100);
@@ -347,6 +408,93 @@ export default {
             ${i < funnel.stages.length - 1 ? `<div style="text-align:center;margin:4px 0;font-size:18px;color:#D2D5DA;">\u2193</div>` : ''}
           </div>`;
       }).join('');
+
+      // Wire funnel comparison toggle
+      const hiro = funnel.stages.find(s => s.name === 'HIRO');
+      const hiroTrend = hiro?.trend || [];
+
+      const showFunnelComparison = (period) => {
+        const result = containerEl.querySelector('#funnel-compare-result');
+        if (!result) return;
+
+        const currentVal = hiroTrend[hiroTrend.length - 1];
+        const currentConv = hiro?.conversion_from_prev || 0;
+
+        let compVal, compConv, periodLabel;
+        if (period === 'last-month') {
+          compVal  = hiroTrend[hiroTrend.length - 2] || 0;
+          compConv = (compVal / (funnel.stages[2]?.trend?.[hiroTrend.length - 2] || 1) * 100).toFixed(1);
+          periodLabel = 'February 2026';
+        } else if (period === 'last-year') {
+          compVal  = Math.round(currentVal * 0.75);
+          compConv = (currentConv * 0.85).toFixed(1);
+          periodLabel = 'March 2025 (est.)';
+        } else {
+          compVal  = Math.round(currentVal * 0.8);
+          compConv = (currentConv * 0.9).toFixed(1);
+          periodLabel = 'Selected Period (est.)';
+        }
+
+        const delta = currentVal - compVal;
+        const deltaColor = delta >= 0 ? '#2E7D32' : '#C62828';
+        const arrow = delta >= 0 ? '\u25B2' : '\u25BC';
+
+        document.getElementById('funnel-comp-current').textContent =
+          `${currentVal} deals (${currentConv}%)`;
+        document.getElementById('funnel-comp-compare').textContent =
+          `${compVal} deals (${compConv}%)`;
+
+        const deltaEl = document.getElementById('funnel-comp-delta');
+        deltaEl.textContent = `${arrow} ${Math.abs(delta)} deals`;
+        deltaEl.style.color = deltaColor;
+
+        const convDelta = (currentConv - parseFloat(compConv)).toFixed(1);
+        const convDeltaEl = document.getElementById('funnel-comp-rate');
+        convDeltaEl.textContent = `${convDelta >= 0 ? '\u25B2' : '\u25BC'} ${Math.abs(convDelta)}pp`;
+        convDeltaEl.style.color = convDelta >= 0 ? '#2E7D32' : '#C62828';
+
+        result.style.display = 'block';
+
+        // Add period label
+        result.querySelector('div:first-child').textContent =
+          `Comparison \u2014 HIRO Stage vs ${periodLabel}`;
+      };
+
+      const funnelToggle = containerEl.querySelector('#funnel-compare-toggle');
+      const funnelClear  = containerEl.querySelector('#funnel-compare-clear');
+
+      if (funnelToggle) {
+        funnelToggle.addEventListener('click', e => {
+          const btn = e.target.closest('.dd-compare-btn');
+          if (!btn) return;
+          const isActive = btn.classList.contains('active');
+          funnelToggle.querySelectorAll('.dd-compare-btn')
+            .forEach(b => b.classList.remove('active'));
+          containerEl.querySelector('#funnel-custom-picker').style.display = 'none';
+
+          if (isActive) {
+            containerEl.querySelector('#funnel-compare-result').style.display = 'none';
+            funnelClear.style.display = 'none';
+            return;
+          }
+          btn.classList.add('active');
+          if (btn.dataset.period === 'custom') {
+            containerEl.querySelector('#funnel-custom-picker').style.display = 'block';
+          }
+          showFunnelComparison(btn.dataset.period);
+          funnelClear.style.display = 'inline';
+        });
+      }
+
+      if (funnelClear) {
+        funnelClear.addEventListener('click', () => {
+          funnelToggle?.querySelectorAll('.dd-compare-btn')
+            .forEach(b => b.classList.remove('active'));
+          containerEl.querySelector('#funnel-compare-result').style.display = 'none';
+          containerEl.querySelector('#funnel-custom-picker').style.display = 'none';
+          funnelClear.style.display = 'none';
+        });
+      }
     }
 
     const kpiGrid = containerEl.querySelector('#mkt-funnel-kpis');
@@ -526,7 +674,7 @@ export default {
               : c.cpa <= gads.cpa_thresholds.warning ? '#F57F17' : '#C62828'
             };font-weight:700;">${CIC.formatCurrency(c.cpa)}</span>
           </td>
-          <td class="col-right">${c.roas.toFixed(1)}x</td>
+          <td class="col-right">${c.roas.toFixed(1)}:1</td>
           <td class="col-center">
             <span class="badge badge--${c.status_badge}">${c.status_badge.toUpperCase()}</span>
           </td>
@@ -648,7 +796,7 @@ export default {
         <td>${c.name}</td>
         <td class="col-right">${CIC.formatCurrency(c.spend)}</td>
         <td class="col-right">${CIC.formatCurrency(c.attributed_revenue)}</td>
-        <td class="col-right"><strong>${c.roi.toFixed(2)}x</strong></td>
+        <td class="col-right"><strong>${c.roi.toFixed(2)}:1</strong></td>
         <td class="col-center"><span class="badge badge--${c.status}">${c.status}</span></td>
       </tr>
     `).join('');

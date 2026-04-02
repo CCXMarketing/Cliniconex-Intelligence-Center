@@ -403,7 +403,8 @@ export const Drilldown = {
     if (n == null) return '\u2014';
     if (unit === 'currency') return CIC.formatCurrency(n);
     if (unit === 'percent')  return CIC.formatPercent(n);
-    if (unit === 'multiplier') return n.toFixed(1) + 'x';
+    if (unit === 'multiplier') return n.toFixed(1) + ':1';
+    if (unit === 'ratio')  return n.toFixed(1) + ':1';
     if (unit === 'days')    return n + ' days';
     if (unit === 'hours')   return n + ' hrs';
     if (unit === 'score')   return n.toString();
@@ -649,7 +650,7 @@ export function wireEditableCards(containerEl, department) {
       if (!isNaN(newVal)) {
         const display = unit === 'currency'    ? CIC.formatCurrency(newVal)
                       : unit === 'percent'     ? CIC.formatPercent(newVal)
-                      : unit === 'multiplier'  ? newVal.toFixed(1) + 'x'
+                      : unit === 'multiplier'  ? newVal.toFixed(1) + ':1'
                       : newVal.toLocaleString();
         valueEl.textContent = display;
         await CIC.setData(department, key, newVal);
