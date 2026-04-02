@@ -36,76 +36,97 @@ body {
 
 .nav-tabs {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
   overflow-x: auto;
   flex: 1;
-  min-width: 0;
-  -ms-overflow-style: none;
+  height: 52px;
   scrollbar-width: none;
 }
-.nav-tabs::-webkit-scrollbar {
-  display: none;
-}
+.nav-tabs::-webkit-scrollbar { display: none; }
 
 .nav-tab {
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 17px;
-  border: none;
-  background: none;
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 0;
+  background: transparent;
   color: rgba(255, 255, 255, 0.7);
   font-family: 'Nunito Sans', sans-serif;
   font-size: 13px;
   font-weight: 600;
+  border: none;
   cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
+
 .nav-tab:hover {
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
+
 .nav-tab.active {
   background: #ADC837;
   color: #404041;
   font-weight: 700;
-}
-.nav-tab.active:hover {
-  color: #404041;
+  border-radius: 0;
 }
 
-/* ── Scenario toggle ── */
+/* ── Scenario toggle (nav bar version) ── */
 
-.scenario-toggle {
+.nav-scenario-wrap {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 8px;
   flex-shrink: 0;
 }
 
-.scenario-toggle button {
-  height: 28px;
-  padding: 0 10px;
-  border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+.nav-scenario-label {
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.nav-scenario-wrap .scenario-toggle {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.nav-scenario-wrap .scenario-toggle button {
+  padding: 5px 12px;
   font-family: 'Nunito Sans', sans-serif;
   font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.65);
+  border: none;
   border-right: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  height: 30px;
 }
-.scenario-toggle button:first-child {
-  border-radius: 4px 0 0 4px;
-}
-.scenario-toggle button:last-child {
-  border-radius: 0 4px 4px 0;
+
+.nav-scenario-wrap .scenario-toggle button:last-child {
   border-right: none;
 }
-.scenario-toggle button.active {
+
+.nav-scenario-wrap .scenario-toggle button.active {
   background: #ADC837;
   color: #404041;
-  font-weight: 700;
+}
+
+.nav-scenario-wrap .scenario-toggle button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }
 
 /* ── Main content area ── */
