@@ -23,9 +23,9 @@ body {
 }
 
 .nav-brand {
-  padding: 0 20px;
+  padding: 0 12px;
   font-family: 'Nunito Sans', sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   color: white;
   white-space: nowrap;
@@ -48,12 +48,12 @@ body {
 
 .nav-tab {
   height: 52px;
-  padding: 0 18px;
+  padding: 0 12px;
   border-radius: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
   font-family: 'Nunito Sans', sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   border: none;
   cursor: pointer;
@@ -75,45 +75,11 @@ body {
   border-radius: 0;
 }
 
-/* ── Scenario toggle (nav bar version) ── */
-
-.scenario-toggle {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  margin: 0 12px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.3);
-}
-
-.scenario-toggle button {
-  padding: 0 14px !important;
-  height: 30px !important;
-  font-family: 'Nunito Sans', sans-serif !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  background-color: #0a6e8a !important;
-  color: rgba(255,255,255,0.85) !important;
-  border: none !important;
-  border-right: 1px solid rgba(255,255,255,0.2) !important;
-  cursor: pointer !important;
-  white-space: nowrap !important;
-}
-
-.scenario-toggle button:last-child {
-  border-right: none !important;
-}
-
-.scenario-toggle button.active {
-  background-color: #ADC837 !important;
-  color: #404041 !important;
-}
-
-.scenario-toggle button:hover:not(.active) {
-  background-color: #0d7fa0 !important;
-  color: white !important;
-}
+.scenario-toggle { display:inline-flex; flex-shrink:0; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.3); margin:0 12px; }
+.scenario-toggle button { height:30px; padding:0 13px; font-family:'Nunito Sans',sans-serif; font-size:12px; font-weight:700; background-color:#0a6e8a; color:rgba(255,255,255,0.85); border:none; border-right:1px solid rgba(255,255,255,0.2); cursor:pointer; }
+.scenario-toggle button:last-child { border-right:none; }
+.scenario-toggle button.active { background-color:#ADC837 !important; color:#404041 !important; }
+.scenario-toggle button:hover:not(.active) { background-color:#0d7fa0; color:white; }
 
 /* ── Main content area ── */
 
