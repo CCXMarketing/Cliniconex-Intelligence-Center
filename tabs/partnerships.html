@@ -75,14 +75,164 @@
   </table>
 </div>
 
-<!-- SL Partner Revenue -->
-<div class="section-header">
-  <h3>Senior Living Partner Revenue</h3>
-  <p>PCC SL and MxC SL — target: $327K annual</p>
+<!-- Segment Revenue Tracker -->
+<div class="section-header" style="margin-top:32px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <h3>Revenue by Segment</h3>
+      <p>Partner MRR broken out by vertical — click any segment to expand</p>
+    </div>
+    <button class="btn btn--secondary btn--sm" id="segments-manage-btn">
+      ✎ Manage Segments
+    </button>
+  </div>
 </div>
-<div id="partners-sl-grid" class="kpi-grid">
+
+<!-- Segment management panel — hidden by default -->
+<div class="segment-mgmt-panel" id="segment-mgmt-panel" style="display:none">
+  <div class="segment-mgmt-header">
+    <strong>Manage Segments</strong>
+    <button class="btn btn--sm" id="segment-add-btn">+ Add Segment</button>
+  </div>
+  <div id="segment-mgmt-list">
+    <!-- Populated by partnerships.js -->
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;">
+    <button class="btn btn--sm" id="segment-save-btn">Save Changes</button>
+    <button class="btn btn--secondary btn--sm" id="segment-cancel-btn">Cancel</button>
+  </div>
+</div>
+
+<!-- Segment cards -->
+<div id="partnerships-segments-grid">
   <!-- Populated by partnerships.js -->
 </div>
+
+<style>
+.segment-mgmt-panel {
+  background: white;
+  border: 2px solid #ADC837;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.segment-mgmt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #02475A;
+}
+.segment-mgmt-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 120px 120px 32px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #E1E6EF;
+}
+.segment-mgmt-row:last-child { border-bottom: none; }
+.segment-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.segment-mgmt-input {
+  height: 34px;
+  border: 1px solid #D2D5DA;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #404041;
+  outline: none;
+  width: 100%;
+}
+.segment-mgmt-input:focus {
+  border-color: #02475A;
+  box-shadow: 0 0 0 2px rgba(2,71,90,0.1);
+}
+.segment-delete-btn {
+  background: none;
+  border: none;
+  color: #D2D5DA;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.segment-delete-btn:hover { color: #C62828; }
+
+/* Segment card */
+.segment-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 12px;
+  overflow: hidden;
+  border-left: 4px solid #E1E6EF;
+  transition: box-shadow 0.15s;
+}
+.segment-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.segment-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  gap: 16px;
+}
+.segment-card__header:hover { background: #FAFBFC; }
+.segment-card__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.segment-card__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.segment-card__mrr {
+  font-size: 20px;
+  font-weight: 800;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+  white-space: nowrap;
+}
+.segment-card__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.segment-card__body {
+  padding: 0 20px 16px;
+  display: none;
+}
+.segment-card__body.open { display: block; }
+.segment-partner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #F4F4F4;
+  font-size: 13px;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.segment-partner-row:last-child { border-bottom: none; }
+.segment-progress-wrap {
+  margin-top: 12px;
+}
+</style>
 
 <!-- New Channel Development -->
 <div class="section-header">

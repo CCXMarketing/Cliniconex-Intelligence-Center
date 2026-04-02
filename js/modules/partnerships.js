@@ -22,6 +22,9 @@ export default {
   charts: [],
   _data: null,
 
+  _SEGMENTS_KEY: 'partnerships_segments',
+  _currentSegments: null,
+
   async init(containerEl, data) {
     this._data = data;
     const k = data.kpis;
@@ -50,8 +53,8 @@ export default {
     // ── Partner Pipeline Coverage Table ──
     this._buildPipelineTable(containerEl, k.partner_pipeline_coverage);
 
-    // ── Senior Living Grid ──
-    this._buildSLGrid(containerEl, k.sl_partner_revenue);
+    // ── Segment Revenue Tracker ──
+    await this._renderSegments(containerEl, data);
 
     // ── New Channel Development Grid ──
     this._buildNewChannelGrid(containerEl, k);
@@ -214,23 +217,189 @@ export default {
     }).join('');
   },
 
-  // ── Senior Living Grid ──
-  _buildSLGrid(el, sl) {
-    const grid = el.querySelector('#partners-sl-grid');
-    grid.innerHTML = sl.by_partner.map(p => {
-      const trend = p.trend;
-      const first = trend[0];
-      const last = trend[trend.length - 1];
-      const delta = first > 0 ? Math.round(((last - first) / first) * 100) : last > 0 ? 100 : 0;
-      const status = last >= sl.monthly_target ? 'green' : last >= sl.monthly_target * 0.5 ? 'yellow' : 'red';
+  // ── Segment Revenue ──
+  async _loadSegments(defaultSegments) {
+    const { storage } = await import('../data/storage.js');
+    const saved = await storage.get('partnerships', this._SEGMENTS_KEY);
+    if (saved?.value) {
+      try {
+        const parsed = JSON.parse(saved.value);
+        return defaultSegments.map(seg => {
+          const edit = parsed.find(s => s.id === seg.id);
+          return edit ? { ...seg, name: edit.name, annual_target: edit.annual_target, status: edit.status || seg.status } : seg;
+        });
+      } catch (e) { return defaultSegments; }
+    }
+    return defaultSegments;
+  },
+
+  async _saveSegments(segments) {
+    const { storage } = await import('../data/storage.js');
+    const toSave = segments.map(s => ({
+      id: s.id, name: s.name, annual_target: s.annual_target, status: s.status
+    }));
+    await storage.set('partnerships', this._SEGMENTS_KEY, JSON.stringify(toSave));
+  },
+
+  async _renderSegments(containerEl, data) {
+    const defaultSegments = data.kpis.segment_revenue?.segments || [];
+    const segments = await this._loadSegments(defaultSegments);
+    this._currentSegments = segments;
+
+    this._renderSegmentCards(containerEl, segments);
+    this._wireSegmentManagement(containerEl, segments, data);
+  },
+
+  _renderSegmentCards(containerEl, segments) {
+    const grid = containerEl.querySelector('#partnerships-segments-grid');
+    if (!grid) return;
+
+    grid.innerHTML = segments.map(seg => {
+      const pct = seg.annual_target > 0
+        ? Math.min(100, Math.round((seg.total_mrr / seg.annual_target) * 100))
+        : 0;
+      const trendDelta = seg.trend?.length >= 2
+        ? ((seg.trend[seg.trend.length - 1] - seg.trend[seg.trend.length - 2])
+            / Math.abs(seg.trend[seg.trend.length - 2] || 1) * 100).toFixed(1)
+        : 0;
+      const trendDir = trendDelta >= 0 ? '▲' : '▼';
+      const trendColor = trendDelta >= 0 ? '#2E7D32' : '#C62828';
+
+      const partnerRows = (seg.by_partner || []).map(p => {
+        const partnerPct = seg.total_mrr > 0
+          ? ((p.mrr / seg.total_mrr) * 100).toFixed(1) : 0;
+        return `
+          <div class="segment-partner-row">
+            <span style="font-weight:600;color:#404041">${p.partner}</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="progress-bar" style="width:80px;">
+                <div class="progress-bar__fill" style="width:${partnerPct}%;background:${seg.color}"></div>
+              </div>
+              <span style="font-weight:700;color:#303030;width:60px;text-align:right">
+                ${fmt$(p.mrr)}
+              </span>
+              <span style="color:#9E9E9E;width:40px;text-align:right">
+                ${partnerPct}%
+              </span>
+            </div>
+          </div>`;
+      }).join('');
+
       return `
-        <div class="kpi-card kpi-card--${status}" data-drilldown="sl_partner_revenue">
-          <div class="kpi-cadence">Monthly</div>
-          <div class="kpi-label">${p.partner}</div>
-          <div class="kpi-value">${fmt$(p.mrr)}</div>
-          <div class="kpi-delta kpi-delta--up">▲${delta}%</div>
+        <div class="segment-card" id="seg-card-${seg.id}"
+             style="border-left-color:${seg.color}">
+          <div class="segment-card__header"
+               onclick="this.closest('.segment-card').querySelector('.segment-card__body').classList.toggle('open')">
+            <div class="segment-card__left">
+              <div class="segment-color-dot" style="background:${seg.color}"></div>
+              <span class="segment-card__name">${seg.name}</span>
+              ${seg.is_core
+                ? '<span class="badge badge--teal" style="font-size:10px">Core</span>'
+                : '<span class="badge badge--grey" style="font-size:10px">Growth</span>'}
+            </div>
+            <div class="segment-card__right">
+              <span style="color:${trendColor};font-size:13px;font-weight:700">
+                ${trendDir} ${Math.abs(trendDelta)}%
+              </span>
+              <span class="segment-card__mrr">${fmt$(seg.total_mrr)}</span>
+              <span class="badge badge--${seg.status}">${seg.status.toUpperCase()}</span>
+              <span style="color:#9E9E9E;font-size:18px">▾</span>
+            </div>
+          </div>
+          <div class="segment-card__body">
+            <div class="segment-progress-wrap">
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#9E9E9E;margin-bottom:6px;font-family:'Nunito Sans',sans-serif;font-weight:600;">
+                <span>Annual Target Progress</span>
+                <span>${fmt$(seg.total_mrr)} / ${fmt$(seg.annual_target)} (${pct}%)</span>
+              </div>
+              <div class="progress-bar progress-bar--lg">
+                <div class="progress-bar__fill progress-bar__fill--${seg.status}"
+                     style="width:${pct}%;background:${seg.color}"></div>
+              </div>
+            </div>
+            ${partnerRows
+              ? `<div style="margin-top:16px;">
+                  <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#02475A;margin-bottom:8px;font-family:'Nunito Sans',sans-serif;">By Partner</div>
+                  ${partnerRows}
+                </div>`
+              : ''}
+          </div>
         </div>`;
     }).join('');
+  },
+
+  _wireSegmentManagement(containerEl, segments, data) {
+    const manageBtn = containerEl.querySelector('#segments-manage-btn');
+    const mgmtPanel = containerEl.querySelector('#segment-mgmt-panel');
+    const mgmtList  = containerEl.querySelector('#segment-mgmt-list');
+    if (!manageBtn || !mgmtPanel || !mgmtList) return;
+
+    const renderMgmtList = (segs) => {
+      mgmtList.innerHTML = segs.map((seg, i) => `
+        <div class="segment-mgmt-row" data-index="${i}">
+          <div class="segment-color-dot" style="background:${seg.color}"></div>
+          <input type="text" class="segment-mgmt-input segment-name-input"
+                 value="${seg.name}" placeholder="Segment name">
+          <input type="number" class="segment-mgmt-input segment-target-input"
+                 value="${seg.annual_target}" placeholder="Annual target $">
+          <select class="segment-mgmt-input segment-status-input">
+            <option value="green"  ${seg.status==='green'  ?'selected':''}>On Track</option>
+            <option value="yellow" ${seg.status==='yellow' ?'selected':''}>At Risk</option>
+            <option value="red"    ${seg.status==='red'    ?'selected':''}>Behind</option>
+          </select>
+          <button class="segment-delete-btn"
+                  onclick="this.closest('.segment-mgmt-row').remove()"
+                  title="Delete segment">✕</button>
+        </div>`).join('');
+    };
+
+    manageBtn.addEventListener('click', () => {
+      const isOpen = mgmtPanel.style.display !== 'none';
+      mgmtPanel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) renderMgmtList(this._currentSegments);
+    });
+
+    containerEl.querySelector('#segment-add-btn')?.addEventListener('click', () => {
+      const newSeg = {
+        id: 'new_' + Date.now(),
+        name: 'New Segment',
+        color: '#9E9E9E',
+        total_mrr: 0,
+        annual_target: 100000,
+        by_partner: [],
+        trend: [0, 0, 0, 0],
+        trend_labels: ['Dec', 'Jan', 'Feb', 'Mar'],
+        status: 'red',
+        is_core: false
+      };
+      this._currentSegments.push(newSeg);
+      renderMgmtList(this._currentSegments);
+    });
+
+    containerEl.querySelector('#segment-save-btn')?.addEventListener('click', async () => {
+      // Collect remaining rows (deleted rows are removed from DOM)
+      const rows = mgmtList.querySelectorAll('.segment-mgmt-row');
+      const updatedSegments = [];
+      rows.forEach(row => {
+        const i = parseInt(row.dataset.index, 10);
+        const seg = this._currentSegments[i];
+        if (seg) {
+          seg.name = row.querySelector('.segment-name-input')?.value || seg.name;
+          seg.annual_target = parseFloat(row.querySelector('.segment-target-input')?.value) || seg.annual_target;
+          seg.status = row.querySelector('.segment-status-input')?.value || seg.status;
+          updatedSegments.push(seg);
+        }
+      });
+      this._currentSegments = updatedSegments;
+
+      await this._saveSegments(this._currentSegments);
+      this._renderSegmentCards(containerEl, this._currentSegments);
+      mgmtPanel.style.display = 'none';
+    });
+
+    containerEl.querySelector('#segment-cancel-btn')?.addEventListener('click', () => {
+      mgmtPanel.style.display = 'none';
+    });
   },
 
   // ── New Channel Development Grid ──
@@ -301,32 +470,27 @@ export default {
         label: p.name, value: p.mrr
       })) || null;
     }
-    if (key === 'sl_partner_revenue') {
-      return this._data?.kpis?.sl_partner_revenue?.by_partner?.map(p => ({
-        label: p.partner, value: p.mrr, target: this._data?.kpis?.sl_partner_revenue?.monthly_target
-      })) || null;
-    }
     return null;
   },
 
   _getBreakdownTitle(key) {
     if (key === 'revenue_by_partner') return 'Revenue by Partner';
-    if (key === 'sl_partner_revenue') return 'SL Partner Revenue';
     return 'Breakdown';
   },
 
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
-    PartnerPanel.close();
     Drilldown.close();
+    PartnerPanel.close();
+    this._currentSegments = null;
   },
 
   getSummaryKPIs() {
     return [
       { label: 'PCC+QHR Concentration', value: '89.7%', delta: '▼0.4pp', status: 'red' },
       { label: 'MxC MRR', value: '$42K', delta: '▲44%', status: 'green' },
-      { label: 'SL Partner Revenue', value: '$14.2K', delta: '▲27%', status: 'yellow' }
+      { label: 'Segment Revenue', value: '$762.8K', delta: '▲5 segs', status: 'green' }
     ];
   }
 };
