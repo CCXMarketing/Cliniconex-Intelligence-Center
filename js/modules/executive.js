@@ -1,3 +1,5 @@
+import { Drilldown } from './drilldown.js';
+
 export default {
   charts: [],
   _data: null,
@@ -28,6 +30,7 @@ export default {
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    Drilldown.close();
     // Note: CIC.onScenarioChange does not provide an unsubscribe mechanism,
     // but the listener becomes a no-op once charts are destroyed.
     this._scenarioUnsub = null;

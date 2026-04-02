@@ -1,3 +1,5 @@
+import { Drilldown } from './drilldown.js';
+
 // ── Channel Partnerships tab module ──
 
 const CHART_COLORS = {
@@ -56,6 +58,9 @@ export default {
 
     // ── New Channel Development Grid ──
     this._buildNewChannelGrid(containerEl, k);
+
+    // ── Drilldown click handlers ──
+    this._wireClickHandlers(containerEl, data);
   },
 
   // ── Partner Donut ──
@@ -264,7 +269,7 @@ export default {
       const delta = first > 0 ? Math.round(((last - first) / first) * 100) : last > 0 ? 100 : 0;
       const status = last >= sl.monthly_target ? 'green' : last >= sl.monthly_target * 0.5 ? 'yellow' : 'red';
       return `
-        <div class="kpi-card kpi-card--${status}">
+        <div class="kpi-card kpi-card--${status}" data-drilldown="sl_partner_revenue">
           <div class="kpi-cadence">Monthly</div>
           <div class="kpi-label">${p.partner}</div>
           <div class="kpi-value">${fmt$(p.mrr)}</div>
@@ -281,21 +286,21 @@ export default {
     const npo = k.new_partner_outreach;
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--red">
+      <div class="kpi-card kpi-card--red" data-drilldown="non_reseller_deals">
         <div class="kpi-cadence">${nrd.cadence}</div>
         <div class="kpi-label">Non-Reseller Deals</div>
         <div class="kpi-value">${nrd.value}</div>
         <div class="kpi-target">Target: ${nrd.target_ytd} YTD</div>
         <div class="kpi-note">${nrd.note}</div>
       </div>
-      <div class="kpi-card kpi-card--red">
+      <div class="kpi-card kpi-card--red" data-drilldown="new_partner_activation">
         <div class="kpi-cadence">${npa.cadence}</div>
         <div class="kpi-label">New Partner Activation</div>
         <div class="kpi-value">${npa.value}</div>
         <div class="kpi-target">Target: ${npa.target}</div>
         <div class="kpi-note">${npa.note}</div>
       </div>
-      <div class="kpi-card kpi-card--yellow">
+      <div class="kpi-card kpi-card--yellow" data-drilldown="new_partner_outreach">
         <div class="kpi-cadence">${npo.cadence}</div>
         <div class="kpi-label">New Partner Outreach</div>
         <div class="kpi-value">${npo.value}</div>
@@ -303,9 +308,60 @@ export default {
       </div>`;
   },
 
+  _wireClickHandlers(containerEl, data) {
+    const k = data.kpis;
+    containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
+      card.addEventListener('click', () => {
+        const key = card.dataset.drilldown;
+        const kpi = k[key];
+        if (!kpi) return;
+        Drilldown.open({
+          title:       kpi.label,
+          definition:  kpi.definition || '',
+          value:       kpi.value,
+          target:      kpi.target,
+          unit:        kpi.unit || 'count',
+          status:      kpi.status,
+          trend:       kpi.trend,
+          trendLabels: kpi.trend_labels,
+          ytd:         kpi.ytd,
+          ytdTarget:   kpi.ytd_target,
+          okr:         kpi.okr,
+          cadence:     kpi.cadence,
+          dataSource:  data.meta?.data_source?.join(', '),
+          accountable: data.meta?.accountable,
+          note:        kpi.note,
+          breakdown:   this._getBreakdown(key, kpi),
+          breakdownTitle: this._getBreakdownTitle(key)
+        });
+      });
+    });
+  },
+
+  _getBreakdown(key, kpi) {
+    if (key === 'revenue_by_partner') {
+      return this._data?.kpis?.revenue_by_partner?.partners?.map(p => ({
+        label: p.name, value: p.mrr
+      })) || null;
+    }
+    if (key === 'sl_partner_revenue') {
+      return this._data?.kpis?.sl_partner_revenue?.by_partner?.map(p => ({
+        label: p.partner, value: p.mrr, target: this._data?.kpis?.sl_partner_revenue?.monthly_target
+      })) || null;
+    }
+    return null;
+  },
+
+  _getBreakdownTitle(key) {
+    if (key === 'revenue_by_partner') return 'Revenue by Partner';
+    if (key === 'sl_partner_revenue') return 'SL Partner Revenue';
+    return 'Breakdown';
+  },
+
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    Drilldown.close();
   },
 
   getSummaryKPIs() {

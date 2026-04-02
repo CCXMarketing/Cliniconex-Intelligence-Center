@@ -1,3 +1,5 @@
+import { Drilldown } from './drilldown.js';
+
 // ── Customer Support tab module ──
 
 const CHART_COLORS = {
@@ -34,6 +36,9 @@ export default {
     this._buildEscalationChart(containerEl, k.escalation_rate);
     this._buildEfficiencyGrid(containerEl, k);
     this._buildPendingGrid(containerEl, k.ces);
+
+    // ── Drilldown click handlers ──
+    this._wireClickHandlers(containerEl, data);
   },
 
   // ── KPI Overview Grid ──
@@ -47,26 +52,26 @@ export default {
     const tvDelta = Math.round(((tv.trend[3] - tv.trend[0]) / tv.trend[0]) * 100);
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--${tv.status}">
+      <div class="kpi-card kpi-card--${tv.status}" data-drilldown="ticket_volume">
         <div class="kpi-cadence">${tv.cadence}</div>
         <div class="kpi-label">${tv.label}</div>
         <div class="kpi-value">${tv.value}</div>
         <div class="kpi-delta kpi-delta--down">▼${Math.abs(tvDelta)}%</div>
         <div class="kpi-note">Lower is better</div>
       </div>
-      <div class="kpi-card kpi-card--${fcr.status}">
+      <div class="kpi-card kpi-card--${fcr.status}" data-drilldown="first_contact_resolution">
         <div class="kpi-cadence">${fcr.cadence}</div>
         <div class="kpi-label">First-Contact Resolution</div>
         <div class="kpi-value">${fmtPct(fcr.value)}</div>
         <div class="kpi-target">Target: ${fmtPct(fcr.target)}</div>
       </div>
-      <div class="kpi-card kpi-card--${art.status}">
+      <div class="kpi-card kpi-card--${art.status}" data-drilldown="avg_resolution_time">
         <div class="kpi-cadence">${art.cadence}</div>
         <div class="kpi-label">Avg Resolution Time</div>
         <div class="kpi-value">${art.value} hrs</div>
         <div class="kpi-target">Target: ${art.target} hrs</div>
       </div>
-      <div class="kpi-card kpi-card--${esc.status}">
+      <div class="kpi-card kpi-card--${esc.status}" data-drilldown="escalation_rate">
         <div class="kpi-cadence">${esc.cadence}</div>
         <div class="kpi-label">Escalation Rate</div>
         <div class="kpi-value">${fmtPct(esc.value)}</div>
@@ -229,13 +234,13 @@ export default {
     const rpe = k.revenue_per_employee;
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--${scpc.status}">
+      <div class="kpi-card kpi-card--${scpc.status}" data-drilldown="support_cost_per_customer">
         <div class="kpi-cadence">${scpc.cadence}</div>
         <div class="kpi-label">${scpc.label}</div>
         <div class="kpi-value">$${scpc.value.toFixed(2)}</div>
         <div class="kpi-target">Target: $${scpc.target.toFixed(2)}</div>
       </div>
-      <div class="kpi-card kpi-card--${rpe.status}">
+      <div class="kpi-card kpi-card--${rpe.status}" data-drilldown="revenue_per_employee">
         <div class="kpi-cadence">${rpe.cadence}</div>
         <div class="kpi-label">${rpe.label}</div>
         <div class="kpi-value">${fmt$(rpe.value)}</div>
@@ -247,7 +252,7 @@ export default {
   _buildPendingGrid(el, ces) {
     const grid = el.querySelector('#support-pending-grid');
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--grey">
+      <div class="kpi-card kpi-card--grey" data-drilldown="ces">
         <div class="kpi-cadence">${ces.cadence}</div>
         <div class="kpi-label">${ces.label}</div>
         <div class="kpi-value">—</div>
@@ -256,9 +261,60 @@ export default {
       </div>`;
   },
 
+  _wireClickHandlers(containerEl, data) {
+    const k = data.kpis;
+    containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
+      card.addEventListener('click', () => {
+        const key = card.dataset.drilldown;
+        const kpi = k[key];
+        if (!kpi) return;
+        Drilldown.open({
+          title:       kpi.label,
+          definition:  kpi.definition || '',
+          value:       kpi.value,
+          target:      kpi.target,
+          unit:        kpi.unit || 'count',
+          status:      kpi.status,
+          trend:       kpi.trend,
+          trendLabels: kpi.trend_labels,
+          ytd:         kpi.ytd,
+          ytdTarget:   kpi.ytd_target,
+          okr:         kpi.okr,
+          cadence:     kpi.cadence,
+          dataSource:  data.meta?.data_source?.join(', '),
+          accountable: data.meta?.accountable,
+          note:        kpi.note,
+          breakdown:   this._getBreakdown(key, kpi),
+          breakdownTitle: this._getBreakdownTitle(key)
+        });
+      });
+    });
+  },
+
+  _getBreakdown(key, kpi) {
+    if (key === 'avg_resolution_time') {
+      return this._data?.kpis?.avg_resolution_time?.by_priority?.map(p => ({
+        label: p.priority, value: p.hours, target: p.target
+      })) || null;
+    }
+    if (key === 'ticket_volume') {
+      return this._data?.kpis?.ticket_volume?.by_type?.map(t => ({
+        label: t.type, value: t.count
+      })) || null;
+    }
+    return null;
+  },
+
+  _getBreakdownTitle(key) {
+    if (key === 'avg_resolution_time') return 'Resolution by Priority';
+    if (key === 'ticket_volume') return 'Tickets by Type';
+    return 'Breakdown';
+  },
+
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    Drilldown.close();
   },
 
   getSummaryKPIs() {

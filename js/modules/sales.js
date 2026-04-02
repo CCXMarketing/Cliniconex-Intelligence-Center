@@ -1,3 +1,5 @@
+import { Drilldown } from './drilldown.js';
+
 export default {
   charts: [],
 
@@ -23,6 +25,7 @@ export default {
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    Drilldown.close();
   },
 
   getSummaryKPIs() {
@@ -104,18 +107,19 @@ export default {
     const oppsTarget = k.opportunities_created.targets[scenario] || k.opportunities_created.targets.target;
 
     const cards = [
-      { label: k.expansion_revenue.label, value: k.expansion_revenue.value, target: k.expansion_revenue.target, unit: 'currency', status: k.expansion_revenue.status, cadence: k.expansion_revenue.cadence, trend: k.expansion_revenue.trend },
-      { label: k.new_logo_revenue.label, value: k.new_logo_revenue.value, target: k.new_logo_revenue.target, unit: 'currency', status: k.new_logo_revenue.status, cadence: k.new_logo_revenue.cadence, trend: k.new_logo_revenue.trend },
-      { label: k.win_rate.label, value: k.win_rate.value, target: k.win_rate.target, unit: 'percent', status: k.win_rate.status, cadence: k.win_rate.cadence, trend: k.win_rate.trend },
-      { label: k.avg_deal_size_acv.label, value: k.avg_deal_size_acv.value, target: k.avg_deal_size_acv.target, unit: 'currency', status: k.avg_deal_size_acv.status, cadence: k.avg_deal_size_acv.cadence, trend: k.avg_deal_size_acv.trend },
-      { label: k.pipeline_coverage.label, value: k.pipeline_coverage.value, target: k.pipeline_coverage.target, unit: 'multiplier', status: k.pipeline_coverage.status, cadence: k.pipeline_coverage.cadence, trend: k.pipeline_coverage.trend },
-      { label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend }
+      { key: 'expansion_revenue', label: k.expansion_revenue.label, value: k.expansion_revenue.value, target: k.expansion_revenue.target, unit: 'currency', status: k.expansion_revenue.status, cadence: k.expansion_revenue.cadence, trend: k.expansion_revenue.trend },
+      { key: 'new_logo_revenue', label: k.new_logo_revenue.label, value: k.new_logo_revenue.value, target: k.new_logo_revenue.target, unit: 'currency', status: k.new_logo_revenue.status, cadence: k.new_logo_revenue.cadence, trend: k.new_logo_revenue.trend },
+      { key: 'win_rate', label: k.win_rate.label, value: k.win_rate.value, target: k.win_rate.target, unit: 'percent', status: k.win_rate.status, cadence: k.win_rate.cadence, trend: k.win_rate.trend },
+      { key: 'avg_deal_size_acv', label: k.avg_deal_size_acv.label, value: k.avg_deal_size_acv.value, target: k.avg_deal_size_acv.target, unit: 'currency', status: k.avg_deal_size_acv.status, cadence: k.avg_deal_size_acv.cadence, trend: k.avg_deal_size_acv.trend },
+      { key: 'pipeline_coverage', label: k.pipeline_coverage.label, value: k.pipeline_coverage.value, target: k.pipeline_coverage.target, unit: 'multiplier', status: k.pipeline_coverage.status, cadence: k.pipeline_coverage.cadence, trend: k.pipeline_coverage.trend },
+      { key: 'opportunities_created', label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
+    this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ label, value, target, unit, status, cadence, trend }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'multiplier' ? value.toFixed(1) + 'x'
@@ -136,13 +140,63 @@ export default {
     }
 
     return `
-      <div class="kpi-card kpi-card--${status}">
+      <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
         <div class="kpi-cadence">${cadence}</div>
         <div class="kpi-label">${label}</div>
         <div class="kpi-value">${fmtVal}</div>
         ${deltaHtml}
         ${target != null ? `<div class="kpi-target">Target: ${fmtTarget}</div>` : ''}
       </div>`;
+  },
+
+  _wireClickHandlers(containerEl, data) {
+    const k = data.kpis;
+    containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
+      card.addEventListener('click', () => {
+        const key = card.dataset.drilldown;
+        const kpi = k[key];
+        if (!kpi) return;
+        Drilldown.open({
+          title:       kpi.label,
+          definition:  kpi.definition || '',
+          value:       kpi.value,
+          target:      kpi.target,
+          unit:        kpi.unit || 'count',
+          status:      kpi.status,
+          trend:       kpi.trend,
+          trendLabels: kpi.trend_labels,
+          ytd:         kpi.ytd,
+          ytdTarget:   kpi.ytd_target,
+          okr:         kpi.okr,
+          cadence:     kpi.cadence,
+          dataSource:  data.meta?.data_source?.join(', '),
+          accountable: data.meta?.accountable,
+          note:        kpi.note,
+          breakdown:   this._getBreakdown(key, kpi),
+          breakdownTitle: this._getBreakdownTitle(key)
+        });
+      });
+    });
+  },
+
+  _getBreakdown(key, kpi) {
+    if (key === 'quota_attainment') {
+      return this._data?.kpis?.quota_attainment?.reps?.map(r => ({
+        label: r.name, value: r.actual, target: r.quota
+      })) || null;
+    }
+    if (key === 'new_segment_bookings') {
+      return this._data?.kpis?.new_segment_bookings?.segments?.map(s => ({
+        label: s.name, value: s.value, target: s.target
+      })) || null;
+    }
+    return null;
+  },
+
+  _getBreakdownTitle(key) {
+    if (key === 'quota_attainment') return 'Rep Attainment';
+    if (key === 'new_segment_bookings') return 'Segment Bookings';
+    return 'Breakdown';
   },
 
   // ── Quota Attainment Table ──

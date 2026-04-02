@@ -1,3 +1,5 @@
+import { Drilldown } from './drilldown.js';
+
 // ── Customer Success tab module ──
 
 const CHART_COLORS = {
@@ -35,6 +37,9 @@ export default {
     this._buildChurnRevenueGrid(containerEl, k.churn_revenue);
     this._buildTTVChart(containerEl, k.time_to_value);
     this._buildAdditionalGrid(containerEl, k);
+
+    // ── Drilldown click handlers ──
+    this._wireClickHandlers(containerEl, data);
   },
 
   // ── Retention Overview Grid ──
@@ -46,28 +51,28 @@ export default {
     const csat = k.csat;
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--${grr.status}">
+      <div class="kpi-card kpi-card--${grr.status}" data-drilldown="gross_retention_rate">
         <div class="kpi-cadence">${grr.cadence}</div>
         <div class="kpi-label">${grr.label}</div>
         <div class="kpi-value">${fmtPct(grr.value)}</div>
         <div class="kpi-target">Target: ${fmtPct(grr.target)}</div>
         <div class="kpi-delta kpi-delta--up">+${(grr.trend[3] - grr.trend[2]).toFixed(1)}pp</div>
       </div>
-      <div class="kpi-card kpi-card--${nrr.status}">
+      <div class="kpi-card kpi-card--${nrr.status}" data-drilldown="nrr">
         <div class="kpi-cadence">${nrr.cadence}</div>
         <div class="kpi-label">${nrr.label}</div>
         <div class="kpi-value">${fmtPct(nrr.value)}</div>
         <div class="kpi-target">Target: ${fmtPct(nrr.target)}</div>
         <div class="kpi-delta kpi-delta--up">+${(nrr.trend[3] - nrr.trend[2]).toFixed(1)}pp</div>
       </div>
-      <div class="kpi-card kpi-card--${churn.status}">
+      <div class="kpi-card kpi-card--${churn.status}" data-drilldown="churn_revenue">
         <div class="kpi-cadence">${churn.cadence}</div>
         <div class="kpi-label">Churn Revenue MTD</div>
         <div class="kpi-value">${fmt$(churn.actual)}</div>
         <div class="kpi-target">Budget: ${fmt$(churn.budget)}</div>
         <div class="kpi-note">Under budget — on track</div>
       </div>
-      <div class="kpi-card kpi-card--${csat.status}">
+      <div class="kpi-card kpi-card--${csat.status}" data-drilldown="csat">
         <div class="kpi-cadence">${csat.cadence}</div>
         <div class="kpi-label">${csat.label}</div>
         <div class="kpi-value">${csat.value}/100</div>
@@ -257,21 +262,21 @@ export default {
     const ttv = k.time_to_value;
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--${npa.status}">
+      <div class="kpi-card kpi-card--${npa.status}" data-drilldown="new_product_adoption">
         <div class="kpi-cadence">${npa.cadence}</div>
         <div class="kpi-label">${npa.label}</div>
         <div class="kpi-value">${fmtPct(npa.value)}</div>
         <div class="kpi-target">Target: ${fmtPct(npa.target)}</div>
         <div class="kpi-note">${npa.note}</div>
       </div>
-      <div class="kpi-card kpi-card--${ref.status}">
+      <div class="kpi-card kpi-card--${ref.status}" data-drilldown="referral_influenced_pct">
         <div class="kpi-cadence">${ref.cadence}</div>
         <div class="kpi-label">${ref.label}</div>
         <div class="kpi-value">${fmtPct(ref.value)}</div>
         <div class="kpi-target">Target: ${fmtPct(ref.target)}</div>
         <div class="kpi-note">${ref.note}</div>
       </div>
-      <div class="kpi-card kpi-card--${ttv.status}">
+      <div class="kpi-card kpi-card--${ttv.status}" data-drilldown="time_to_value">
         <div class="kpi-cadence">${ttv.cadence}</div>
         <div class="kpi-label">${ttv.label}</div>
         <div class="kpi-value">${ttv.value} days</div>
@@ -279,9 +284,60 @@ export default {
       </div>`;
   },
 
+  _wireClickHandlers(containerEl, data) {
+    const k = data.kpis;
+    containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
+      card.addEventListener('click', () => {
+        const key = card.dataset.drilldown;
+        const kpi = k[key];
+        if (!kpi) return;
+        Drilldown.open({
+          title:       kpi.label,
+          definition:  kpi.definition || '',
+          value:       kpi.value ?? kpi.actual,
+          target:      kpi.target ?? kpi.budget,
+          unit:        kpi.unit || 'percent',
+          status:      kpi.status,
+          trend:       kpi.trend,
+          trendLabels: kpi.trend_labels,
+          ytd:         kpi.ytd,
+          ytdTarget:   kpi.ytd_target,
+          okr:         kpi.okr,
+          cadence:     kpi.cadence,
+          dataSource:  data.meta?.data_source?.join(', '),
+          accountable: data.meta?.accountable,
+          note:        kpi.note,
+          breakdown:   this._getBreakdown(key, kpi),
+          breakdownTitle: this._getBreakdownTitle(key)
+        });
+      });
+    });
+  },
+
+  _getBreakdown(key, kpi) {
+    if (key === 'churn_rate_by_segment') {
+      return this._data?.kpis?.churn_rate_by_segment?.segments?.map(s => ({
+        label: s.name, value: s.rate, target: s.target
+      })) || null;
+    }
+    if (key === 'at_risk_account_value') {
+      return this._data?.kpis?.at_risk_account_value?.accounts?.map(a => ({
+        label: a.name, value: a.mrr
+      })) || null;
+    }
+    return null;
+  },
+
+  _getBreakdownTitle(key) {
+    if (key === 'churn_rate_by_segment') return 'Churn by Segment';
+    if (key === 'at_risk_account_value') return 'At-Risk Accounts';
+    return 'Breakdown';
+  },
+
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    Drilldown.close();
   },
 
   getSummaryKPIs() {

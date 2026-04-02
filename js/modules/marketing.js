@@ -1,3 +1,5 @@
+import { Drilldown } from './drilldown.js';
+
 export default {
   charts: [],
 
@@ -14,6 +16,7 @@ export default {
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    Drilldown.close();
   },
 
   getSummaryKPIs() {
@@ -55,18 +58,19 @@ export default {
     const k = data.kpis;
 
     const cards = [
-      { label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend },
-      { label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend },
-      { label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend },
-      { label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend },
-      { label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend },
-      { label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend }
+      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend },
+      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend },
+      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend },
+      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend },
+      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend },
+      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
+    this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ label, value, target, unit, status, cadence, trend }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'multiplier' ? value.toFixed(1) + 'x'
@@ -87,13 +91,57 @@ export default {
     }
 
     return `
-      <div class="kpi-card kpi-card--${status}">
+      <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
         <div class="kpi-cadence">${cadence}</div>
         <div class="kpi-label">${label}</div>
         <div class="kpi-value">${fmtVal}</div>
         ${deltaHtml}
         ${target != null ? `<div class="kpi-target">Target: ${fmtTarget}</div>` : ''}
       </div>`;
+  },
+
+  _wireClickHandlers(containerEl, data) {
+    const k = data.kpis;
+    containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
+      card.addEventListener('click', () => {
+        const key = card.dataset.drilldown;
+        const kpi = k[key];
+        if (!kpi) return;
+        Drilldown.open({
+          title:       kpi.label,
+          definition:  kpi.definition || '',
+          value:       kpi.value,
+          target:      kpi.target,
+          unit:        kpi.unit || 'count',
+          status:      kpi.status,
+          trend:       kpi.trend,
+          trendLabels: kpi.trend_labels,
+          ytd:         kpi.ytd,
+          ytdTarget:   kpi.ytd_target,
+          okr:         kpi.okr,
+          cadence:     kpi.cadence,
+          dataSource:  data.meta?.data_source?.join(', '),
+          accountable: data.meta?.accountable,
+          note:        kpi.note,
+          breakdown:   this._getBreakdown(key, kpi),
+          breakdownTitle: this._getBreakdownTitle(key)
+        });
+      });
+    });
+  },
+
+  _getBreakdown(key, kpi) {
+    if (key === 'pipeline_by_segment' || key === 'pipeline_generated') {
+      return this._data?.kpis?.pipeline_by_segment?.segments?.map(s => ({
+        label: s.name, value: s.value, target: s.target
+      })) || null;
+    }
+    return null;
+  },
+
+  _getBreakdownTitle(key) {
+    if (key === 'pipeline_by_segment' || key === 'pipeline_generated') return 'Pipeline by Segment';
+    return 'Breakdown';
   },
 
   _renderSegmentChart(data) {
