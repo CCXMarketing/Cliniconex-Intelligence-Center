@@ -292,3 +292,121 @@
 .kpi-card[data-drilldown]:hover::after {
   color: #02475A;
 }
+
+/* ── Partner Detail Panel ── */
+.partner-panel {
+  position: fixed;
+  top: 52px;
+  right: -420px;
+  width: 400px;
+  bottom: 0;
+  background: white;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+  z-index: 400;
+  transition: right 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.partner-panel.open { right: 0; }
+.partner-panel__header {
+  padding: 20px 20px 16px;
+  background: #02475A;
+  color: white;
+  flex-shrink: 0;
+  position: relative;
+}
+.partner-panel__header h3 {
+  color: white;
+  margin: 0 0 4px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+}
+.partner-panel__header p {
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  margin: 0;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.partner-panel__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.partner-panel__close:hover { background: rgba(255,255,255,0.35); }
+.partner-panel__body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+.partner-period-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.partner-period-toggle button {
+  flex: 1;
+  padding: 6px 8px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #D2D5DA;
+  background: white;
+  color: #02475A;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.partner-period-toggle button.active {
+  background: #ADC837;
+  color: #404041;
+  border-color: #ADC837;
+}
+.partner-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.partner-stat {
+  background: #F4F4F4;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.partner-stat__label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9E9E9E;
+  margin-bottom: 4px;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.partner-stat__value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+}
+
+/* ── Clickable partner rows ── */
+.data-table tr[data-partner] {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.data-table tr[data-partner]:hover {
+  background: rgba(2, 71, 90, 0.04);
+}
