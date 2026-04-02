@@ -93,12 +93,14 @@ export default {
   _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
-      : (unit === 'multiplier' || unit === 'ratio') ? value.toFixed(1) + ':1'
+      : unit === 'ratio' ? Math.round(value) + ':1'
+      : unit === 'multiplier' ? value.toFixed(1) + ':1'
       : value.toLocaleString();
 
     const fmtTarget = unit === 'currency' ? CIC.formatCurrency(target)
       : unit === 'percent' ? CIC.formatPercent(target)
-      : (unit === 'multiplier' || unit === 'ratio') ? target.toFixed(1) + ':1'
+      : unit === 'ratio' ? Math.round(target) + ':1'
+      : unit === 'multiplier' ? target.toFixed(1) + ':1'
       : target?.toLocaleString();
 
     let deltaHtml = '';
@@ -243,7 +245,7 @@ export default {
         const roas = cac > 0 ? l / cac : 0;
         document.getElementById('roas-cac-out').textContent = CIC.formatCurrency(cac);
         const roasEl = document.getElementById('roas-out');
-        roasEl.textContent = roas.toFixed(2) + ':1';
+        roasEl.textContent = Math.round(roas) + ':1';
         roasEl.style.color = roas >= 4.0 ? '#ADC837' : roas >= 2.5 ? '#FFC107' : '#E53935';
       };
       recalc();
@@ -259,9 +261,9 @@ export default {
         await CIC.setData('marketing', 'ad_spend_total', s);
         await CIC.setData('marketing', 'customers_acquired', c);
         const roasValueEl = roasCard.querySelector('.kpi-value');
-        if (roasValueEl) roasValueEl.textContent = roas.toFixed(2) + ':1';
+        if (roasValueEl) roasValueEl.textContent = Math.round(roas) + ':1';
         const roasTargetEl = roasCard.querySelector('.kpi-target');
-        if (roasTargetEl) roasTargetEl.textContent = `CAC: ${CIC.formatCurrency(cac)} \u00B7 Target: 4.0:1`;
+        if (roasTargetEl) roasTargetEl.textContent = `CAC: ${CIC.formatCurrency(cac)} \u00B7 Target: 4:1`;
         calc.remove();
       });
 
@@ -674,7 +676,7 @@ export default {
               : c.cpa <= gads.cpa_thresholds.warning ? '#F57F17' : '#C62828'
             };font-weight:700;">${CIC.formatCurrency(c.cpa)}</span>
           </td>
-          <td class="col-right">${c.roas.toFixed(1)}:1</td>
+          <td class="col-right">${Math.round(c.roas)}:1</td>
           <td class="col-center">
             <span class="badge badge--${c.status_badge}">${c.status_badge.toUpperCase()}</span>
           </td>
@@ -796,7 +798,7 @@ export default {
         <td>${c.name}</td>
         <td class="col-right">${CIC.formatCurrency(c.spend)}</td>
         <td class="col-right">${CIC.formatCurrency(c.attributed_revenue)}</td>
-        <td class="col-right"><strong>${c.roi.toFixed(2)}:1</strong></td>
+        <td class="col-right"><strong>${Math.round(c.roi)}:1</strong></td>
         <td class="col-center"><span class="badge badge--${c.status}">${c.status}</span></td>
       </tr>
     `).join('');

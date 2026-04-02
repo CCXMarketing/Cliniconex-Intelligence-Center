@@ -404,7 +404,7 @@ export const Drilldown = {
     if (unit === 'currency') return CIC.formatCurrency(n);
     if (unit === 'percent')  return CIC.formatPercent(n);
     if (unit === 'multiplier') return n.toFixed(1) + ':1';
-    if (unit === 'ratio')  return n.toFixed(1) + ':1';
+    if (unit === 'ratio')  return Math.round(n) + ':1';
     if (unit === 'days')    return n + ' days';
     if (unit === 'hours')   return n + ' hrs';
     if (unit === 'score')   return n.toString();
