@@ -1,68 +1,47 @@
-<div class="dept-header" style="background: linear-gradient(135deg, #522E76 0%, #7B4FAA 100%);">
+<div class="dept-header" style="background: linear-gradient(135deg, #02475A 0%, #0a6e8a 100%);">
   <div class="dept-header__left">
-    <h2>Manual Data Entry</h2>
-    <p>Finance, HR, and partner data with no automated API source</p>
+    <h2>Partner Data Entry</h2>
+    <p>Manual inputs for partner data with no automated API source</p>
   </div>
   <div class="dept-header__right">
-    <span class="badge badge--grey">Admin</span>
     <span class="badge badge--grey">Manual Input</span>
+    <span class="badge badge--grey">Monthly</span>
   </div>
 </div>
 
-<div style="background: #FFF8E1; border: 1px solid #FFE082; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 13px; color: #F57F17; font-weight: 600;">
-  Data entered here is saved to local storage and used to populate metrics with no API source.
-  Phase 2 will sync this data to a shared Google Sheet.
-</div>
-
-<!-- Finance Section -->
-<div class="manual-entry-form" id="finance-form">
-  <div class="manual-entry-form__title">Finance — Monthly Inputs</div>
-  <div class="entry-grid" id="finance-fields">
-    <!-- Populated by manual-entry.js -->
-  </div>
-  <button class="btn btn--sm" onclick="window.manualEntry.saveSection('finance')">
-    Save Finance Data
-  </button>
-  <span class="entry-field__save-confirm" id="finance-save-confirm">Saved</span>
-</div>
-
-<!-- HR Section -->
-<div class="manual-entry-form" id="hr-form">
-  <div class="manual-entry-form__title">HR and Headcount — Monthly Inputs</div>
-  <div class="entry-grid" id="hr-fields">
-    <!-- Populated by manual-entry.js -->
-  </div>
-  <button class="btn btn--sm" onclick="window.manualEntry.saveSection('hr')">
-    Save HR Data
-  </button>
-  <span class="entry-field__save-confirm" id="hr-save-confirm">Saved</span>
+<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;
+  padding:14px 18px;margin-bottom:24px;font-size:13px;
+  color:#F57F17;font-weight:600;font-family:'Nunito Sans',sans-serif;">
+  &#9888; Data entered here is saved locally and used to populate partner
+  metrics with no API source. Phase 2 will sync to a shared Google Sheet.
 </div>
 
 <!-- Partner Data Section -->
 <div class="manual-entry-form" id="partner-form">
-  <div class="manual-entry-form__title">Partner Data — Monthly Inputs</div>
+  <div class="manual-entry-form__title">PCC Partner Data — Monthly Inputs</div>
   <div class="entry-grid" id="partner-fields">
     <!-- Populated by manual-entry.js -->
   </div>
-  <button class="btn btn--sm" onclick="window.manualEntry.saveSection('partner')">
-    Save Partner Data
-  </button>
-  <span class="entry-field__save-confirm" id="partner-save-confirm">Saved</span>
+  <div style="display:flex;align-items:center;gap:12px;margin-top:16px;">
+    <button class="btn btn--sm" onclick="window.manualEntry.saveSection('partner')">
+      Save Partner Data
+    </button>
+    <span class="entry-field__save-confirm" id="partner-save-confirm">&#10003; Saved</span>
+  </div>
 </div>
 
 <!-- Saved Data Summary -->
-<div class="section-header">
-  <h3>Recently Saved Values</h3>
-  <p>Last saved inputs across all sections</p>
+<div class="section-header" style="margin-top:32px;">
+  <h3>Saved Values</h3>
+  <p>All previously saved partner data entries</p>
 </div>
 <div class="table-wrapper">
   <table class="data-table" id="manual-summary-table">
     <thead>
       <tr>
-        <th>Section</th>
         <th>Field</th>
         <th class="col-right">Value</th>
-        <th>Saved At</th>
+        <th>Last Saved</th>
       </tr>
     </thead>
     <tbody id="manual-summary-tbody">

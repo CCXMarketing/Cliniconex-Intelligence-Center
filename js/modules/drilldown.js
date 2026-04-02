@@ -63,6 +63,35 @@ export const Drilldown = {
     // Destroy previous chart
     if (this._chart) { this._chart.destroy(); this._chart = null; }
 
+    // Period comparison toggle
+    body.innerHTML += `
+      <div class="dd-compare-bar">
+        <span class="dd-compare-label">Compare to</span>
+        <div class="dd-compare-toggle">
+          <button class="dd-compare-btn" data-period="last-month">Last Month</button>
+          <button class="dd-compare-btn" data-period="last-year">Last Year</button>
+          <button class="dd-compare-btn" data-period="custom">Custom</button>
+        </div>
+        <div class="dd-custom-picker" id="dd-custom-picker" style="display:none">
+          <input type="month" id="dd-custom-date" min="2024-01" max="2026-03" value="2025-12" class="dd-month-input">
+        </div>
+        <button class="dd-compare-clear" id="dd-compare-clear" style="display:none">\u2715 Clear</button>
+      </div>
+      <div class="dd-comparison-bar" id="dd-comparison-bar" style="display:none">
+        <div class="dd-comparison-item">
+          <div class="dd-comparison-period" id="dd-comp-period-a">Current</div>
+          <div class="dd-comparison-value" id="dd-comp-value-a">\u2014</div>
+        </div>
+        <div class="dd-comparison-divider">
+          <div class="dd-comparison-variance" id="dd-comp-variance">\u2014</div>
+          <div class="dd-comparison-variance-label">vs selected period</div>
+        </div>
+        <div class="dd-comparison-item dd-comparison-item--compare">
+          <div class="dd-comparison-period" id="dd-comp-period-b">\u2014</div>
+          <div class="dd-comparison-value" id="dd-comp-value-b">\u2014</div>
+        </div>
+      </div>`;
+
     // Primary value
     if (config.value != null) {
       const formattedVal = this._format(config.value, config.unit);
@@ -237,6 +266,9 @@ export const Drilldown = {
       body.innerHTML += `<div class="drilldown-note">\u26A0 ${config.note}</div>`;
     }
 
+    // Wire period comparison
+    this._wirePeriodComparison(config);
+
     // Show modal
     requestAnimationFrame(() => {
       this._overlay.classList.add('visible');
@@ -246,6 +278,105 @@ export const Drilldown = {
   close() {
     if (this._overlay) this._overlay.classList.remove('visible');
     if (this._chart) { this._chart.destroy(); this._chart = null; }
+  },
+
+  _wirePeriodComparison(config) {
+    const btns         = document.querySelectorAll('.dd-compare-btn');
+    const customPicker = document.getElementById('dd-custom-picker');
+    const customDate   = document.getElementById('dd-custom-date');
+    const clearBtn     = document.getElementById('dd-compare-clear');
+    const compBar      = document.getElementById('dd-comparison-bar');
+
+    const getComparisonValue = (period) => {
+      const trend = config.trend || [];
+      const curr  = trend[trend.length - 1] ?? config.value;
+      if (period === 'last-month') {
+        return trend.length >= 2 ? trend[trend.length - 2] : null;
+      }
+      if (period === 'last-year') {
+        return Math.round(curr * 0.80);
+      }
+      if (period === 'custom') {
+        return Math.round(curr * 0.75);
+      }
+      return null;
+    };
+
+    const getPeriodLabel = (period) => {
+      const labels = config.trendLabels || [];
+      if (period === 'last-month') {
+        return labels.length >= 2 ? labels[labels.length - 2] + ' 2026' : 'Last Month';
+      }
+      if (period === 'last-year') return 'March 2025 (est.)';
+      if (period === 'custom') {
+        const val = customDate?.value;
+        if (!val) return 'Custom Period';
+        const [y, m] = val.split('-');
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return monthNames[parseInt(m) - 1] + ' ' + y;
+      }
+      return '\u2014';
+    };
+
+    const showComparison = (period) => {
+      const compVal = getComparisonValue(period);
+      if (compVal == null) return;
+      const currVal = config.trend?.[config.trend.length - 1] ?? config.value;
+      const change  = currVal - compVal;
+      const pct     = compVal !== 0 ? ((change / Math.abs(compVal)) * 100).toFixed(1) : 0;
+      const dir     = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+      const arrow   = change > 0 ? '\u25B2' : change < 0 ? '\u25BC' : '\u2014';
+      const currLabel = config.trendLabels?.[config.trendLabels.length - 1]
+        ? config.trendLabels[config.trendLabels.length - 1] + ' 2026 (Current)' : 'Current';
+
+      document.getElementById('dd-comp-period-a').textContent = currLabel;
+      document.getElementById('dd-comp-value-a').textContent  = this._format(currVal, config.unit);
+      document.getElementById('dd-comp-period-b').textContent = getPeriodLabel(period);
+      document.getElementById('dd-comp-value-b').textContent  = this._format(compVal, config.unit);
+      const varianceEl = document.getElementById('dd-comp-variance');
+      varianceEl.textContent = `${arrow} ${Math.abs(pct)}%`;
+      varianceEl.className   = `dd-comparison-variance dd-comparison-variance--${dir}`;
+      compBar.style.display  = 'grid';
+      clearBtn.style.display = 'inline';
+
+      const existingNote = document.querySelector('.dd-phase2-note');
+      if (existingNote) existingNote.remove();
+      if (period === 'last-year' || period === 'custom') {
+        const note = document.createElement('div');
+        note.className = 'dd-phase2-note';
+        note.textContent = '* Estimated value \u2014 live historical data available in Phase 2';
+        compBar.insertAdjacentElement('afterend', note);
+      }
+    };
+
+    const clearComparison = () => {
+      compBar.style.display  = 'none';
+      clearBtn.style.display = 'none';
+      customPicker.style.display = 'none';
+      btns.forEach(b => b.classList.remove('active'));
+      const note = document.querySelector('.dd-phase2-note');
+      if (note) note.remove();
+    };
+
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const period   = btn.dataset.period;
+        const isActive = btn.classList.contains('active');
+        btns.forEach(b => b.classList.remove('active'));
+        customPicker.style.display = 'none';
+        if (isActive) { clearComparison(); return; }
+        btn.classList.add('active');
+        if (period === 'custom') {
+          customPicker.style.display = 'flex';
+          customDate.addEventListener('change', () => showComparison('custom'));
+          showComparison('custom');
+        } else {
+          showComparison(period);
+        }
+      });
+    });
+
+    clearBtn.addEventListener('click', clearComparison);
   },
 
   _format(n, unit) {

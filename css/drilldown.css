@@ -626,3 +626,158 @@
 }
 .roas-calc-result-divider { width: 1px; background: #D2D5DA; }
 .roas-calc-actions { display: flex; gap: 8px; }
+
+
+/* ════════════════════════════════════════════════
+   FEATURE 5: PERIOD COMPARISON TOGGLE
+════════════════════════════════════════════════ */
+
+.dd-compare-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid #E1E6EF;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.dd-compare-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+  white-space: nowrap;
+}
+.dd-compare-toggle {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #D2D5DA;
+}
+.dd-compare-btn {
+  padding: 5px 14px;
+  height: 30px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  background: white;
+  color: #02475A;
+  border: none;
+  border-right: 1px solid #D2D5DA;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.dd-compare-btn:last-child { border-right: none; }
+.dd-compare-btn.active {
+  background: #02475A;
+  color: white;
+}
+.dd-compare-btn:hover:not(.active) {
+  background: #E0EEF2;
+}
+.dd-month-input {
+  height: 30px;
+  border: 1px solid #D2D5DA;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #02475A;
+  outline: none;
+  cursor: pointer;
+}
+.dd-month-input:focus {
+  border-color: #02475A;
+  box-shadow: 0 0 0 2px rgba(2,71,90,0.1);
+}
+.dd-compare-clear {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9E9E9E;
+  cursor: pointer;
+  font-family: 'Nunito Sans', sans-serif;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.dd-compare-clear:hover { color: #C62828; }
+
+/* ── Comparison Result Bar ── */
+.dd-comparison-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid #E1E6EF;
+}
+.dd-comparison-item {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #F9FAFB;
+}
+.dd-comparison-item--compare {
+  background: #E0EEF2;
+  align-items: flex-end;
+  text-align: right;
+}
+.dd-comparison-period {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.dd-comparison-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.dd-comparison-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  background: white;
+  border-left: 1px solid #E1E6EF;
+  border-right: 1px solid #E1E6EF;
+  min-width: 90px;
+  gap: 4px;
+}
+.dd-comparison-variance {
+  font-size: 18px;
+  font-weight: 800;
+  font-family: 'Nunito Sans', sans-serif;
+}
+.dd-comparison-variance--up   { color: #2E7D32; }
+.dd-comparison-variance--down { color: #C62828; }
+.dd-comparison-variance--flat { color: #9E9E9E; }
+.dd-comparison-variance-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+  text-align: center;
+}
+.dd-phase2-note {
+  font-size: 11px;
+  color: #9E9E9E;
+  font-style: italic;
+  text-align: center;
+  margin-top: -14px;
+  margin-bottom: 14px;
+  font-family: 'Nunito Sans', sans-serif;
+}
