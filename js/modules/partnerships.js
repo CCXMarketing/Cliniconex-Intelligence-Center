@@ -1,4 +1,4 @@
-import { Drilldown } from './drilldown.js';
+import { Drilldown, PartnerPanel, wireEditableCards } from './drilldown.js';
 
 // ── Channel Partnerships tab module ──
 
@@ -56,8 +56,12 @@ export default {
     // ── New Channel Development Grid ──
     this._buildNewChannelGrid(containerEl, k);
 
+    // ── Partner Detail Panel ──
+    PartnerPanel.init(k.revenue_by_partner.partners);
+
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
+    wireEditableCards(containerEl, 'partnerships');
   },
 
   // ── Partner Donut ──
@@ -84,8 +88,7 @@ export default {
         maintainAspectRatio: false,
         onClick: (evt, elements) => {
           if (elements.length > 0) {
-            const idx = elements[0].index;
-            this._openPartnerPanel(partners[idx].name);
+            PartnerPanel.open(partners[elements[0].index]);
           }
         },
         plugins: {
@@ -187,9 +190,11 @@ export default {
     }).join('');
 
     // Wire click handlers on rows
+    const partners = rbp.partners;
     tbody.querySelectorAll('tr[data-partner]').forEach(row => {
       row.addEventListener('click', () => {
-        this._openPartnerPanel(row.dataset.partner);
+        const p = partners.find(pr => pr.name === row.dataset.partner);
+        if (p) PartnerPanel.open(p);
       });
     });
   },
@@ -250,7 +255,7 @@ export default {
         <div class="kpi-target">Target: ${npa.target}</div>
         <div class="kpi-note">${npa.note}</div>
       </div>
-      <div class="kpi-card kpi-card--yellow" data-drilldown="new_partner_outreach">
+      <div class="kpi-card kpi-card--yellow" data-drilldown="new_partner_outreach" data-editable="true" data-entry-key="partner_outreach_count" data-unit="count">
         <div class="kpi-cadence">${npo.cadence}</div>
         <div class="kpi-label">New Partner Outreach</div>
         <div class="kpi-value">${npo.value}</div>
@@ -261,7 +266,9 @@ export default {
   _wireClickHandlers(containerEl, data) {
     const k = data.kpis;
     containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.kpi-card__edit-btn')) return;
+        if (card.classList.contains('editing')) return;
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
@@ -308,255 +315,10 @@ export default {
     return 'Breakdown';
   },
 
-  // ── Partner Detail Panel ──
-  _panelEl: null,
-  _panelChart: null,
-  _currentPartner: null,
-  _currentPeriod: 'quarter',
-
-  _initPanel() {
-    if (this._panelEl) return;
-    const panel = document.createElement('div');
-    panel.className = 'partner-panel';
-    panel.id = 'partner-panel';
-    panel.innerHTML = `
-      <div class="partner-panel__header">
-        <h3 id="pp-name"></h3>
-        <p id="pp-subtitle"></p>
-        <button class="partner-panel__close" id="pp-close">\u2715</button>
-      </div>
-      <div class="partner-panel__body" id="pp-body"></div>`;
-    document.body.appendChild(panel);
-    this._panelEl = panel;
-
-    document.getElementById('pp-close').addEventListener('click', () => this._closePanel());
-  },
-
-  _openPartnerPanel(partnerName) {
-    this._initPanel();
-    this._currentPartner = partnerName;
-    this._currentPeriod = 'quarter';
-    this._renderPanel();
-    requestAnimationFrame(() => this._panelEl.classList.add('open'));
-  },
-
-  _closePanel() {
-    if (this._panelEl) this._panelEl.classList.remove('open');
-    if (this._panelChart) { this._panelChart.destroy(); this._panelChart = null; }
-  },
-
-  _renderPanel() {
-    const name = this._currentPartner;
-    const rbp = this._data.kpis.revenue_by_partner;
-    const partner = rbp.partners.find(p => p.name === name);
-    if (!partner) return;
-
-    document.getElementById('pp-name').textContent = name;
-    document.getElementById('pp-subtitle').textContent =
-      `${fmt$(partner.mrr)} MRR \u00B7 ${partner.pct}% of total`;
-
-    const body = document.getElementById('pp-body');
-    if (this._panelChart) { this._panelChart.destroy(); this._panelChart = null; }
-
-    // Generate MRR data for all periods
-    const mrrData = this._generateMRRData(partner);
-    const periodData = this._getPeriodData(mrrData, this._currentPeriod);
-
-    // Period toggle
-    const toggleHtml = `
-      <div class="partner-period-toggle" id="pp-toggle">
-        <button data-period="quarter" class="${this._currentPeriod === 'quarter' ? 'active' : ''}">This Quarter</button>
-        <button data-period="last-quarter" class="${this._currentPeriod === 'last-quarter' ? 'active' : ''}">Last Quarter</button>
-        <button data-period="12-months" class="${this._currentPeriod === '12-months' ? 'active' : ''}">Last 12 Months</button>
-      </div>`;
-
-    // Summary stats
-    const avgMRR = periodData.values.reduce((s, v) => s + v, 0) / periodData.values.length;
-    const peakVal = Math.max(...periodData.values);
-    const peakIdx = periodData.values.indexOf(peakVal);
-    const firstVal = periodData.values[0];
-    const lastVal = periodData.values[periodData.values.length - 1];
-    const growthPct = firstVal > 0 ? (((lastVal - firstVal) / firstVal) * 100).toFixed(1) : '0.0';
-
-    const statsHtml = `
-      <div class="partner-stat-grid">
-        <div class="partner-stat">
-          <div class="partner-stat__label">Avg MRR</div>
-          <div class="partner-stat__value">${fmt$(Math.round(avgMRR))}</div>
-        </div>
-        <div class="partner-stat">
-          <div class="partner-stat__label">Peak Month</div>
-          <div class="partner-stat__value">${periodData.labels[peakIdx]}</div>
-        </div>
-        <div class="partner-stat">
-          <div class="partner-stat__label">Growth Rate</div>
-          <div class="partner-stat__value">${growthPct >= 0 ? '+' : ''}${growthPct}%</div>
-        </div>
-        <div class="partner-stat">
-          <div class="partner-stat__label">% of Revenue</div>
-          <div class="partner-stat__value">${partner.pct}%</div>
-        </div>
-      </div>`;
-
-    // MxC target progress bar
-    let mxcHtml = '';
-    if (name === 'MxC') {
-      const mxc = this._data.kpis.mxc_revenue_ramp;
-      const pct = ((mxc.value / mxc.annual_target) * 100).toFixed(1);
-      mxcHtml = `
-        <div class="drilldown-section">
-          <div class="drilldown-section-title">Annual Target Progress</div>
-          <div class="drilldown-breakdown">
-            <div class="drilldown-breakdown-row">
-              <div class="drilldown-breakdown-row__label">${fmt$(mxc.value)} of ${fmt$(mxc.annual_target)}</div>
-              <div class="drilldown-breakdown-row__bar">
-                <div class="drilldown-breakdown-row__fill" style="width:${Math.min(100, parseFloat(pct))}%"></div>
-              </div>
-              <div class="drilldown-breakdown-row__value">${pct}%</div>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    body.innerHTML = toggleHtml + `
-      <div style="position:relative;height:200px;margin-bottom:16px;">
-        <canvas id="pp-chart"></canvas>
-      </div>` + statsHtml + mxcHtml;
-
-    // Wire toggle buttons
-    body.querySelectorAll('#pp-toggle button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this._currentPeriod = btn.dataset.period;
-        this._renderPanel();
-      });
-    });
-
-    // Render chart
-    setTimeout(() => {
-      const canvas = document.getElementById('pp-chart');
-      if (!canvas) return;
-
-      // MoM growth rates
-      const growthRates = periodData.values.map((v, i) => {
-        if (i === 0) return 0;
-        const prev = periodData.values[i - 1];
-        return prev > 0 ? +((v - prev) / prev * 100).toFixed(1) : 0;
-      });
-
-      this._panelChart = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: periodData.labels,
-          datasets: [
-            {
-              type: 'bar',
-              label: 'MRR',
-              data: periodData.values,
-              backgroundColor: CHART_COLORS.teal,
-              borderRadius: 4,
-              barPercentage: 0.6,
-              order: 2,
-              yAxisID: 'y'
-            },
-            {
-              type: 'line',
-              label: 'MoM Growth %',
-              data: growthRates,
-              borderColor: CHART_COLORS.green,
-              pointBackgroundColor: CHART_COLORS.green,
-              pointRadius: 3,
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              order: 1,
-              yAxisID: 'y1'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            y: {
-              position: 'left',
-              ticks: { callback: v => fmt$(v), font: { size: 10 } }
-            },
-            y1: {
-              position: 'right',
-              grid: { drawOnChartArea: false },
-              ticks: { callback: v => v + '%', font: { size: 10 } }
-            },
-            x: { ticks: { font: { size: 10 } } }
-          },
-          plugins: {
-            legend: { labels: { font: { size: 10 } } },
-            tooltip: {
-              callbacks: {
-                label: ctx => ctx.dataset.yAxisID === 'y'
-                  ? `MRR: ${fmt$(ctx.raw)}`
-                  : `Growth: ${ctx.raw}%`
-              }
-            }
-          }
-        }
-      });
-    }, 50);
-  },
-
-  _generateMRRData(partner) {
-    // We have 4 months of pct trend data. Derive MRR from pct relative to current.
-    const currentPct = partner.trend[partner.trend.length - 1];
-    const knownMRR = partner.trend.map(pct =>
-      currentPct > 0 ? Math.round(partner.mrr * (pct / currentPct)) : partner.mrr
-    );
-    const knownLabels = [...this._data.kpis.revenue_by_partner.trend_labels];
-
-    // Extrapolate backwards to get 12 months total
-    // Calculate average monthly MRR change from the 4 known months
-    const avgChange = (knownMRR[knownMRR.length - 1] - knownMRR[0]) / (knownMRR.length - 1);
-    const monthNames = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
-    // Known months are Dec,Jan,Feb,Mar (indices 8-11 in the fiscal year)
-    // We need to extrapolate backwards: Apr,May,Jun,Jul,Aug,Sep,Oct,Nov
-    const extraCount = 12 - knownMRR.length;
-    const extraMRR = [];
-    const extraLabels = [];
-    for (let i = extraCount; i > 0; i--) {
-      const val = Math.max(0, Math.round(knownMRR[0] - avgChange * i));
-      extraMRR.push(val);
-      extraLabels.push(monthNames[extraCount - i]);
-    }
-
-    return {
-      labels: [...extraLabels, ...knownLabels],
-      values: [...extraMRR, ...knownMRR]
-    };
-  },
-
-  _getPeriodData(fullData, period) {
-    const len = fullData.labels.length;
-    if (period === 'quarter') {
-      // Last 3 months (current quarter)
-      return {
-        labels: fullData.labels.slice(len - 3),
-        values: fullData.values.slice(len - 3)
-      };
-    }
-    if (period === 'last-quarter') {
-      // Months 7-9 (the quarter before current)
-      return {
-        labels: fullData.labels.slice(len - 6, len - 3),
-        values: fullData.values.slice(len - 6, len - 3)
-      };
-    }
-    // 12-months: all data
-    return fullData;
-  },
-
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
-    this._closePanel();
+    PartnerPanel.close();
     Drilldown.close();
   },
 

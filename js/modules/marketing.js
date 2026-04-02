@@ -1,4 +1,4 @@
-import { Drilldown } from './drilldown.js';
+import { Drilldown, wireEditableCards } from './drilldown.js';
 
 export default {
   charts: [],
@@ -9,6 +9,8 @@ export default {
     this._renderSegmentChart(data);
     this._renderHIROChart(data);
     this._renderCampaignTable(data);
+
+    this._initROASCalculator(containerEl, data);
 
     CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
   },
@@ -103,7 +105,9 @@ export default {
   _wireClickHandlers(containerEl, data) {
     const k = data.kpis;
     containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.kpi-card__edit-btn')) return;
+        if (card.classList.contains('editing')) return;
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
@@ -142,6 +146,109 @@ export default {
   _getBreakdownTitle(key) {
     if (key === 'pipeline_by_segment' || key === 'pipeline_generated') return 'Pipeline by Segment';
     return 'Breakdown';
+  },
+
+  _initROASCalculator(containerEl, data) {
+    const roasCard = containerEl.querySelector('[data-drilldown="roas"]');
+    if (!roasCard) return;
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'kpi-card__edit-btn';
+    editBtn.textContent = '\u270E';
+    editBtn.title = 'Open ROAS Calculator';
+    roasCard.appendChild(editBtn);
+
+    editBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+
+      const existing = document.getElementById('roas-calc-panel');
+      if (existing) { existing.remove(); return; }
+
+      const ltv   = 29000;
+      const spend = 18500;
+      const cust  = data.kpis.marketing_created_deals?.value || 142;
+
+      const calc = document.createElement('div');
+      calc.className = 'roas-calculator';
+      calc.id = 'roas-calc-panel';
+      calc.innerHTML = `
+        <div class="roas-calc-title">ROAS Calculator</div>
+        <div class="roas-calc-grid">
+          <div class="roas-calc-field">
+            <label>LTV (Lifetime Value)</label>
+            <div class="roas-calc-input-wrap">
+              <span class="roas-calc-prefix">$</span>
+              <input type="number" id="roas-ltv" value="${ltv}" step="500">
+            </div>
+            <div class="roas-calc-hint">Config value — update quarterly</div>
+          </div>
+          <div class="roas-calc-field">
+            <label>Total Ad Spend (Month)</label>
+            <div class="roas-calc-input-wrap">
+              <span class="roas-calc-prefix">$</span>
+              <input type="number" id="roas-spend" value="${spend}" step="100">
+            </div>
+            <div class="roas-calc-hint">Monthly marketing spend</div>
+          </div>
+          <div class="roas-calc-field">
+            <label>New Customers Acquired</label>
+            <div class="roas-calc-input-wrap">
+              <span class="roas-calc-prefix">#</span>
+              <input type="number" id="roas-customers" value="${cust}" step="1">
+            </div>
+            <div class="roas-calc-hint">Phase 2: auto-filled from ActiveCampaign</div>
+          </div>
+        </div>
+        <div class="roas-calc-result">
+          <div class="roas-calc-result-item">
+            <div class="roas-calc-result-label">CAC</div>
+            <div class="roas-calc-result-value" id="roas-cac-out">\u2014</div>
+          </div>
+          <div class="roas-calc-result-divider"></div>
+          <div class="roas-calc-result-item roas-calc-result-item--main">
+            <div class="roas-calc-result-label">ROAS</div>
+            <div class="roas-calc-result-value" id="roas-out">\u2014</div>
+          </div>
+        </div>
+        <div class="roas-calc-actions">
+          <button class="kpi-card__save-btn" id="roas-save-btn">Save and Update Card</button>
+          <button class="kpi-card__cancel-btn" id="roas-cancel-btn">Cancel</button>
+        </div>`;
+
+      roasCard.parentNode.insertBefore(calc, roasCard.nextSibling);
+
+      const recalc = () => {
+        const l = parseFloat(document.getElementById('roas-ltv').value) || 0;
+        const s = parseFloat(document.getElementById('roas-spend').value) || 0;
+        const c = parseFloat(document.getElementById('roas-customers').value) || 1;
+        const cac  = s / c;
+        const roas = cac > 0 ? l / cac : 0;
+        document.getElementById('roas-cac-out').textContent = CIC.formatCurrency(cac);
+        const roasEl = document.getElementById('roas-out');
+        roasEl.textContent = roas.toFixed(2) + 'x';
+        roasEl.style.color = roas >= 4.0 ? '#ADC837' : roas >= 2.5 ? '#FFC107' : '#E53935';
+      };
+      recalc();
+      calc.querySelectorAll('input').forEach(i => i.addEventListener('input', recalc));
+
+      document.getElementById('roas-save-btn').addEventListener('click', async () => {
+        const l = parseFloat(document.getElementById('roas-ltv').value);
+        const s = parseFloat(document.getElementById('roas-spend').value);
+        const c = parseFloat(document.getElementById('roas-customers').value) || 1;
+        const cac  = s / c;
+        const roas = cac > 0 ? l / cac : 0;
+        await CIC.setData('marketing', 'ltv', l);
+        await CIC.setData('marketing', 'ad_spend_total', s);
+        await CIC.setData('marketing', 'customers_acquired', c);
+        const roasValueEl = roasCard.querySelector('.kpi-value');
+        if (roasValueEl) roasValueEl.textContent = roas.toFixed(2) + 'x';
+        const roasTargetEl = roasCard.querySelector('.kpi-target');
+        if (roasTargetEl) roasTargetEl.textContent = `CAC: ${CIC.formatCurrency(cac)} \u00B7 Target: 4.0x`;
+        calc.remove();
+      });
+
+      document.getElementById('roas-cancel-btn').addEventListener('click', () => calc.remove());
+    });
   },
 
   _renderSegmentChart(data) {

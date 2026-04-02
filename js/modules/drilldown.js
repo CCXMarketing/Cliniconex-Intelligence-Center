@@ -259,3 +259,238 @@ export const Drilldown = {
     return n.toLocaleString();
   }
 };
+
+
+/* ════════════════════════════════════
+   FEATURE 2: PARTNER DETAIL PANEL
+════════════════════════════════════ */
+
+export const PartnerPanel = {
+  _panel: null,
+  _chart: null,
+  _currentPartner: null,
+  _allPartners: null,
+
+  init(partners) {
+    this._allPartners = partners;
+    if (document.getElementById('partner-panel')) return;
+
+    const panel = document.createElement('div');
+    panel.className = 'partner-panel';
+    panel.id = 'partner-panel';
+    panel.innerHTML = `
+      <div class="partner-panel__header">
+        <h3 id="pp-name">Partner</h3>
+        <p id="pp-meta"></p>
+        <button class="partner-panel__close" id="pp-close">\u2715</button>
+      </div>
+      <div class="partner-panel__body">
+        <div class="partner-period-toggle" id="pp-toggle">
+          <button data-period="quarter" class="active">This Quarter</button>
+          <button data-period="last-quarter">Last Quarter</button>
+          <button data-period="year">Last 12 Months</button>
+        </div>
+        <div class="partner-stat-grid" id="pp-stats"></div>
+        <div class="partner-chart-wrap"><canvas id="pp-chart"></canvas></div>
+        <div id="pp-target-section"></div>
+      </div>`;
+    document.body.appendChild(panel);
+    this._panel = panel;
+
+    document.getElementById('pp-close').addEventListener('click', () => this.close());
+    document.getElementById('pp-toggle').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-period]');
+      if (!btn) return;
+      document.querySelectorAll('#pp-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (this._currentPartner) this._render(this._currentPartner, btn.dataset.period);
+    });
+  },
+
+  open(partner) {
+    this._currentPartner = partner;
+    this._panel.classList.add('open');
+    // Reset toggle to This Quarter
+    document.querySelectorAll('#pp-toggle button').forEach(b => b.classList.remove('active'));
+    document.querySelector('#pp-toggle button[data-period="quarter"]').classList.add('active');
+    this._render(partner, 'quarter');
+  },
+
+  close() {
+    if (this._panel) this._panel.classList.remove('open');
+    if (this._chart) { this._chart.destroy(); this._chart = null; }
+  },
+
+  _render(partner, period) {
+    document.getElementById('pp-name').textContent = partner.name;
+    document.getElementById('pp-meta').textContent =
+      `${CIC.formatCurrency(partner.mrr)} MRR \u00B7 ${partner.pct}% of total`;
+
+    // Convert pct trend to MRR trend, then extrapolate to 12 months
+    const currentPct = partner.trend[partner.trend.length - 1];
+    const mrrTrend = partner.trend.map(pct =>
+      currentPct > 0 ? Math.round(partner.mrr * (pct / currentPct)) : partner.mrr
+    );
+    const avgChange = mrrTrend.length >= 2
+      ? (mrrTrend[mrrTrend.length - 1] - mrrTrend[0]) / (mrrTrend.length - 1)
+      : 0;
+    const base = [...mrrTrend];
+    while (base.length < 12) {
+      base.unshift(Math.max(0, Math.round(base[0] - avgChange)));
+    }
+    const months = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+
+    const slices = {
+      'quarter':      { data: base.slice(9, 12),  labels: months.slice(9, 12) },
+      'last-quarter': { data: base.slice(6, 9),   labels: months.slice(6, 9) },
+      'year':         { data: base,                labels: months }
+    };
+    const { data, labels } = slices[period] || slices['quarter'];
+
+    // Stats
+    const avg     = Math.round(data.reduce((a, b) => a + b, 0) / data.length);
+    const peak    = Math.max(...data);
+    const peakIdx = data.indexOf(peak);
+    const growth  = data.length >= 2 && data[0] > 0
+      ? ((data[data.length - 1] - data[0]) / Math.abs(data[0]) * 100).toFixed(1)
+      : '0.0';
+
+    document.getElementById('pp-stats').innerHTML = `
+      <div class="partner-stat">
+        <div class="partner-stat__label">Avg MRR</div>
+        <div class="partner-stat__value">${CIC.formatCurrency(avg)}</div>
+      </div>
+      <div class="partner-stat">
+        <div class="partner-stat__label">Peak Month</div>
+        <div class="partner-stat__value">${labels[peakIdx]}</div>
+      </div>
+      <div class="partner-stat">
+        <div class="partner-stat__label">Growth</div>
+        <div class="partner-stat__value" style="color:${growth >= 0 ? '#2E7D32' : '#C62828'}">
+          ${growth >= 0 ? '\u25B2' : '\u25BC'}${Math.abs(growth)}%
+        </div>
+      </div>
+      <div class="partner-stat">
+        <div class="partner-stat__label">% of Total</div>
+        <div class="partner-stat__value">${partner.pct}%</div>
+      </div>`;
+
+    // Chart
+    if (this._chart) { this._chart.destroy(); this._chart = null; }
+    const canvas = document.getElementById('pp-chart');
+    this._chart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: `${partner.name} MRR`,
+          data,
+          backgroundColor: '#ADC837',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { ticks: { callback: v => CIC.formatCurrency(v), font: { family: 'Nunito Sans', size: 11 } } },
+          x: { ticks: { font: { family: 'Nunito Sans', size: 11 } } }
+        }
+      }
+    });
+
+    // MxC annual target bar
+    const targetSection = document.getElementById('pp-target-section');
+    if (partner.name === 'MxC') {
+      const annualTarget = 409000;
+      const pctOfTarget  = Math.min(100, Math.round(partner.mrr / annualTarget * 100));
+      targetSection.innerHTML = `
+        <div class="partner-target-bar">
+          <div class="partner-target-bar__label">Annual Target Progress ($409K)</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#9E9E9E;margin-bottom:6px;font-family:'Nunito Sans',sans-serif;">
+            <span>${CIC.formatCurrency(partner.mrr)} current MRR</span>
+            <span>${pctOfTarget}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-bar__fill" style="width:${pctOfTarget}%"></div>
+          </div>
+        </div>`;
+    } else {
+      targetSection.innerHTML = '';
+    }
+  }
+};
+
+
+/* ════════════════════════════════════
+   FEATURE 3: INLINE CARD EDITING
+════════════════════════════════════ */
+
+export function wireEditableCards(containerEl, department) {
+  containerEl.querySelectorAll('.kpi-card[data-editable="true"]').forEach(card => {
+    const key     = card.dataset.entryKey;
+    const unit    = card.dataset.unit || 'number';
+    const valueEl = card.querySelector('.kpi-value, .kpi-value--sm');
+    if (!valueEl) return;
+
+    // Edit button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'kpi-card__edit-btn';
+    editBtn.title = 'Edit this value';
+    editBtn.textContent = '\u270E';
+    card.appendChild(editBtn);
+
+    // Input
+    const input = document.createElement('input');
+    input.className = 'kpi-card__edit-input';
+    input.type = 'number';
+    card.insertBefore(input, valueEl.nextSibling);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'kpi-card__edit-actions';
+    actions.innerHTML = `
+      <button class="kpi-card__save-btn">\u2713 Save</button>
+      <button class="kpi-card__cancel-btn">\u2715 Cancel</button>`;
+    card.appendChild(actions);
+
+    // Saved indicator
+    const savedMsg = document.createElement('div');
+    savedMsg.className = 'kpi-card__saved-indicator';
+    savedMsg.textContent = '\u2713 Saved';
+    card.appendChild(savedMsg);
+
+    // Enter edit mode
+    editBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const raw = valueEl.textContent.replace(/[^0-9.]/g, '');
+      input.value = raw;
+      card.classList.add('editing');
+      input.focus();
+      input.select();
+    });
+
+    // Save
+    actions.querySelector('.kpi-card__save-btn').addEventListener('click', async e => {
+      e.stopPropagation();
+      const newVal = parseFloat(input.value);
+      if (!isNaN(newVal)) {
+        const display = unit === 'currency'    ? CIC.formatCurrency(newVal)
+                      : unit === 'percent'     ? CIC.formatPercent(newVal)
+                      : unit === 'multiplier'  ? newVal.toFixed(1) + 'x'
+                      : newVal.toLocaleString();
+        valueEl.textContent = display;
+        await CIC.setData(department, key, newVal);
+        savedMsg.classList.add('visible');
+        setTimeout(() => savedMsg.classList.remove('visible'), 3000);
+      }
+      card.classList.remove('editing');
+    });
+
+    // Cancel
+    actions.querySelector('.kpi-card__cancel-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      card.classList.remove('editing');
+    });
+  });
+}

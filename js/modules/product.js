@@ -1,4 +1,4 @@
-import { Drilldown } from './drilldown.js';
+import { Drilldown, wireEditableCards } from './drilldown.js';
 
 export default {
   charts: [],
@@ -14,14 +14,32 @@ export default {
     this._renderSayDoChart(data);
     this._renderRevenueGrid(containerEl, data);
 
+    // ── Editable card attributes ──
+    const editables = {
+      'ai_skills_pilots':      { key: 'pilots_completed',   unit: 'count' },
+      'say_do_ratio':          { key: 'say_do_pct',         unit: 'percent' },
+      'customer_validations':  { key: 'validations_count',  unit: 'count' }
+    };
+    for (const [dd, cfg] of Object.entries(editables)) {
+      const card = containerEl.querySelector(`[data-drilldown="${dd}"]`);
+      if (card) {
+        card.dataset.editable = 'true';
+        card.dataset.entryKey = cfg.key;
+        card.dataset.unit = cfg.unit;
+      }
+    }
+
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
+    wireEditableCards(containerEl, 'product');
   },
 
   _wireClickHandlers(containerEl, data) {
     const k = data.kpis;
     containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.kpi-card__edit-btn')) return;
+        if (card.classList.contains('editing')) return;
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;

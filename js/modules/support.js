@@ -1,4 +1,4 @@
-import { Drilldown } from './drilldown.js';
+import { Drilldown, wireEditableCards } from './drilldown.js';
 
 // ── Customer Support tab module ──
 
@@ -39,6 +39,7 @@ export default {
 
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
+    wireEditableCards(containerEl, 'support');
   },
 
   // ── KPI Overview Grid ──
@@ -234,13 +235,13 @@ export default {
     const rpe = k.revenue_per_employee;
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--${scpc.status}" data-drilldown="support_cost_per_customer">
+      <div class="kpi-card kpi-card--${scpc.status}" data-drilldown="support_cost_per_customer" data-editable="true" data-entry-key="support_dept_cost" data-unit="currency">
         <div class="kpi-cadence">${scpc.cadence}</div>
         <div class="kpi-label">${scpc.label}</div>
         <div class="kpi-value">$${scpc.value.toFixed(2)}</div>
         <div class="kpi-target">Target: $${scpc.target.toFixed(2)}</div>
       </div>
-      <div class="kpi-card kpi-card--${rpe.status}" data-drilldown="revenue_per_employee">
+      <div class="kpi-card kpi-card--${rpe.status}" data-drilldown="revenue_per_employee" data-editable="true" data-entry-key="total_headcount" data-unit="count">
         <div class="kpi-cadence">${rpe.cadence}</div>
         <div class="kpi-label">${rpe.label}</div>
         <div class="kpi-value">${fmt$(rpe.value)}</div>
@@ -264,7 +265,9 @@ export default {
   _wireClickHandlers(containerEl, data) {
     const k = data.kpis;
     containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.kpi-card__edit-btn')) return;
+        if (card.classList.contains('editing')) return;
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;

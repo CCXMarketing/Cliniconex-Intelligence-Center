@@ -152,7 +152,9 @@ export default {
   _wireClickHandlers(containerEl, data) {
     const k = data.kpis;
     containerEl.querySelectorAll('.kpi-card[data-drilldown]').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.kpi-card__edit-btn')) return;
+        if (card.classList.contains('editing')) return;
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
