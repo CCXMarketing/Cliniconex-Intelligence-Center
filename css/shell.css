@@ -75,57 +75,39 @@ body {
 
 /* ── Scenario toggle (nav bar version) ── */
 
-.nav-scenario-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px 0 8px;
-  flex-shrink: 0;
-}
-
-.nav-scenario-label {
-  font-family: 'Nunito Sans', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.45);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-}
-
-.nav-scenario-wrap .scenario-toggle {
+.scenario-toggle {
   display: inline-flex;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-right: 16px;
 }
 
-.nav-scenario-wrap .scenario-toggle button {
-  padding: 5px 12px;
+.scenario-toggle button {
+  padding: 5px 14px;
   font-family: 'Nunito Sans', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
   border: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
   height: 30px;
+  transition: all 0.15s;
 }
 
-.nav-scenario-wrap .scenario-toggle button:last-child {
+.scenario-toggle button:last-child {
   border-right: none;
 }
 
-.nav-scenario-wrap .scenario-toggle button.active {
+.scenario-toggle button.active {
   background: #ADC837;
   color: #404041;
 }
 
-.nav-scenario-wrap .scenario-toggle button:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.18);
+.scenario-toggle button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.22);
   color: white;
 }
 
