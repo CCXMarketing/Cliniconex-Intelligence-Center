@@ -46,7 +46,66 @@ export const data = {
       status: 'yellow',
       unit: 'currency',
       cadence: 'Monthly',
-      okr: 'KR2: Expansion revenue = $1.2M total'
+      okr: 'KR2: Expansion revenue = $1.2M total',
+      // Product breakdown — ACP suite
+      products: [
+        {
+          name: 'ACM Messenger',
+          suite: 'ACM',
+          mrr: 4200,
+          accounts: 38,
+          trend: [3100, 3500, 3900, 4200],
+          status: 'green'
+        },
+        {
+          name: 'ACM Alerts',
+          suite: 'ACM',
+          mrr: 2800,
+          accounts: 24,
+          trend: [2200, 2400, 2600, 2800],
+          status: 'green'
+        },
+        {
+          name: 'ACM Vault',
+          suite: 'ACM',
+          mrr: 1900,
+          accounts: 18,
+          trend: [1600, 1700, 1800, 1900],
+          status: 'yellow'
+        },
+        {
+          name: 'ACM Concierge',
+          suite: 'ACM',
+          mrr: 1400,
+          accounts: 12,
+          trend: [900, 1100, 1200, 1400],
+          status: 'yellow'
+        },
+        {
+          name: 'ACS Booking',
+          suite: 'ACS',
+          mrr: 1100,
+          accounts: 9,
+          trend: [800, 900, 1000, 1100],
+          status: 'yellow'
+        },
+        {
+          name: 'ACS Forms',
+          suite: 'ACS',
+          mrr: 600,
+          accounts: 6,
+          trend: [400, 500, 550, 600],
+          status: 'yellow'
+        },
+        {
+          name: 'ACS Surveys',
+          suite: 'ACS',
+          mrr: 400,
+          accounts: 4,
+          trend: [200, 300, 350, 400],
+          status: 'red'
+        }
+      ]
     },
     new_logo_revenue: {
       label: 'New Logo Revenue',

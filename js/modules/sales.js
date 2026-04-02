@@ -15,6 +15,8 @@ export default {
     this._renderSegmentTable(data);
     this._renderCycleTable(data);
     this._renderAdjacentDeals(containerEl, data);
+    this._renderProductBreakdown(containerEl, data);
+    this._wirePipelineSelector(containerEl, data);
 
     CIC.onScenarioChange((scenario) => {
       this._renderMRRTracker(containerEl, data);
@@ -145,6 +147,25 @@ export default {
       const pct = ((curr - prev) / prev * 100).toFixed(1);
       const dir = pct >= 0 ? 'up' : 'down';
       deltaHtml = `<span class="kpi-delta kpi-delta--${dir}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs last month</span>`;
+    }
+
+    // Pipeline Coverage — enhanced display with context
+    if (key === 'pipeline_coverage') {
+      const pipelineVal = CIC.formatCurrency(Math.round(value * 10000) / 10);
+      const quotaVal = CIC.formatCurrency(Math.round(value * 10000 / value) / 10);
+      return `
+        <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
+          <div class="kpi-cadence">${cadence}</div>
+          <div class="kpi-label">Pipeline Coverage</div>
+          <div class="kpi-value">${fmtVal}</div>
+          ${deltaHtml}
+          ${target != null ? `<div class="kpi-target">Target: ${fmtTarget} minimum</div>` : ''}
+          <div class="kpi-note">
+            ${value}x coverage means your open pipeline
+            is ${value}x your remaining quota.
+            Target is 3x minimum — below 3x signals risk of missing quota.
+          </div>
+        </div>`;
     }
 
     return `
@@ -411,6 +432,185 @@ export default {
           <td class="col-right">${target} days</td>
         </tr>`;
     }).join('');
+  },
+
+  // ── Expansion Revenue Product Breakdown ──
+
+  _renderProductBreakdown(containerEl, data) {
+    const products = data.kpis.expansion_revenue.products || [];
+    const totalMRR = products.reduce((s, p) => s + p.mrr, 0);
+
+    // Suite toggle wiring
+    const toggle = containerEl.querySelector('#sales-suite-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-suite]');
+        if (!btn) return;
+        toggle.querySelectorAll('button').forEach(b =>
+          b.classList.remove('active-suite'));
+        btn.classList.add('active-suite');
+        this._renderProductTable(containerEl, products, btn.dataset.suite, totalMRR);
+      });
+    }
+
+    this._renderProductTable(containerEl, products, 'all', totalMRR);
+    this._renderSuiteChart(products, totalMRR);
+    this._renderSuiteKPIs(containerEl, products, totalMRR);
+  },
+
+  _renderProductTable(containerEl, products, suiteFilter, totalMRR) {
+    const tbody = containerEl.querySelector('#sales-products-tbody');
+    if (!tbody) return;
+
+    const filtered = suiteFilter === 'all'
+      ? products
+      : products.filter(p => p.suite === suiteFilter);
+
+    tbody.innerHTML = filtered.map(p => {
+      const pct = totalMRR > 0 ? ((p.mrr / totalMRR) * 100).toFixed(1) : 0;
+      const trendDir = p.trend.length >= 2
+        ? p.trend[p.trend.length - 1] >= p.trend[p.trend.length - 2]
+          ? '▲' : '▼'
+        : '—';
+      const trendColor = trendDir === '▲' ? '#2E7D32' : '#C62828';
+
+      return `<tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge badge--${p.suite === 'ACM' ? 'teal' : 'blue'}">${p.suite}</span></td>
+        <td class="col-right">${CIC.formatCurrency(p.mrr)}</td>
+        <td class="col-right">${p.accounts}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="progress-bar" style="width:120px;">
+              <div class="progress-bar__fill" style="width:${pct}%"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:#404041">${pct}%</span>
+          </div>
+        </td>
+        <td class="col-center" style="color:${trendColor};font-weight:700">${trendDir}</td>
+        <td class="col-center">
+          <span class="badge badge--${p.status}">${p.status.toUpperCase()}</span>
+        </td>
+      </tr>`;
+    }).join('');
+  },
+
+  _renderSuiteChart(products, totalMRR) {
+    const canvas = document.getElementById('sales-suite-chart');
+    if (!canvas) return;
+
+    const acmMRR = products.filter(p => p.suite === 'ACM').reduce((s, p) => s + p.mrr, 0);
+    const acsMRR = products.filter(p => p.suite === 'ACS').reduce((s, p) => s + p.mrr, 0);
+
+    const chart = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['ACM Suite', 'ACS Suite'],
+        datasets: [{
+          data: [acmMRR, acsMRR],
+          backgroundColor: ['#02475A', '#029FB5'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { font: { family: 'Nunito Sans', size: 12 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${CIC.formatCurrency(ctx.raw)} (${((ctx.raw/totalMRR)*100).toFixed(1)}%)`
+            }
+          }
+        }
+      }
+    });
+    this.charts.push(chart);
+  },
+
+  _renderSuiteKPIs(containerEl, products, totalMRR) {
+    const grid = containerEl.querySelector('#sales-suite-kpis');
+    if (!grid) return;
+
+    const suites = [
+      { name: 'ACM Suite', key: 'ACM', color: '#02475A' },
+      { name: 'ACS Suite', key: 'ACS', color: '#029FB5' }
+    ];
+
+    grid.innerHTML = suites.map(s => {
+      const sProducts = products.filter(p => p.suite === s.key);
+      const sMRR = sProducts.reduce((sum, p) => sum + p.mrr, 0);
+      const sAccounts = sProducts.reduce((sum, p) => sum + p.accounts, 0);
+      const pct = totalMRR > 0 ? ((sMRR / totalMRR) * 100).toFixed(1) : 0;
+      return `
+        <div class="kpi-card" style="border-left-color:${s.color}">
+          <div class="kpi-label">${s.name}</div>
+          <div class="kpi-value">${CIC.formatCurrency(sMRR)}</div>
+          <div class="kpi-target">${sAccounts} accounts · ${pct}% of expansion MRR</div>
+        </div>`;
+    }).join('');
+  },
+
+  // ── Pipeline Selector ──
+
+  _wirePipelineSelector(containerEl, data) {
+    const toggle = containerEl.querySelector('#sales-pipeline-toggle');
+    const note   = containerEl.querySelector('#sales-pipeline-note');
+    if (!toggle) return;
+
+    const pipelineNotes = {
+      demand:        'Pipeline 1 — Marketing-generated leads through MQL/HIRO stages',
+      opportunities: 'Pipeline 15 — Qualified opportunities through close'
+    };
+
+    toggle.addEventListener('click', e => {
+      const btn = e.target.closest('.pipeline-btn');
+      if (!btn) return;
+
+      toggle.querySelectorAll('.pipeline-btn').forEach(b =>
+        b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const pipeline = btn.dataset.pipeline;
+      if (note) note.textContent = pipelineNotes[pipeline] || '';
+
+      // Phase 2: reload data for selected pipeline
+      // Phase 1: show a banner indicating which pipeline is active
+      this._showPipelineBanner(containerEl, pipeline);
+    });
+  },
+
+  _showPipelineBanner(containerEl, pipeline) {
+    const existing = containerEl.querySelector('.pipeline-active-banner');
+    if (existing) existing.remove();
+
+    if (pipeline === 'opportunities') {
+      const banner = document.createElement('div');
+      banner.className = 'pipeline-active-banner';
+      banner.style.cssText = `
+        background: #E0EEF2;
+        border: 1px solid #02475A;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #02475A;
+        font-family: 'Nunito Sans', sans-serif;
+        margin-bottom: 16px;
+      `;
+      banner.innerHTML = `
+        📊 <strong>Prospect Opportunities Pipeline (Pipeline 15)</strong> —
+        Showing qualified opportunity data.
+        <em>Phase 2: live Salesforce data will populate automatically.</em>`;
+
+      const pipelineBar = containerEl.querySelector('#sales-pipeline-bar');
+      if (pipelineBar) {
+        pipelineBar.insertAdjacentElement('afterend', banner);
+      }
+    }
   },
 
   // ── Adjacent Vertical Deals ──

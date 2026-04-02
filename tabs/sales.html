@@ -11,6 +11,22 @@
   </div>
 </div>
 
+<!-- Pipeline Selector -->
+<div class="pipeline-selector-bar" id="sales-pipeline-bar">
+  <span class="pipeline-selector-label">Pipeline</span>
+  <div class="pipeline-toggle" id="sales-pipeline-toggle">
+    <button class="pipeline-btn active" data-pipeline="demand">
+      Prospect Demand
+    </button>
+    <button class="pipeline-btn" data-pipeline="opportunities">
+      Prospect Opportunities
+    </button>
+  </div>
+  <span class="pipeline-note" id="sales-pipeline-note">
+    Pipeline 1 — Marketing-generated leads
+  </span>
+</div>
+
 <!-- MRR Target Tracker -->
 <div class="section-header">
   <h3>New MRR Added — Scenario Tracker</h3>
@@ -66,6 +82,51 @@
     <div class="chart-container" style="height: 220px;">
       <canvas id="sales-mrr-trend-chart"></canvas>
     </div>
+  </div>
+</div>
+
+<!-- Expansion Revenue Product Breakdown -->
+<div class="section-header">
+  <h3>Expansion Revenue by Product</h3>
+  <p>ACP suite — which modules are driving expansion MRR</p>
+</div>
+
+<!-- Suite toggle -->
+<div style="display:flex;gap:8px;margin-bottom:16px;" id="sales-suite-toggle">
+  <button class="btn btn--sm btn--secondary active-suite" data-suite="all">All Products</button>
+  <button class="btn btn--sm btn--secondary" data-suite="ACM">ACM Suite</button>
+  <button class="btn btn--sm btn--secondary" data-suite="ACS">ACS Suite</button>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Suite</th>
+        <th class="col-right">MRR</th>
+        <th class="col-right">Accounts</th>
+        <th>Contribution</th>
+        <th class="col-center">Trend</th>
+        <th class="col-center">Status</th>
+      </tr>
+    </thead>
+    <tbody id="sales-products-tbody">
+      <!-- Populated by sales.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Suite summary -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+  <div class="chart-card">
+    <div class="chart-card__title">ACM vs ACS Split</div>
+    <div class="chart-container" style="height:200px;">
+      <canvas id="sales-suite-chart"></canvas>
+    </div>
+  </div>
+  <div class="kpi-grid" id="sales-suite-kpis" style="margin-bottom:0;">
+    <!-- ACM and ACS summary cards populated by sales.js -->
   </div>
 </div>
 
