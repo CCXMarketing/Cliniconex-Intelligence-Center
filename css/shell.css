@@ -79,36 +79,37 @@ body {
   display: inline-flex;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255,255,255,0.3);
   margin-right: 16px;
 }
 
-.scenario-toggle button {
-  padding: 5px 14px;
-  font-family: 'Nunito Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.75);
-  border: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  height: 30px;
-  transition: all 0.15s;
+.scenario-toggle button,
+.scenario-toggle button:link,
+.scenario-toggle button:visited {
+  padding: 5px 14px !important;
+  font-family: 'Nunito Sans', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  background: #0a6e8a !important;
+  color: rgba(255,255,255,0.85) !important;
+  border: none !important;
+  border-right: 1px solid rgba(255,255,255,0.2) !important;
+  cursor: pointer !important;
+  height: 30px !important;
 }
 
 .scenario-toggle button:last-child {
-  border-right: none;
+  border-right: none !important;
 }
 
 .scenario-toggle button.active {
-  background: #ADC837;
-  color: #404041;
+  background: #ADC837 !important;
+  color: #404041 !important;
 }
 
 .scenario-toggle button:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.22);
-  color: white;
+  background: #0d7fa0 !important;
+  color: white !important;
 }
 
 /* ── Main content area ── */

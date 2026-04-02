@@ -365,32 +365,7 @@
   margin-top: var(--space-2xl);
 }
 
-/* ── 2.10 Scenario Toggle (in-tab version) ── */
-
-.scenario-toggle {
-  display: inline-flex;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--white);
-}
-.scenario-toggle button {
-  padding: 6px 14px;
-  font-family: 'Nunito Sans', sans-serif;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: transparent;
-  color: var(--teal);
-  border: none;
-  border-right: 1px solid var(--border);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.scenario-toggle button:last-child { border-right: none; }
-.scenario-toggle button.active { background: var(--green); color: var(--dgrey); }
-.scenario-toggle button:hover:not(.active) { background: var(--teal-pale); }
+/* ── 2.10 Scenario Toggle — styles in shell.css ── */
 
 /* ── 2.11 Manual Entry Forms ── */
 
