@@ -212,6 +212,24 @@ export default {
         responsive: true,
         maintainAspectRatio: false,
         cutout: '55%',
+        onClick: (evt, elements) => {
+          if (elements.length === 0) return;
+          const idx = elements[0].index;
+          const b = breakdown[idx];
+          const sa = data.kpis.strategic_allocation;
+          Drilldown.open({
+            title:      `${b.type} Allocation`,
+            definition: sa.definition || 'Engineering time allocation by category',
+            value:      b.pct,
+            target:     b.target_pct,
+            unit:       'percent',
+            status:     b.pct >= b.target_pct ? 'green' : 'red',
+            cadence:    sa.cadence || 'Quarterly',
+            dataSource: data.meta?.data_source?.join(', '),
+            accountable: data.meta?.accountable,
+            note:       sa.note || 'Requires consistent JIRA ticket tagging'
+          });
+        },
         plugins: {
           legend: { position: 'bottom', labels: { font: { family: 'Nunito Sans', size: 12 } } },
           tooltip: {

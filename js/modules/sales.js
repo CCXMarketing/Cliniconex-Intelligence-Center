@@ -253,6 +253,30 @@ export default {
         responsive: true,
         maintainAspectRatio: false,
         cutout: '60%',
+        onClick: (evt, elements) => {
+          if (elements.length === 0) return;
+          const idx = elements[0].index;
+          const kpiKey = idx === 0 ? 'new_logo_revenue' : 'expansion_revenue';
+          const kpi = k[kpiKey];
+          if (!kpi) return;
+          Drilldown.open({
+            title:       kpi.label,
+            definition:  kpi.definition || '',
+            value:       kpi.value,
+            target:      kpi.target,
+            unit:        kpi.unit || 'currency',
+            status:      kpi.status,
+            trend:       kpi.trend,
+            trendLabels: kpi.trend_labels,
+            ytd:         kpi.ytd,
+            ytdTarget:   kpi.ytd_target,
+            okr:         kpi.okr,
+            cadence:     kpi.cadence,
+            dataSource:  data.meta?.data_source?.join(', '),
+            accountable: data.meta?.accountable,
+            note:        kpi.note
+          });
+        },
         plugins: {
           legend: { position: 'bottom', labels: { font: { family: 'Nunito Sans', size: 12 } } },
           tooltip: {

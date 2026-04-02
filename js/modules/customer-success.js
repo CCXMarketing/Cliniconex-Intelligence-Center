@@ -30,7 +30,7 @@ export default {
     Chart.defaults.font.size = 12;
 
     this._buildRetentionGrid(containerEl, k);
-    this._buildHealthDonut(containerEl, k.health_score_distribution);
+    this._buildHealthDonut(containerEl, k.health_score_distribution, k.at_risk_account_value);
     this._buildHealthTrend(containerEl, k.health_score_distribution);
     this._buildAtRisk(containerEl, k.at_risk_account_value);
     this._buildChurnTable(containerEl, k.churn_rate_by_segment);
@@ -82,14 +82,21 @@ export default {
   },
 
   // ── Health Donut ──
-  _buildHealthDonut(el, hsd) {
+  _buildHealthDonut(el, hsd, arv) {
     const ctx = el.querySelector('#cs-health-donut').getContext('2d');
+    const values = [hsd.green, hsd.yellow, hsd.red];
+    const healthMeta = [
+      { color: '#4CAF50', label: 'Green \u2014 Healthy' },
+      { color: '#FFC107', label: 'Yellow \u2014 At Risk' },
+      { color: '#F44336', label: 'Red \u2014 Critical' }
+    ];
+
     const chart = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: ['Green', 'Yellow', 'Red'],
         datasets: [{
-          data: [hsd.green, hsd.yellow, hsd.red],
+          data: values,
           backgroundColor: [CHART_COLORS.statusGreen, CHART_COLORS.statusYellow, CHART_COLORS.statusRed],
           borderWidth: 2,
           borderColor: '#fff'
@@ -99,6 +106,25 @@ export default {
         cutout: '58%',
         responsive: true,
         maintainAspectRatio: false,
+        onClick: (evt, elements) => {
+          if (elements.length === 0) return;
+          const idx = elements[0].index;
+          const trendKeys = ['green', 'yellow', 'red'];
+          Drilldown.open({
+            title:       healthMeta[idx].label,
+            definition:  'Health score distribution segment',
+            value:       values[idx],
+            unit:        'percent',
+            status:      trendKeys[idx],
+            trend:       hsd.trend?.map(t => t[trendKeys[idx]]),
+            trendLabels: hsd.trend?.map(t => t.month),
+            cadence:     'Monthly',
+            dataSource:  this._data?.meta?.data_source?.join(', '),
+            accountable: this._data?.meta?.accountable,
+            breakdown:   idx === 2 ? arv?.accounts?.map(a => ({ label: a.name, value: a.mrr })) : null,
+            breakdownTitle: 'At-Risk Accounts'
+          });
+        },
         plugins: {
           legend: { position: 'bottom', labels: { padding: 12, font: { size: 11 } } },
           tooltip: { callbacks: { label: tip => ` ${tip.label}: ${tip.raw}%` } }

@@ -265,6 +265,14 @@ export const Drilldown = {
    FEATURE 2: PARTNER DETAIL PANEL
 ════════════════════════════════════ */
 
+const PARTNER_COLORS = {
+  'PCC':    '#02475A',
+  'QHR':    '#029FB5',
+  'MxC':    '#ADC837',
+  'Direct': '#522E76',
+  'Other':  '#9E9E9E'
+};
+
 export const PartnerPanel = {
   _panel: null,
   _chart: null,
@@ -310,6 +318,13 @@ export const PartnerPanel = {
   open(partner) {
     this._currentPartner = partner;
     this._panel.classList.add('open');
+
+    // Apply partner color
+    const color = PARTNER_COLORS[partner.name] || '#02475A';
+    document.querySelector('.partner-panel__header').style.background = color;
+    this._panel.style.borderLeft = `4px solid ${color}`;
+    this._currentColor = color;
+
     // Reset toggle to This Quarter
     document.querySelectorAll('#pp-toggle button').forEach(b => b.classList.remove('active'));
     document.querySelector('#pp-toggle button[data-period="quarter"]').classList.add('active');
@@ -375,6 +390,12 @@ export const PartnerPanel = {
         <div class="partner-stat__value">${partner.pct}%</div>
       </div>`;
 
+    // Apply partner color accent to stat cards
+    const color = this._currentColor || '#02475A';
+    document.querySelectorAll('.partner-stat').forEach(s => {
+      s.style.borderTop = `3px solid ${color}`;
+    });
+
     // Chart
     if (this._chart) { this._chart.destroy(); this._chart = null; }
     const canvas = document.getElementById('pp-chart');
@@ -385,7 +406,7 @@ export const PartnerPanel = {
         datasets: [{
           label: `${partner.name} MRR`,
           data,
-          backgroundColor: '#ADC837',
+          backgroundColor: color,
           borderRadius: 4
         }]
       },
