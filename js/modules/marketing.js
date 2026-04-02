@@ -332,12 +332,26 @@ export default {
             <button class="dd-compare-btn" data-period="last-year">Last Year</button>
             <button class="dd-compare-btn" data-period="custom">Custom</button>
           </div>
-          <div id="funnel-custom-picker" style="display:none">
-            <button class="cic-datepicker-trigger" id="funnel-dp-trigger">
-              <span class="cic-datepicker-trigger__icon">\uD83D\uDCC5</span>
-              <span class="cic-datepicker-trigger__text">Select date</span>
-              <span class="cic-datepicker-trigger__arrow">\u25BE</span>
-            </button>
+          <div id="funnel-custom-picker" style="display:none;align-items:center;gap:6px;">
+            <select id="funnel-custom-month" class="dd-inline-select">
+              <option value="0">Jan</option>
+              <option value="1" selected>Feb</option>
+              <option value="2">Mar</option>
+              <option value="3">Apr</option>
+              <option value="4">May</option>
+              <option value="5">Jun</option>
+              <option value="6">Jul</option>
+              <option value="7">Aug</option>
+              <option value="8">Sep</option>
+              <option value="9">Oct</option>
+              <option value="10">Nov</option>
+              <option value="11">Dec</option>
+            </select>
+            <select id="funnel-custom-year" class="dd-inline-select">
+              <option value="2026">2026</option>
+              <option value="2025" selected>2025</option>
+              <option value="2024">2024</option>
+            </select>
           </div>
           <button class="dd-compare-clear" id="funnel-compare-clear"
                   style="display:none">\u2715 Clear</button>
@@ -415,6 +429,9 @@ export default {
       const hiro = funnel.stages.find(s => s.name === 'HIRO');
       const hiroTrend = hiro?.trend || [];
 
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      let funnelCustomDate = new Date(2025, 1, 1); // default Feb 2025
+
       const showFunnelComparison = (period) => {
         const result = containerEl.querySelector('#funnel-compare-result');
         if (!result) return;
@@ -434,7 +451,9 @@ export default {
         } else {
           compVal  = Math.round(currentVal * 0.8);
           compConv = (currentConv * 0.9).toFixed(1);
-          periodLabel = 'Selected Period (est.)';
+          periodLabel = funnelCustomDate
+            ? monthNames[funnelCustomDate.getMonth()] + ' ' + funnelCustomDate.getFullYear() + ' (est.)'
+            : 'Selected Period (est.)';
         }
 
         const delta = currentVal - compVal;
@@ -462,8 +481,21 @@ export default {
           `Comparison \u2014 HIRO Stage vs ${periodLabel}`;
       };
 
-      const funnelToggle = containerEl.querySelector('#funnel-compare-toggle');
-      const funnelClear  = containerEl.querySelector('#funnel-compare-clear');
+      const funnelToggle      = containerEl.querySelector('#funnel-compare-toggle');
+      const funnelClear       = containerEl.querySelector('#funnel-compare-clear');
+      const funnelCustomPicker = containerEl.querySelector('#funnel-custom-picker');
+      const funnelMonthSel    = containerEl.querySelector('#funnel-custom-month');
+      const funnelYearSel     = containerEl.querySelector('#funnel-custom-year');
+
+      // Wire inline month/year selects for custom comparison
+      const onFunnelCustomChange = () => {
+        const month = parseInt(funnelMonthSel.value);
+        const year  = parseInt(funnelYearSel.value);
+        funnelCustomDate = new Date(year, month, 1);
+        showFunnelComparison('custom');
+      };
+      if (funnelMonthSel) funnelMonthSel.addEventListener('change', onFunnelCustomChange);
+      if (funnelYearSel)  funnelYearSel.addEventListener('change', onFunnelCustomChange);
 
       if (funnelToggle) {
         funnelToggle.addEventListener('click', e => {
@@ -472,7 +504,7 @@ export default {
           const isActive = btn.classList.contains('active');
           funnelToggle.querySelectorAll('.dd-compare-btn')
             .forEach(b => b.classList.remove('active'));
-          containerEl.querySelector('#funnel-custom-picker').style.display = 'none';
+          if (funnelCustomPicker) funnelCustomPicker.style.display = 'none';
 
           if (isActive) {
             containerEl.querySelector('#funnel-compare-result').style.display = 'none';
@@ -481,9 +513,11 @@ export default {
           }
           btn.classList.add('active');
           if (btn.dataset.period === 'custom') {
-            containerEl.querySelector('#funnel-custom-picker').style.display = 'block';
+            if (funnelCustomPicker) funnelCustomPicker.style.display = 'inline-flex';
+            onFunnelCustomChange();
+          } else {
+            showFunnelComparison(btn.dataset.period);
           }
-          showFunnelComparison(btn.dataset.period);
           funnelClear.style.display = 'inline';
         });
       }
@@ -493,7 +527,7 @@ export default {
           funnelToggle?.querySelectorAll('.dd-compare-btn')
             .forEach(b => b.classList.remove('active'));
           containerEl.querySelector('#funnel-compare-result').style.display = 'none';
-          containerEl.querySelector('#funnel-custom-picker').style.display = 'none';
+          if (funnelCustomPicker) funnelCustomPicker.style.display = 'none';
           funnelClear.style.display = 'none';
         });
       }

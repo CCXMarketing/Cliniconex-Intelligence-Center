@@ -1,5 +1,3 @@
-import { CICDatePicker } from './datepicker.js';
-
 // ── CIC Drilldown Modal Engine ──────────────────────────────────
 // Called by any tab module: Drilldown.open({ title, data, type })
 
@@ -74,12 +72,26 @@ export const Drilldown = {
           <button class="dd-compare-btn" data-period="last-year">Last Year</button>
           <button class="dd-compare-btn" data-period="custom">Custom</button>
         </div>
-        <div class="dd-custom-picker" id="dd-custom-picker" style="display:none">
-          <button class="cic-datepicker-trigger" id="dd-datepicker-trigger">
-            <span class="cic-datepicker-trigger__icon">📅</span>
-            <span class="cic-datepicker-trigger__text">Select month</span>
-            <span class="cic-datepicker-trigger__arrow">▾</span>
-          </button>
+        <div class="dd-custom-picker" id="dd-custom-picker" style="display:none;align-items:center;gap:6px;">
+          <select id="dd-custom-month" class="dd-inline-select">
+            <option value="0">Jan</option>
+            <option value="1" selected>Feb</option>
+            <option value="2">Mar</option>
+            <option value="3">Apr</option>
+            <option value="4">May</option>
+            <option value="5">Jun</option>
+            <option value="6">Jul</option>
+            <option value="7">Aug</option>
+            <option value="8">Sep</option>
+            <option value="9">Oct</option>
+            <option value="10">Nov</option>
+            <option value="11">Dec</option>
+          </select>
+          <select id="dd-custom-year" class="dd-inline-select">
+            <option value="2026">2026</option>
+            <option value="2025" selected>2025</option>
+            <option value="2024">2024</option>
+          </select>
         </div>
         <button class="dd-compare-clear" id="dd-compare-clear" style="display:none">\u2715 Clear</button>
       </div>
@@ -291,22 +303,10 @@ export const Drilldown = {
     const customPicker = document.getElementById('dd-custom-picker');
     const clearBtn     = document.getElementById('dd-compare-clear');
     const compBar      = document.getElementById('dd-comparison-bar');
+    const monthSel     = document.getElementById('dd-custom-month');
+    const yearSel      = document.getElementById('dd-custom-year');
 
-    // Wire up the date picker for custom comparison
-    let dpInstance = null;
-    let customSelectedDate = null;
-    const triggerEl = document.getElementById('dd-datepicker-trigger');
-    if (triggerEl) {
-      dpInstance = new CICDatePicker(triggerEl, {
-        mode: 'month',
-        showQuickRanges: false,
-        maxDate: new Date()
-      });
-      dpInstance.onChange = (sel) => {
-        customSelectedDate = sel.start;
-        showComparison('custom');
-      };
-    }
+    let customSelectedDate = new Date(2025, 1, 1); // default Feb 2025
 
     const getComparisonValue = (period) => {
       const trend = config.trend || [];
@@ -323,15 +323,15 @@ export const Drilldown = {
       return null;
     };
 
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
     const getPeriodLabel = (period) => {
       const labels = config.trendLabels || [];
       if (period === 'last-month') {
         return labels.length >= 2 ? labels[labels.length - 2] + ' 2026' : 'Last Month';
       }
       if (period === 'last-year') return 'March 2025 (est.)';
-      if (period === 'custom') {
-        if (!customSelectedDate) return 'Custom Period';
-        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      if (period === 'custom' && customSelectedDate) {
         return monthNames[customSelectedDate.getMonth()] + ' ' + customSelectedDate.getFullYear();
       }
       return '\u2014';
@@ -373,10 +373,19 @@ export const Drilldown = {
       clearBtn.style.display = 'none';
       customPicker.style.display = 'none';
       btns.forEach(b => b.classList.remove('active'));
-      if (dpInstance) dpInstance.close();
       const note = document.querySelector('.dd-phase2-note');
       if (note) note.remove();
     };
+
+    // Wire inline month/year selects for custom comparison
+    const onCustomChange = () => {
+      const month = parseInt(monthSel.value);
+      const year  = parseInt(yearSel.value);
+      customSelectedDate = new Date(year, month, 1);
+      showComparison('custom');
+    };
+    if (monthSel) monthSel.addEventListener('change', onCustomChange);
+    if (yearSel)  yearSel.addEventListener('change', onCustomChange);
 
     btns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -384,12 +393,11 @@ export const Drilldown = {
         const isActive = btn.classList.contains('active');
         btns.forEach(b => b.classList.remove('active'));
         customPicker.style.display = 'none';
-        if (dpInstance) dpInstance.close();
         if (isActive) { clearComparison(); return; }
         btn.classList.add('active');
         if (period === 'custom') {
-          customPicker.style.display = 'flex';
-          showComparison('custom');
+          customPicker.style.display = 'inline-flex';
+          onCustomChange();
         } else {
           showComparison(period);
         }

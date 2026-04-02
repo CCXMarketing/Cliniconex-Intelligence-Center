@@ -781,3 +781,22 @@
   margin-bottom: 14px;
   font-family: 'Nunito Sans', sans-serif;
 }
+
+.dd-inline-select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #D2D5DA;
+  border-radius: 6px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #02475A;
+  background: white;
+  cursor: pointer;
+  outline: none;
+  appearance: auto;
+}
+.dd-inline-select:focus {
+  border-color: #02475A;
+  box-shadow: 0 0 0 2px rgba(2,71,90,0.1);
+}
