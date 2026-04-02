@@ -20,6 +20,13 @@ export default {
       this._renderMRRTracker(containerEl, data);
       this._renderKPICards(containerEl, data);
       this._refreshScenarioTargets(containerEl, data, scenario);
+
+      const oppCard = containerEl.querySelector('[data-drilldown="opportunities_created"]');
+      if (oppCard) {
+        const target = data.kpis.opportunities_created.targets[scenario];
+        const targetEl = oppCard.querySelector('.kpi-target');
+        if (targetEl) targetEl.textContent = `Target: ${target?.toLocaleString() || '\u2014'}`;
+      }
     });
   },
 
