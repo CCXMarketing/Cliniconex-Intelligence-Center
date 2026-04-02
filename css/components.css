@@ -330,8 +330,8 @@
   height: 24px;
   background: var(--lgrey);
   border-radius: var(--radius-full);
-  overflow: visible;
   margin-bottom: var(--space-xl);
+  margin-right: 16px;
 }
 .target-tracker__fill {
   height: 100%;
@@ -350,12 +350,21 @@
 .target-tracker__marker-label {
   position: absolute;
   top: 28px;
-  transform: translateX(-50%);
   font-size: 10px;
   font-weight: 700;
   color: var(--mgrey);
   white-space: nowrap;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.target-tracker__marker-label:first-of-type {
+  transform: translateX(0);
+}
+.target-tracker__marker-label:last-of-type {
+  transform: translateX(-100%);
+}
+.target-tracker__marker-label:not(:first-of-type):not(:last-of-type) {
+  transform: translateX(-50%);
 }
 .target-tracker__values {
   display: flex;
@@ -363,6 +372,7 @@
   font-size: var(--text-xs);
   color: var(--mgrey);
   margin-top: var(--space-2xl);
+  padding: 0 0 0 0;
 }
 
 /* ── 2.10 Scenario Toggle — styles in shell.css ── */
