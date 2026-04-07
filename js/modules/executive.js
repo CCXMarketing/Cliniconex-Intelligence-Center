@@ -38,6 +38,28 @@ export default {
       this._updateHealthStripTarget(scenario);
     };
     CIC.onScenarioChange(this._scenarioUnsub);
+
+    // Test AC connection and show status
+    try {
+      const { testConnection } = await import('../data/activecampaign.js');
+      const status = await testConnection();
+      const acIndicator = document.createElement('div');
+      acIndicator.className = 'health-metric';
+      acIndicator.innerHTML = `
+        <div class="health-metric__label">ActiveCampaign</div>
+        <div class="health-metric__value" style="font-size:16px;">
+          ${status.connected ? '\uD83D\uDFE2 Live' : '\uD83D\uDD34 Mock'}
+        </div>
+        <div class="health-metric__sub">
+          ${status.connected
+            ? `${status.record_count} accounts`
+            : status.error}
+        </div>`;
+      const strip = containerEl.querySelector('#exec-health-strip');
+      if (strip) strip.appendChild(acIndicator);
+    } catch (e) {
+      console.warn('[Exec] AC connection test failed:', e.message);
+    }
   },
 
   destroy() {
