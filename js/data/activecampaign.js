@@ -7,12 +7,33 @@ import { CONFIG } from '../config.js';
 const AC_BASE = CONFIG.activecampaign.api_url;
 const AC_KEY  = CONFIG.activecampaign.api_key;
 
+// ── URL builder (proxy or direct) ─────────────────────────────────
+async function buildUrl(endpoint, params = {}) {
+  const PROXY = CONFIG.activecampaign.proxy_url;
+
+  if (PROXY) {
+    // Route through Google Apps Script proxy
+    const query = new URLSearchParams({
+      path: endpoint,
+      api_key: AC_KEY,
+      ...params
+    }).toString();
+    return `${PROXY}?${query}`;
+  } else {
+    // Direct call (works when served from same origin or CORS allowed)
+    const query = new URLSearchParams(params).toString();
+    return `${AC_BASE}/${endpoint}${query ? '?' + query : ''}`;
+  }
+}
+
 // ── Rate limiting ─────────────────────────────────────────────────
 // AC allows 5 req/sec. Queue requests to stay under limit.
 const requestQueue = [];
 let isProcessing = false;
 
 async function queuedFetch(url, options = {}) {
+  // If URL already starts with http, use as-is (legacy calls)
+  // Otherwise treat as endpoint path
   return new Promise((resolve, reject) => {
     requestQueue.push({ url, options, resolve, reject });
     if (!isProcessing) processQueue();
@@ -21,17 +42,21 @@ async function queuedFetch(url, options = {}) {
 
 async function processQueue() {
   isProcessing = true;
+  const useProxy = !!CONFIG.activecampaign.proxy_url;
   while (requestQueue.length > 0) {
     const { url, options, resolve, reject } = requestQueue.shift();
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Api-Token': AC_KEY,
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
-      });
+      const fetchOptions = useProxy
+        ? { ...options }
+        : {
+            ...options,
+            headers: {
+              'Api-Token': AC_KEY,
+              'Content-Type': 'application/json',
+              ...options.headers
+            }
+          };
+      const response = await fetch(url, fetchOptions);
       if (response.status === 429 || response.status === 503) {
         // Rate limited — wait 500ms and retry
         await sleep(500);
@@ -63,13 +88,8 @@ async function fetchAll(endpoint, params = {}, dataKey) {
   const limit = 100;
 
   while (true) {
-    const query = new URLSearchParams({
-      limit,
-      offset,
-      ...params
-    }).toString();
-
-    const data = await queuedFetch(`${AC_BASE}/${endpoint}?${query}`);
+    const url = await buildUrl(endpoint, { limit, offset, ...params });
+    const data = await queuedFetch(url);
     const items = data[dataKey] || [];
     results.push(...items);
 
@@ -89,9 +109,10 @@ async function fetchAll(endpoint, params = {}, dataKey) {
  * Get all stages for a pipeline
  */
 export async function getPipelineStages(pipelineId) {
-  const data = await queuedFetch(
-    `${AC_BASE}/dealStages?filters[d_groupid]=${pipelineId}`
-  );
+  const url = await buildUrl('dealStages', {
+    'filters[d_groupid]': pipelineId
+  });
+  const data = await queuedFetch(url);
   return data.dealStages || [];
 }
 
@@ -104,9 +125,12 @@ export async function getPipelineMetrics(pipelineId) {
 
   const stageMetrics = await Promise.all(
     stages.map(async stage => {
-      const data = await queuedFetch(
-        `${AC_BASE}/deals?filters[group]=${pipelineId}&filters[stage]=${stage.id}&limit=100`
-      );
+      const stageUrl = await buildUrl('deals', {
+        'filters[group]': pipelineId,
+        'filters[stage]': stage.id,
+        limit: 100
+      });
+      const data = await queuedFetch(stageUrl);
       const deals = data.deals || [];
       const totalValue = deals.reduce((sum, d) => {
         // AC returns value in cents — convert to dollars
@@ -284,9 +308,10 @@ export async function getHIROConversionRate() {
 export async function testConnection() {
   try {
     if (!AC_KEY || AC_KEY === 'YOUR_NEW_AC_KEY_HERE') {
-      return { connected: false, error: 'No API key configured in config.js' };
+      return { connected: false, error: 'No API key configured' };
     }
-    const data = await queuedFetch(`${AC_BASE}/accounts?limit=1`);
+    const url = await buildUrl('accounts', { limit: 1 });
+    const data = await queuedFetch(url);
     return {
       connected:    true,
       error:        null,
