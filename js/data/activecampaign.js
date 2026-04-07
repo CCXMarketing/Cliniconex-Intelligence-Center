@@ -42,36 +42,40 @@ async function queuedFetch(url, options = {}) {
 
 async function processQueue() {
   isProcessing = true;
-  const useProxy = !!CONFIG.activecampaign.proxy_url;
   while (requestQueue.length > 0) {
     const { url, options, resolve, reject } = requestQueue.shift();
     try {
-      const fetchOptions = useProxy
-        ? { ...options }
-        : {
-            ...options,
-            headers: {
-              'Api-Token': AC_KEY,
-              'Content-Type': 'application/json',
-              ...options.headers
-            }
-          };
-      const response = await fetch(url, fetchOptions);
+      const PROXY = CONFIG?.activecampaign?.proxy_url;
+      let fetchUrl = url;
+
+      if (PROXY && url.includes('api-us1.com')) {
+        // Extract the endpoint path and query from the direct URL
+        const urlObj = new URL(url);
+        const path = urlObj.pathname.replace('/api/3/', '');
+        const params = new URLSearchParams(urlObj.search);
+        params.set('path', path);
+        params.set('api_key', CONFIG.activecampaign.api_key);
+        fetchUrl = `${PROXY}?${params.toString()}`;
+      }
+
+      const response = await fetch(fetchUrl, {
+        method: 'GET',
+        ...options
+      });
+
       if (response.status === 429 || response.status === 503) {
-        // Rate limited — wait 500ms and retry
         await sleep(500);
         requestQueue.unshift({ url, options, resolve, reject });
         continue;
       }
       if (!response.ok) {
-        reject(new Error(`AC API error: ${response.status} ${response.statusText}`));
+        reject(new Error(`AC API error: ${response.status}`));
         continue;
       }
       resolve(await response.json());
     } catch (err) {
       reject(err);
     }
-    // 210ms between requests = ~4.7 req/sec (safely under 5/sec limit)
     await sleep(210);
   }
   isProcessing = false;
