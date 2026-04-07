@@ -230,6 +230,50 @@ export default {
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });
+
+        // Wire period buttons to live AC refetch for MQL card
+        if (key === 'marketing_created_deals') {
+          setTimeout(() => {
+            const btns = document.querySelectorAll('.dd-compare-btn');
+            btns.forEach(btn => {
+              btn.addEventListener('click', async () => {
+                const period = btn.dataset.period;
+                if (period === 'last-month' || period === 'custom') {
+                  try {
+                    const { getMarketingCreatedDeals } =
+                      await import('../data/activecampaign.js');
+                    const result = await getMarketingCreatedDeals({
+                      mode: period
+                    });
+                    // Update comparison bar with last month vs current
+                    const compBar = document.getElementById('dd-comparison-bar');
+                    if (compBar && period === 'last-month') {
+                      document.getElementById('dd-comp-period-a').textContent =
+                        'Current Month';
+                      document.getElementById('dd-comp-value-a').textContent =
+                        result.current_month?.toString() || '\u2014';
+                      document.getElementById('dd-comp-period-b').textContent =
+                        result.period_label;
+                      document.getElementById('dd-comp-value-b').textContent =
+                        result.value.toString();
+                      const delta = (result.current_month || 0) - result.value;
+                      const pct = result.value > 0
+                        ? ((delta / result.value) * 100).toFixed(1)
+                        : 0;
+                      const dir = delta >= 0 ? 'up' : 'down';
+                      const varEl = document.getElementById('dd-comp-variance');
+                      varEl.textContent = `${delta >= 0 ? '\u25B2' : '\u25BC'} ${Math.abs(pct)}%`;
+                      varEl.className = `dd-comparison-variance dd-comparison-variance--${dir}`;
+                      compBar.style.display = 'grid';
+                    }
+                  } catch(e) {
+                    console.warn('Live comparison fetch failed:', e.message);
+                  }
+                }
+              });
+            });
+          }, 100);
+        }
       });
     });
   },
