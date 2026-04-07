@@ -79,3 +79,6 @@ reports/
 .coverage
 htmlcov/
 .tox/
+
+# API credentials — never commit these
+js/config.js
