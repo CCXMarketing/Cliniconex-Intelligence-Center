@@ -9,7 +9,7 @@ const TABS = [
   { id: 'customer-success', label: 'Customer Success', file: 'tabs/customer-success.html', module: './modules/customer-success.js' },
   { id: 'support',          label: 'Customer Support', file: 'tabs/support.html',          module: './modules/support.js' },
   { id: 'product',          label: 'Product',          file: 'tabs/product.html',          module: './modules/product.js' },
-  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js' },
+  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js', hidden: true },
 ];
 
 const DATA_MODULES = {
@@ -154,6 +154,7 @@ async function navigateTo(tabId) {
 function buildNav() {
   const container = document.getElementById('nav-tabs');
   TABS.forEach(tab => {
+    if (tab.hidden) return;
     const btn = document.createElement('button');
     btn.className = 'nav-tab';
     btn.dataset.tab = tab.id;
