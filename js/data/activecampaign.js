@@ -246,20 +246,91 @@ export async function getDemandFunnel() {
 // ── Marketing KPIs ────────────────────────────────────────────────
 
 /**
- * Get marketing-created deals (MQLs) for current month
+ * Get marketing-created deals (MQLs) with date range modes:
+ *   default      — current month
+ *   'last-month' — previous calendar month (+ current month comparison)
+ *   'custom'     — options.startDate / options.endDate
  */
 export async function getMarketingCreatedDeals(options = {}) {
-  const now   = new Date();
-  const start = options.startDate || new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end   = options.endDate   || now.toISOString();
+  const now = new Date();
 
-  const deals = await getPipelineDeals(1, { startDate: start, endDate: end });
+  // Determine date range based on mode
+  let start, end, label;
+
+  if (options.mode === 'last-month') {
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    end = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${lastDay}`;
+    label = d.toLocaleString('en-CA', { month: 'long', year: 'numeric' });
+  } else if (options.mode === 'custom' && options.startDate && options.endDate) {
+    start = options.startDate;
+    end = options.endDate;
+    label = `${options.startDate} to ${options.endDate}`;
+  } else {
+    // Default: current month
+    start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`;
+    label = now.toLocaleString('en-CA', { month: 'long', year: 'numeric' });
+  }
+
+  const PROXY = CONFIG?.activecampaign?.proxy_url;
+  const params = new URLSearchParams({
+    path: 'deals',
+    api_key: CONFIG.activecampaign.api_key,
+    'filters[group]': 1,
+    'filters[created_after]': start,
+    'filters[created_before]': end,
+    limit: 1
+  });
+
+  const url = `${PROXY}?${params.toString()}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  const count = parseInt(data.meta?.total || 0);
+
+  // Also fetch current month for comparison if in last-month or custom mode
+  let currentCount = null;
+  if (options.mode === 'last-month' || options.mode === 'custom') {
+    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const curLastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${curLastDay}`;
+    const curParams = new URLSearchParams({
+      path: 'deals',
+      api_key: CONFIG.activecampaign.api_key,
+      'filters[group]': 1,
+      'filters[created_after]': curStart,
+      'filters[created_before]': curEnd,
+      limit: 1
+    });
+    const curResponse = await fetch(`${PROXY}?${curParams.toString()}`);
+    const curData = await curResponse.json();
+    currentCount = parseInt(curData.meta?.total || 0);
+  }
+
+  // YTD count
+  const ytdParams = new URLSearchParams({
+    path: 'deals',
+    api_key: CONFIG.activecampaign.api_key,
+    'filters[group]': 1,
+    'filters[created_after]': `${now.getFullYear()}-01-01`,
+    limit: 1
+  });
+  const ytdResponse = await fetch(`${PROXY}?${ytdParams.toString()}`);
+  const ytdData = await ytdResponse.json();
+  const ytdCount = parseInt(ytdData.meta?.total || 0);
+
   return {
-    value:       deals.length,
-    ytd:         null,  // Phase 3: calculate from full year
-    trend:       null,  // Phase 3: historical data
-    live:        true,
-    fetched_at:  new Date().toISOString()
+    value:         count,
+    current_month: currentCount,
+    ytd:           ytdCount,
+    period_label:  label,
+    period_start:  start,
+    period_end:    end,
+    mode:          options.mode || 'current-month',
+    live:          true,
+    fetched_at:    new Date().toISOString()
   };
 }
 
