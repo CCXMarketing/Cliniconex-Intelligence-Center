@@ -1,3 +1,77 @@
+// ── Live AC connector (lazy-loaded) ──────────────────────────────
+let _liveConnector = null;
+
+async function getLiveConnector() {
+  if (_liveConnector) return _liveConnector;
+  try {
+    _liveConnector = await import('./activecampaign.js');
+    return _liveConnector;
+  } catch (e) {
+    console.warn('[CIC] AC connector not available — using mock data:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Get marketing data — live AC data merged over mock data.
+ * Mock data is always the fallback if API is unavailable.
+ */
+export async function getMarketingData() {
+  // Always start with mock data as the base
+  const base = { ...data };
+
+  const connector = await getLiveConnector();
+  if (!connector) return base;
+
+  try {
+    const live = await connector.fetchMarketingData();
+
+    // Merge live funnel data
+    if (live.ac_demand_funnel) {
+      base.kpis.ac_demand_funnel = live.ac_demand_funnel;
+    }
+
+    // Merge live MQL count
+    if (live.marketing_created_deals_live?.value != null) {
+      base.kpis.marketing_created_deals = {
+        ...base.kpis.marketing_created_deals,
+        value: live.marketing_created_deals_live.value,
+        _live: true
+      };
+    }
+
+    // Merge live pipeline value
+    if (live.pipeline_generated_live?.value != null) {
+      base.kpis.pipeline_generated = {
+        ...base.kpis.pipeline_generated,
+        value: live.pipeline_generated_live.value,
+        _live: true
+      };
+    }
+
+    // Merge live HIRO conversion
+    if (live.hiro_conversion_live?.value != null) {
+      base.kpis.hiro_conversion_rate = {
+        ...base.kpis.hiro_conversion_rate,
+        value:  live.hiro_conversion_live.value,
+        status: live.hiro_conversion_live.status,
+        _live:  true
+      };
+    }
+
+    base._live       = true;
+    base._fetched_at = live._fetched_at;
+    base._errors     = live._errors;
+
+  } catch (err) {
+    console.warn('[CIC] Live data merge failed — using mock data:', err.message);
+    base._live  = false;
+    base._error = err.message;
+  }
+
+  return base;
+}
+
 export const data = {
   meta: {
     department: 'Marketing',

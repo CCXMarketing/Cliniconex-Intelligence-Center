@@ -5,18 +5,39 @@ export default {
   charts: [],
 
   async init(containerEl, data) {
-    this._data = data;
-    this._renderKPICards(containerEl, data);
-    this._renderSegmentChart(data);
-    this._renderCampaignTable(data);
-    this._renderACFunnel(containerEl, data);
-    this._renderGoogleAds(containerEl, data);
-    this._renderGoogleAnalytics(containerEl, data);
-    this._renderSearchConsole(containerEl, data);
+    // Try to get live data — fall back to passed-in mock data
+    let liveData = data;
+    try {
+      const { getMarketingData } = await import('../data/mock-marketing.js');
+      liveData = await getMarketingData();
+      console.log('[Marketing] Data source:', liveData._live ? 'LIVE (AC)' : 'Mock');
+    } catch (err) {
+      console.warn('[Marketing] Could not load live data:', err.message);
+    }
 
-    this._initROASCalculator(containerEl, data);
+    this._data = liveData;
 
-    CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
+    // Show live data indicator if using real data
+    if (liveData._live) {
+      this._showLiveIndicator(containerEl, liveData._fetched_at);
+    }
+
+    // Show errors if any data failed to load
+    if (liveData._errors?.length > 0) {
+      this._showDataWarning(containerEl, liveData._errors);
+    }
+
+    this._renderKPICards(containerEl, liveData);
+    this._renderSegmentChart(liveData);
+    this._renderCampaignTable(liveData);
+    this._renderACFunnel(containerEl, liveData);
+    this._renderGoogleAds(containerEl, liveData);
+    this._renderGoogleAnalytics(containerEl, liveData);
+    this._renderSearchConsole(containerEl, liveData);
+
+    this._initROASCalculator(containerEl, liveData);
+
+    CIC.onScenarioChange(() => this._renderKPICards(containerEl, liveData));
 
     await renderInlineEntry(containerEl, {
       id: 'mkt-spend',
@@ -37,6 +58,65 @@ export default {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
     Drilldown.close();
+  },
+
+  _showLiveIndicator(containerEl, fetchedAt) {
+    const existing = containerEl.querySelector('.live-data-badge');
+    if (existing) existing.remove();
+
+    const badge = document.createElement('div');
+    badge.className = 'live-data-badge';
+    badge.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #E8F5E9;
+      color: #2E7D32;
+      border: 1px solid #A5D6A7;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'Nunito Sans', sans-serif;
+      margin-bottom: 16px;
+    `;
+    const time = new Date(fetchedAt).toLocaleTimeString('en-CA', {
+      hour: '2-digit', minute: '2-digit'
+    });
+    badge.innerHTML = `
+      <span style="width:6px;height:6px;border-radius:50%;
+        background:#4CAF50;display:inline-block;
+        animation: pulse 2s infinite;"></span>
+      Live data from ActiveCampaign \u2014 updated ${time}
+      <style>
+        @keyframes pulse {
+          0%,100%{opacity:1} 50%{opacity:0.4}
+        }
+      </style>`;
+
+    const deptHeader = containerEl.querySelector('.dept-header');
+    if (deptHeader) deptHeader.insertAdjacentElement('afterend', badge);
+  },
+
+  _showDataWarning(containerEl, errors) {
+    const warning = document.createElement('div');
+    warning.style.cssText = `
+      background: #FFF8E1;
+      border: 1px solid #FFE082;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #F57F17;
+      font-weight: 600;
+      font-family: 'Nunito Sans', sans-serif;
+      margin-bottom: 12px;
+    `;
+    warning.innerHTML = '\u26A0 Some live data unavailable \u2014 showing mock data for: ' +
+      errors.join(', ');
+
+    const badge = containerEl.querySelector('.live-data-badge');
+    const anchor = badge || containerEl.querySelector('.dept-header');
+    if (anchor) anchor.insertAdjacentElement('afterend', warning);
   },
 
   getSummaryKPIs() {
