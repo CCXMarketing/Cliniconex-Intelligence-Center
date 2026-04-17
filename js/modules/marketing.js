@@ -158,19 +158,19 @@ export default {
     const k = data.kpis;
 
     const cards = [
-      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend },
-      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend },
-      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend },
-      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend },
-      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend },
-      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend }
+      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend, _catalog: k.marketing_created_deals._catalog },
+      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend, _catalog: k.marketing_captured_deals._catalog },
+      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend, _catalog: k.hiro_conversion_rate._catalog },
+      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend, _catalog: k.pipeline_generated._catalog },
+      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend, _catalog: k.roas._catalog },
+      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend, _catalog: k.direct_channel_pipeline_pct._catalog }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
     this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'ratio' ? Math.round(value) + ':1'
@@ -183,6 +183,12 @@ export default {
       : unit === 'multiplier' ? target.toFixed(1) + ':1'
       : target?.toLocaleString();
 
+    let badgeHtml = '';
+    if (_catalog) {
+      const badge = CIC.catalog.measurabilityBadge(_catalog);
+      badgeHtml = `<span class="kpi-badge ${badge.cssClass}">${badge.label}</span>`;
+    }
+
     let deltaHtml = '';
     if (trend && trend.length >= 2) {
       const prev = trend[trend.length - 2];
@@ -194,6 +200,7 @@ export default {
 
     return `
       <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
+        ${badgeHtml}
         <div class="kpi-cadence">${cadence}</div>
         <div class="kpi-label">${label}</div>
         <div class="kpi-value">${fmtVal}</div>
@@ -211,9 +218,10 @@ export default {
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
+        const cat = kpi._catalog;
         Drilldown.open({
           title:       kpi.label,
-          definition:  kpi.definition || '',
+          definition:  cat?.definition || kpi.definition || '',
           value:       kpi.value,
           target:      kpi.target,
           unit:        kpi.unit || 'count',
@@ -222,11 +230,12 @@ export default {
           trendLabels: kpi.trend_labels,
           ytd:         kpi.ytd,
           ytdTarget:   kpi.ytd_target,
-          okr:         kpi.okr,
-          cadence:     kpi.cadence,
-          dataSource:  data.meta?.data_source?.join(', '),
-          accountable: data.meta?.accountable,
-          note:        kpi.note,
+          okr:         cat?.key_result_raw || kpi.okr,
+          cadence:     cat?.cadence || kpi.cadence,
+          dataSource:  cat?.data_source_raw || data.meta?.data_source?.join(', '),
+          accountable: cat?.accountable || data.meta?.accountable,
+          note:        cat?.notes || kpi.note,
+          measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });

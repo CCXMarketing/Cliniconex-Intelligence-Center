@@ -424,8 +424,15 @@ export default {
     const npa = k.new_partner_activation;
     const npo = k.new_partner_outreach;
 
+    const _badge = (kpi) => {
+      if (!kpi?._catalog) return '';
+      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    };
+
     grid.innerHTML = `
       <div class="kpi-card kpi-card--red" data-drilldown="non_reseller_deals">
+        ${_badge(nrd)}
         <div class="kpi-cadence">${nrd.cadence}</div>
         <div class="kpi-label">Non-Reseller Deals</div>
         <div class="kpi-value">${nrd.value}</div>
@@ -433,6 +440,7 @@ export default {
         <div class="kpi-note">${nrd.note}</div>
       </div>
       <div class="kpi-card kpi-card--red" data-drilldown="new_partner_activation">
+        ${_badge(npa)}
         <div class="kpi-cadence">${npa.cadence}</div>
         <div class="kpi-label">New Partner Activation</div>
         <div class="kpi-value">${npa.value}</div>
@@ -440,6 +448,7 @@ export default {
         <div class="kpi-note">${npa.note}</div>
       </div>
       <div class="kpi-card kpi-card--yellow" data-drilldown="new_partner_outreach" data-editable="true" data-entry-key="partner_outreach_count" data-unit="count">
+        ${_badge(npo)}
         <div class="kpi-cadence">${npo.cadence}</div>
         <div class="kpi-label">New Partner Outreach</div>
         <div class="kpi-value">${npo.value}</div>
@@ -456,9 +465,10 @@ export default {
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
+        const cat = kpi._catalog;
         Drilldown.open({
           title:       kpi.label,
-          definition:  kpi.definition || '',
+          definition:  cat?.definition || kpi.definition || '',
           value:       kpi.value,
           target:      kpi.target,
           unit:        kpi.unit || 'count',
@@ -467,11 +477,12 @@ export default {
           trendLabels: kpi.trend_labels,
           ytd:         kpi.ytd,
           ytdTarget:   kpi.ytd_target,
-          okr:         kpi.okr,
-          cadence:     kpi.cadence,
-          dataSource:  data.meta?.data_source?.join(', '),
-          accountable: data.meta?.accountable,
-          note:        kpi.note,
+          okr:         cat?.key_result_raw || kpi.okr,
+          cadence:     cat?.cadence || kpi.cadence,
+          dataSource:  cat?.data_source_raw || data.meta?.data_source?.join(', '),
+          accountable: cat?.accountable || data.meta?.accountable,
+          note:        cat?.notes || kpi.note,
+          measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });

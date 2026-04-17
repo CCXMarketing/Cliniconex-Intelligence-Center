@@ -50,8 +50,15 @@ export default {
     const churn = k.churn_revenue;
     const csat = k.csat;
 
+    const _badge = (kpi) => {
+      if (!kpi?._catalog) return '';
+      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    };
+
     grid.innerHTML = `
       <div class="kpi-card kpi-card--${grr.status}" data-drilldown="gross_retention_rate">
+        ${_badge(grr)}
         <div class="kpi-cadence">${grr.cadence}</div>
         <div class="kpi-label">${grr.label}</div>
         <div class="kpi-value">${fmtPct(grr.value)}</div>
@@ -59,6 +66,7 @@ export default {
         <div class="kpi-delta kpi-delta--up">+${(grr.trend[3] - grr.trend[2]).toFixed(1)}pp</div>
       </div>
       <div class="kpi-card kpi-card--${nrr.status}" data-drilldown="nrr">
+        ${_badge(nrr)}
         <div class="kpi-cadence">${nrr.cadence}</div>
         <div class="kpi-label">${nrr.label}</div>
         <div class="kpi-value">${fmtPct(nrr.value)}</div>
@@ -66,6 +74,7 @@ export default {
         <div class="kpi-delta kpi-delta--up">+${(nrr.trend[3] - nrr.trend[2]).toFixed(1)}pp</div>
       </div>
       <div class="kpi-card kpi-card--${churn.status}" data-drilldown="churn_revenue">
+        ${_badge(churn)}
         <div class="kpi-cadence">${churn.cadence}</div>
         <div class="kpi-label">Churn Revenue MTD</div>
         <div class="kpi-value">${fmt$(churn.actual)}</div>
@@ -73,6 +82,7 @@ export default {
         <div class="kpi-note">Under budget — on track</div>
       </div>
       <div class="kpi-card kpi-card--${csat.status}" data-drilldown="csat">
+        ${_badge(csat)}
         <div class="kpi-cadence">${csat.cadence}</div>
         <div class="kpi-label">${csat.label}</div>
         <div class="kpi-value">${csat.value}/100</div>
@@ -287,8 +297,15 @@ export default {
     const ref = k.referral_influenced_pct;
     const ttv = k.time_to_value;
 
+    const _badge2 = (kpi) => {
+      if (!kpi?._catalog) return '';
+      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    };
+
     grid.innerHTML = `
       <div class="kpi-card kpi-card--${npa.status}" data-drilldown="new_product_adoption">
+        ${_badge2(npa)}
         <div class="kpi-cadence">${npa.cadence}</div>
         <div class="kpi-label">${npa.label}</div>
         <div class="kpi-value">${fmtPct(npa.value)}</div>
@@ -296,6 +313,7 @@ export default {
         <div class="kpi-note">${npa.note}</div>
       </div>
       <div class="kpi-card kpi-card--${ref.status}" data-drilldown="referral_influenced_pct">
+        ${_badge2(ref)}
         <div class="kpi-cadence">${ref.cadence}</div>
         <div class="kpi-label">${ref.label}</div>
         <div class="kpi-value">${fmtPct(ref.value)}</div>
@@ -303,6 +321,7 @@ export default {
         <div class="kpi-note">${ref.note}</div>
       </div>
       <div class="kpi-card kpi-card--${ttv.status}" data-drilldown="time_to_value">
+        ${_badge2(ttv)}
         <div class="kpi-cadence">${ttv.cadence}</div>
         <div class="kpi-label">${ttv.label}</div>
         <div class="kpi-value">${ttv.value} days</div>
@@ -319,9 +338,10 @@ export default {
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
+        const cat = kpi._catalog;
         Drilldown.open({
           title:       kpi.label,
-          definition:  kpi.definition || '',
+          definition:  cat?.definition || kpi.definition || '',
           value:       kpi.value ?? kpi.actual,
           target:      kpi.target ?? kpi.budget,
           unit:        kpi.unit || 'percent',
@@ -330,11 +350,12 @@ export default {
           trendLabels: kpi.trend_labels,
           ytd:         kpi.ytd,
           ytdTarget:   kpi.ytd_target,
-          okr:         kpi.okr,
-          cadence:     kpi.cadence,
-          dataSource:  data.meta?.data_source?.join(', '),
-          accountable: data.meta?.accountable,
-          note:        kpi.note,
+          okr:         cat?.key_result_raw || kpi.okr,
+          cadence:     cat?.cadence || kpi.cadence,
+          dataSource:  cat?.data_source_raw || data.meta?.data_source?.join(', '),
+          accountable: cat?.accountable || data.meta?.accountable,
+          note:        cat?.notes || kpi.note,
+          measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });
