@@ -5,39 +5,25 @@ export default {
   charts: [],
 
   async init(containerEl, data) {
-    // Try to get live data — fall back to passed-in mock data
-    let liveData = data;
-    try {
-      const { getMarketingData } = await import('../data/mock-marketing.js');
-      liveData = await getMarketingData();
-      console.log('[Marketing] Data source:', liveData._live ? 'LIVE (AC)' : 'Mock');
-    } catch (err) {
-      console.warn('[Marketing] Could not load live data:', err.message);
+    this._data = data;
+
+    // Show connection status
+    const hasLive = Object.values(data.kpis || {}).some(k => k._dataSource === 'live');
+    if (hasLive) {
+      this._showLiveIndicator(containerEl);
     }
 
-    this._data = liveData;
+    this._renderKPICards(containerEl, data);
+    this._renderSegmentChart(data);
+    this._renderCampaignTable(data);
+    this._renderACFunnel(containerEl, data);
+    this._renderGoogleAds(containerEl, data);
+    this._renderGoogleAnalytics(containerEl, data);
+    this._renderSearchConsole(containerEl, data);
 
-    // Show live data indicator if using real data
-    if (liveData._live) {
-      this._showLiveIndicator(containerEl, liveData._fetched_at);
-    }
+    this._initROASCalculator(containerEl, data);
 
-    // Show errors if any data failed to load
-    if (liveData._errors?.length > 0) {
-      this._showDataWarning(containerEl, liveData._errors);
-    }
-
-    this._renderKPICards(containerEl, liveData);
-    this._renderSegmentChart(liveData);
-    this._renderCampaignTable(liveData);
-    this._renderACFunnel(containerEl, liveData);
-    this._renderGoogleAds(containerEl, liveData);
-    this._renderGoogleAnalytics(containerEl, liveData);
-    this._renderSearchConsole(containerEl, liveData);
-
-    this._initROASCalculator(containerEl, liveData);
-
-    CIC.onScenarioChange(() => this._renderKPICards(containerEl, liveData));
+    CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
 
     await renderInlineEntry(containerEl, {
       id: 'mkt-spend',
@@ -60,7 +46,7 @@ export default {
     Drilldown.close();
   },
 
-  _showLiveIndicator(containerEl, fetchedAt) {
+  _showLiveIndicator(containerEl) {
     const existing = containerEl.querySelector('.live-data-badge');
     if (existing) existing.remove();
 
@@ -80,14 +66,14 @@ export default {
       font-family: 'Nunito Sans', sans-serif;
       margin-bottom: 16px;
     `;
-    const time = new Date(fetchedAt).toLocaleTimeString('en-CA', {
+    const time = new Date().toLocaleTimeString('en-CA', {
       hour: '2-digit', minute: '2-digit'
     });
     badge.innerHTML = `
       <span style="width:6px;height:6px;border-radius:50%;
         background:#4CAF50;display:inline-block;
         animation: pulse 2s infinite;"></span>
-      Live data from ActiveCampaign \u2014 updated ${time}
+      Live data from API connectors \u2014 fetched ${time}
       <style>
         @keyframes pulse {
           0%,100%{opacity:1} 50%{opacity:0.4}
