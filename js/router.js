@@ -1,6 +1,7 @@
 // ── CIC Router — tab navigation, scenario management, shared utilities ──
 
 import { catalog } from './data/catalog.js';
+import * as live from './data/live-connectors.js';
 
 const TABS = [
   { id: 'executive',        label: 'Executive',        file: 'tabs/executive.html',        module: './modules/executive.js' },
@@ -104,10 +105,73 @@ window.CIC = {
         // Sheet data not available — continue with mock + catalog only
       }
 
+      // Overlay live connector data (highest priority)
+      try {
+        await this._overlayLiveData(department, mockData);
+      } catch {
+        // Live data not available — continue with mock/manual/catalog
+      }
+
       return merged;
     } catch {
       return {};
     }
+  },
+
+  async _overlayLiveData(department, data) {
+    if (department === 'marketing' && data.kpis) {
+      const [funnel, campaigns, metrics, trends] = await Promise.allSettled([
+        live.fetchFunnel(),
+        live.fetchCampaigns(),
+        live.fetchMetrics(),
+        live.fetchTrends(),
+      ]);
+
+      if (funnel.status === 'fulfilled' && funnel.value && data.kpis.ac_demand_funnel) {
+        data.kpis.ac_demand_funnel._mockValue = { ...data.kpis.ac_demand_funnel };
+        Object.assign(data.kpis.ac_demand_funnel, funnel.value);
+        data.kpis.ac_demand_funnel._dataSource = 'live';
+      }
+
+      if (campaigns.status === 'fulfilled' && campaigns.value && data.kpis.google_ads) {
+        data.kpis.google_ads._mockValue = { ...data.kpis.google_ads };
+        Object.assign(data.kpis.google_ads, campaigns.value);
+        data.kpis.google_ads._dataSource = 'live';
+
+        if (trends.status === 'fulfilled' && trends.value) {
+          data.kpis.google_ads.spend_trend = trends.value.spend_trend;
+          data.kpis.google_ads.conversions_trend = trends.value.conversions_trend;
+          data.kpis.google_ads.cpa_trend = trends.value.cpa_trend;
+          data.kpis.google_ads.trend_labels = trends.value.trend_labels;
+        }
+      }
+
+      if (metrics.status === 'fulfilled' && metrics.value) {
+        if (data.kpis.pipeline_generated) {
+          data.kpis.pipeline_generated._mockValue = data.kpis.pipeline_generated.value;
+          data.kpis.pipeline_generated.value = metrics.value.pipeline_value;
+          data.kpis.pipeline_generated._dataSource = 'live';
+        }
+        if (data.kpis.marketing_created_deals) {
+          data.kpis.marketing_created_deals._mockValue = data.kpis.marketing_created_deals.value;
+          data.kpis.marketing_created_deals.value = metrics.value.deals_count;
+          data.kpis.marketing_created_deals._dataSource = 'live';
+        }
+        data._liveMetrics = metrics.value;
+      }
+    }
+  },
+
+  _connections: null,
+
+  async getConnections() {
+    if (this._connections) return this._connections;
+    try {
+      this._connections = await live.checkConnections();
+    } catch {
+      this._connections = { activecampaign: false, google_ads: false };
+    }
+    return this._connections;
   },
 
   async setData(department, key, value) {
