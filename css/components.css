@@ -91,6 +91,16 @@
   color: var(--status-grey-text);
   border: 1px solid var(--status-grey-border);
 }
+.badge-entered {
+  background: var(--status-blue-bg);
+  color: var(--status-blue-text);
+  border: 1px solid var(--status-blue-border);
+}
+.badge-demo {
+  background: var(--purple-pale);
+  color: var(--purple);
+  border: 1px solid #CE93D8;
+}
 
 /* ── Manual Entry Department Sections ── */
 

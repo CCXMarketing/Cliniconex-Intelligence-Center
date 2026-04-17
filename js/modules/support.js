@@ -67,8 +67,8 @@ export default {
     const tvDelta = Math.round(((tv.trend[3] - tv.trend[0]) / tv.trend[0]) * 100);
 
     const _badge = (kpi) => {
-      if (!kpi?._catalog) return '';
-      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
       return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
     };
 
@@ -259,8 +259,8 @@ export default {
     const rpe = k.revenue_per_employee;
 
     const _badge2 = (kpi) => {
-      if (!kpi?._catalog) return '';
-      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
       return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
     };
 
@@ -285,8 +285,8 @@ export default {
   _buildPendingGrid(el, ces) {
     const grid = el.querySelector('#support-pending-grid');
     const _badge3 = (kpi) => {
-      if (!kpi?._catalog) return '';
-      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
       return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
     };
 
@@ -328,6 +328,7 @@ export default {
           accountable: cat?.accountable || data.meta?.accountable,
           note:        cat?.notes || kpi.note,
           measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
+          dataSourceBadge: kpi._dataSource ? CIC.catalog.dataSourceBadge(kpi) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });

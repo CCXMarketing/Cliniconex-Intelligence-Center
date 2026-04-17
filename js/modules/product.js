@@ -75,6 +75,7 @@ export default {
           accountable: cat?.accountable || data.meta?.accountable,
           note:        cat?.notes || kpi.note,
           measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
+          dataSourceBadge: kpi._dataSource ? CIC.catalog.dataSourceBadge(kpi) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });
@@ -161,8 +162,8 @@ export default {
     const valPct = Math.round((k.customer_validations.value / k.customer_validations.target) * 100);
 
     const _badge = (kpi) => {
-      if (!kpi?._catalog) return '';
-      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
       return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
     };
 
@@ -368,8 +369,8 @@ export default {
     const newPct = ((k.enhancement_revenue_new_segments.value / k.enhancement_revenue_new_segments.annual_target) * 100).toFixed(1);
 
     const _badge = (kpi) => {
-      if (!kpi?._catalog) return '';
-      const b = CIC.catalog.measurabilityBadge(kpi._catalog);
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
       return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
     };
 
@@ -407,8 +408,8 @@ export default {
 
   _kpiCard(label, value, target, status, cadence, extraHtml, key, kpiData) {
     let badgeHtml = '';
-    if (kpiData?._catalog) {
-      const b = CIC.catalog.measurabilityBadge(kpiData._catalog);
+    if (kpiData?._catalog || kpiData?._dataSource) {
+      const b = CIC.catalog.dataSourceBadge(kpiData);
       badgeHtml = `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
     }
     return `
