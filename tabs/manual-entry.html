@@ -1,7 +1,7 @@
 <div class="dept-header" style="background: linear-gradient(135deg, #02475A 0%, #0a6e8a 100%);">
   <div class="dept-header__left">
-    <h2>Partner Data Entry</h2>
-    <p>Manual inputs for partner data with no automated API source</p>
+    <h2>KPI Manual Entry</h2>
+    <p>Enter monthly values for KPIs without automated data sources</p>
   </div>
   <div class="dept-header__right">
     <span class="badge badge--grey">Manual Input</span>
@@ -9,39 +9,31 @@
   </div>
 </div>
 
-<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;
+<div class="manual-entry-banner" style="background:#E0F5F8;border:1px solid #029FB5;border-radius:8px;
   padding:14px 18px;margin-bottom:24px;font-size:13px;
-  color:#F57F17;font-weight:600;font-family:'Nunito Sans',sans-serif;">
-  &#9888; Data entered here is saved locally and used to populate partner
-  metrics with no API source. Phase 2 will sync to a shared Google Sheet.
+  color:#02475A;font-weight:600;font-family:'Nunito Sans',sans-serif;">
+  Loading...
 </div>
 
-<!-- Partner Data Section -->
-<div class="manual-entry-form" id="partner-form">
-  <div class="manual-entry-form__title">PCC Partner Data — Monthly Inputs</div>
-  <div class="entry-grid" id="partner-fields">
-    <!-- Populated by manual-entry.js -->
-  </div>
-  <div style="display:flex;align-items:center;gap:12px;margin-top:16px;">
-    <button class="btn btn--sm" onclick="window.manualEntry.saveSection('partner')">
-      Save Partner Data
-    </button>
-    <span class="entry-field__save-confirm" id="partner-save-confirm">&#10003; Saved</span>
-  </div>
+<!-- Department Forms (populated by manual-entry.js from catalog) -->
+<div id="manual-entry-forms">
+  <div class="tab-loading">Loading KPI catalog...</div>
 </div>
 
 <!-- Saved Data Summary -->
 <div class="section-header" style="margin-top:32px;">
-  <h3>Saved Values</h3>
-  <p>All previously saved partner data entries</p>
+  <h3>All Saved Entries</h3>
+  <p>Manual KPI values for the current period</p>
 </div>
 <div class="table-wrapper">
   <table class="data-table" id="manual-summary-table">
     <thead>
       <tr>
-        <th>Field</th>
+        <th>Department</th>
+        <th>KPI</th>
         <th class="col-right">Value</th>
-        <th>Last Saved</th>
+        <th>Updated By</th>
+        <th>Date</th>
       </tr>
     </thead>
     <tbody id="manual-summary-tbody">

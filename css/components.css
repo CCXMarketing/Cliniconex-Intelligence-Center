@@ -92,6 +92,46 @@
   border: 1px solid var(--status-grey-border);
 }
 
+/* ── Manual Entry Department Sections ── */
+
+.manual-dept-section {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+}
+.manual-dept-section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 16px 20px;
+  cursor: pointer;
+  background: var(--lgrey);
+  border-bottom: 1px solid var(--border-light);
+  user-select: none;
+}
+.manual-dept-section__header:hover { background: var(--teal-pale); }
+.manual-dept-section__header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--teal);
+}
+.manual-dept-section__count {
+  font-size: 12px;
+  color: var(--mgrey);
+  font-weight: 600;
+}
+.manual-dept-section__chevron {
+  margin-left: auto;
+  font-size: 16px;
+  color: var(--mgrey);
+}
+.manual-dept-section__body {
+  padding: 20px;
+}
+
 .kpi-label {
   font-size: var(--text-xs);
   font-weight: 700;

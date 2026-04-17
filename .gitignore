@@ -33,6 +33,7 @@ ENV/
 # Credentials — NEVER commit these
 config/credentials.yaml
 config/*.key
+config/google-sheets-sa.json
 *.pem
 *.key
 .env
