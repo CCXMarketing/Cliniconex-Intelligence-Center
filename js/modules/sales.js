@@ -117,19 +117,19 @@ export default {
     const oppsTarget = k.opportunities_created.targets[scenario] || k.opportunities_created.targets.target;
 
     const cards = [
-      { key: 'expansion_revenue', label: k.expansion_revenue.label, value: k.expansion_revenue.value, target: k.expansion_revenue.target, unit: 'currency', status: k.expansion_revenue.status, cadence: k.expansion_revenue.cadence, trend: k.expansion_revenue.trend },
-      { key: 'new_logo_revenue', label: k.new_logo_revenue.label, value: k.new_logo_revenue.value, target: k.new_logo_revenue.target, unit: 'currency', status: k.new_logo_revenue.status, cadence: k.new_logo_revenue.cadence, trend: k.new_logo_revenue.trend },
-      { key: 'win_rate', label: k.win_rate.label, value: k.win_rate.value, target: k.win_rate.target, unit: 'percent', status: k.win_rate.status, cadence: k.win_rate.cadence, trend: k.win_rate.trend },
-      { key: 'avg_deal_size_acv', label: k.avg_deal_size_acv.label, value: k.avg_deal_size_acv.value, target: k.avg_deal_size_acv.target, unit: 'currency', status: k.avg_deal_size_acv.status, cadence: k.avg_deal_size_acv.cadence, trend: k.avg_deal_size_acv.trend },
-      { key: 'pipeline_coverage', label: k.pipeline_coverage.label, value: k.pipeline_coverage.value, target: k.pipeline_coverage.target, unit: 'multiplier', status: k.pipeline_coverage.status, cadence: k.pipeline_coverage.cadence, trend: k.pipeline_coverage.trend },
-      { key: 'opportunities_created', label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend }
+      { key: 'expansion_revenue', label: k.expansion_revenue.label, value: k.expansion_revenue.value, target: k.expansion_revenue.target, unit: 'currency', status: k.expansion_revenue.status, cadence: k.expansion_revenue.cadence, trend: k.expansion_revenue.trend, _catalog: k.expansion_revenue._catalog },
+      { key: 'new_logo_revenue', label: k.new_logo_revenue.label, value: k.new_logo_revenue.value, target: k.new_logo_revenue.target, unit: 'currency', status: k.new_logo_revenue.status, cadence: k.new_logo_revenue.cadence, trend: k.new_logo_revenue.trend, _catalog: k.new_logo_revenue._catalog },
+      { key: 'win_rate', label: k.win_rate.label, value: k.win_rate.value, target: k.win_rate.target, unit: 'percent', status: k.win_rate.status, cadence: k.win_rate.cadence, trend: k.win_rate.trend, _catalog: k.win_rate._catalog },
+      { key: 'avg_deal_size_acv', label: k.avg_deal_size_acv.label, value: k.avg_deal_size_acv.value, target: k.avg_deal_size_acv.target, unit: 'currency', status: k.avg_deal_size_acv.status, cadence: k.avg_deal_size_acv.cadence, trend: k.avg_deal_size_acv.trend, _catalog: k.avg_deal_size_acv._catalog },
+      { key: 'pipeline_coverage', label: k.pipeline_coverage.label, value: k.pipeline_coverage.value, target: k.pipeline_coverage.target, unit: 'multiplier', status: k.pipeline_coverage.status, cadence: k.pipeline_coverage.cadence, trend: k.pipeline_coverage.trend, _catalog: k.pipeline_coverage._catalog },
+      { key: 'opportunities_created', label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend, _catalog: k.opportunities_created._catalog }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
     this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'multiplier' ? value.toFixed(1) + ':1'
@@ -139,6 +139,12 @@ export default {
       : unit === 'percent' ? CIC.formatPercent(target)
       : unit === 'multiplier' ? target.toFixed(1) + ':1'
       : target?.toLocaleString();
+
+    let badgeHtml = '';
+    if (_catalog) {
+      const badge = CIC.catalog.measurabilityBadge(_catalog);
+      badgeHtml = `<span class="kpi-badge ${badge.cssClass}">${badge.label}</span>`;
+    }
 
     let deltaHtml = '';
     if (trend && trend.length >= 2) {
@@ -155,6 +161,7 @@ export default {
       const quotaVal = CIC.formatCurrency(Math.round(value * 10000 / value) / 10);
       return `
         <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
+          ${badgeHtml}
           <div class="kpi-cadence">${cadence}</div>
           <div class="kpi-label">Pipeline Coverage</div>
           <div class="kpi-value">${fmtVal}</div>
@@ -170,6 +177,7 @@ export default {
 
     return `
       <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
+        ${badgeHtml}
         <div class="kpi-cadence">${cadence}</div>
         <div class="kpi-label">${label}</div>
         <div class="kpi-value">${fmtVal}</div>
@@ -187,9 +195,10 @@ export default {
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
+        const cat = kpi._catalog;
         Drilldown.open({
           title:       kpi.label,
-          definition:  kpi.definition || '',
+          definition:  cat?.definition || kpi.definition || '',
           value:       kpi.value,
           target:      kpi.target,
           unit:        kpi.unit || 'count',
@@ -198,11 +207,12 @@ export default {
           trendLabels: kpi.trend_labels,
           ytd:         kpi.ytd,
           ytdTarget:   kpi.ytd_target,
-          okr:         kpi.okr,
-          cadence:     kpi.cadence,
-          dataSource:  data.meta?.data_source?.join(', '),
-          accountable: data.meta?.accountable,
-          note:        kpi.note,
+          okr:         cat?.key_result_raw || kpi.okr,
+          cadence:     cat?.cadence || kpi.cadence,
+          dataSource:  cat?.data_source_raw || data.meta?.data_source?.join(', '),
+          accountable: cat?.accountable || data.meta?.accountable,
+          note:        cat?.notes || kpi.note,
+          measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });

@@ -1,5 +1,7 @@
 // ── CIC Router — tab navigation, scenario management, shared utilities ──
 
+import { catalog } from './data/catalog.js';
+
 const TABS = [
   { id: 'executive',        label: 'Executive',        file: 'tabs/executive.html',        module: './modules/executive.js' },
   { id: 'squads',           label: 'Squads',           file: 'tabs/squads.html',           module: './modules/squads.js' },
@@ -32,12 +34,41 @@ window.CIC = {
     navigateTo(tabId);
   },
 
+  catalog,
+
   async getData(department) {
     const loader = DATA_MODULES[department];
     if (!loader) return {};
     try {
       const mod = await loader();
-      return mod.data;
+      const mockData = mod.data || {};
+      const catalogKpis = await catalog.getKpisForTab(department);
+
+      if (!mockData.kpis || Object.keys(catalogKpis).length === 0) {
+        return mockData;
+      }
+
+      const merged = { ...mockData, _catalog: catalogKpis };
+
+      const reversedAliases = {};
+      for (const [catalogId, catKpi] of Object.entries(catalogKpis)) {
+        const deptPrefix = catKpi.department + '__';
+        const shortKey = catalogId.startsWith(deptPrefix)
+          ? catalogId.slice(deptPrefix.length)
+          : catalogId;
+        reversedAliases[shortKey] = catKpi;
+      }
+
+      for (const mockKey of Object.keys(mockData.kpis)) {
+        const catalogSuffix = catalog.resolveMockKey(mockKey);
+        if (reversedAliases[catalogSuffix]) {
+          mockData.kpis[mockKey]._catalog = reversedAliases[catalogSuffix];
+        } else if (reversedAliases[mockKey]) {
+          mockData.kpis[mockKey]._catalog = reversedAliases[mockKey];
+        }
+      }
+
+      return merged;
     } catch {
       return {};
     }
