@@ -2113,6 +2113,15 @@ is explicitly requested."""
             "env_AC_API_KEY_length": len(os.environ.get("AC_API_KEY", "")),
         })
 
+    # ── API: KPI Catalog ──────────────────────────────────────────────────
+
+    @app.route("/api/catalog")
+    def api_catalog():
+        catalog = _load_yaml("kpis.yaml")
+        if not catalog:
+            return jsonify({"error": "kpis.yaml not found"}), 404
+        return jsonify(catalog)
+
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 
     @app.route("/css/time-intelligence.css")
