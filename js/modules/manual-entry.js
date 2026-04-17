@@ -1,14 +1,26 @@
+import { catalog } from '../data/catalog.js';
+
+const DEPT_ORDER = [
+  'marketing', 'sales', 'partnerships',
+  'customer-success', 'support', 'product'
+];
+
 export default {
   charts: [],
   _storage: null,
+  _entries: {},
 
-  async init(containerEl, data) {
+  async init(containerEl) {
     const { storage } = await import('../data/storage.js');
     this._storage = storage;
     window.manualEntry = this;
 
-    this._buildPartnerFields(containerEl);
-    await this._loadSavedValues();
+    const cat = await catalog.load();
+    const period = this._currentPeriod();
+
+    this._renderHeader(containerEl, period);
+    await this._renderDepartmentForms(containerEl, cat, period);
+    await this._loadSheetData(period);
     await this._renderSummaryTable(containerEl);
   },
 
@@ -17,103 +29,168 @@ export default {
   },
 
   getSummaryKPIs() {
+    const count = Object.values(this._entries).filter(e => e.value).length;
     return [
-      { label: 'Partner Data Entry', value: 'Active', delta: '', status: 'green' }
+      { label: 'Manual Entries', value: `${count} KPIs`, delta: '', status: count > 0 ? 'green' : 'grey' }
     ];
   },
 
-  _partnerFields: [
-    {
-      key: 'pcc_self_serve_new',
-      label: 'PCC Self-Serve New Customers',
-      type: 'number',
-      placeholder: '0',
-      hint: 'New customers onboarded by PCC without CCX sales involvement'
-    },
-    {
-      key: 'pcc_pipeline_est',
-      label: 'PCC Pipeline Estimate ($)',
-      type: 'number',
-      placeholder: '0',
-      hint: 'Estimated pipeline value reported by PCC (monthly)'
-    },
-    {
-      key: 'pcc_active_accounts',
-      label: 'PCC Active Accounts (Total)',
-      type: 'number',
-      placeholder: '0',
-      hint: 'Total active customer accounts via PCC channel'
-    },
-    {
-      key: 'qhr_new_customers',
-      label: 'QHR New Customers',
-      type: 'number',
-      placeholder: '0',
-      hint: 'New customers onboarded through QHR channel'
-    },
-    {
-      key: 'qhr_pipeline_est',
-      label: 'QHR Pipeline Estimate ($)',
-      type: 'number',
-      placeholder: '0',
-      hint: 'Estimated pipeline value reported by QHR (monthly)'
+  _currentPeriod() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  },
+
+  _renderHeader(containerEl, period) {
+    const header = containerEl.querySelector('.dept-header');
+    if (header) {
+      header.querySelector('h2').textContent = 'KPI Manual Entry';
+      header.querySelector('p').textContent =
+        'Enter monthly values for KPIs without automated data sources';
     }
-  ],
 
-  _buildPartnerFields(containerEl) {
-    const container = containerEl.querySelector('#partner-fields');
-    if (!container) return;
+    const banner = containerEl.querySelector('.manual-entry-banner');
+    if (banner) {
+      banner.innerHTML = `
+        <strong>Period:</strong> ${this._formatPeriod(period)} &nbsp;·&nbsp;
+        Values are saved to Google Sheets and shared across the team.
+        KPIs with automated sources are pre-filled — only manual entries are editable.`;
+    }
+  },
 
-    container.innerHTML = this._partnerFields.map(f => `
-      <div class="entry-field">
-        <label for="field-${f.key}">${f.label}</label>
+  async _renderDepartmentForms(containerEl, cat, period) {
+    const formArea = containerEl.querySelector('#manual-entry-forms');
+    if (!formArea) return;
+
+    let html = '';
+    for (const tabId of DEPT_ORDER) {
+      const dept = cat.departments[tabId];
+      if (!dept) continue;
+
+      const manualKpis = Object.values(dept.kpis).filter(
+        k => k.measurable_today !== 'yes'
+      );
+      if (manualKpis.length === 0) continue;
+
+      html += `
+        <div class="manual-dept-section" data-dept="${tabId}">
+          <div class="manual-dept-section__header" data-toggle="${tabId}">
+            <h3>${dept.name}</h3>
+            <span class="manual-dept-section__count">${manualKpis.length} KPIs need manual entry</span>
+            <span class="manual-dept-section__chevron">▾</span>
+          </div>
+          <div class="manual-dept-section__body" id="dept-body-${tabId}">
+            <div class="entry-grid">
+              ${manualKpis.map(kpi => this._renderKpiField(kpi, period)).join('')}
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:16px;">
+              <button class="btn btn--sm" onclick="window.manualEntry.saveDepartment('${tabId}')">
+                Save ${dept.name}
+              </button>
+              <span class="entry-field__save-confirm" id="save-confirm-${tabId}">✓ Saved</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    formArea.innerHTML = html;
+
+    formArea.querySelectorAll('[data-toggle]').forEach(header => {
+      header.addEventListener('click', () => {
+        const body = document.getElementById(`dept-body-${header.dataset.toggle}`);
+        const chevron = header.querySelector('.manual-dept-section__chevron');
+        if (body.style.display === 'none') {
+          body.style.display = '';
+          chevron.textContent = '▾';
+        } else {
+          body.style.display = 'none';
+          chevron.textContent = '▸';
+        }
+      });
+    });
+  },
+
+  _renderKpiField(kpi, period) {
+    const badge = catalog.measurabilityBadge(kpi);
+    const fieldId = `entry-${kpi.id}`;
+
+    return `
+      <div class="entry-field" data-kpi-id="${kpi.id}">
+        <label for="${fieldId}">
+          ${kpi.name}
+          <span class="kpi-badge ${badge.cssClass}" style="position:static;margin-left:8px;">${badge.label}</span>
+        </label>
         <input
-          type="${f.type}"
-          id="field-${f.key}"
-          data-key="${f.key}"
-          placeholder="${f.placeholder}"
+          type="number"
+          id="${fieldId}"
+          data-kpi-id="${kpi.id}"
+          data-kpi-name="${kpi.name}"
+          data-department="${kpi.departmentName}"
+          placeholder="Enter value"
           class="input-modern"
+          step="any"
         >
-        ${f.hint ? `<div class="entry-field__meta">${f.hint}</div>` : ''}
-        <div class="entry-field__last-saved" id="saved-${f.key}">
+        <div class="entry-field__meta">
+          ${kpi.definition || ''}
+          ${kpi.accountable ? ` · Owner: ${kpi.accountable}` : ''}
+          ${kpi.data_source_raw ? ` · Source: ${kpi.data_source_raw}` : ''}
+        </div>
+        <div class="entry-field__last-saved" id="saved-${kpi.id}">
           No saved value
         </div>
-      </div>
-    `).join('');
+      </div>`;
   },
 
-  async _loadSavedValues() {
-    for (const f of this._partnerFields) {
-      const saved = await this._storage.get('partner', f.key);
+  async _loadSheetData(period) {
+    const entries = await this._storage.readFromSheets(null, period);
+    for (const entry of entries) {
+      if (entry.value) {
+        this._entries[entry.kpi_id] = entry;
+        const input = document.querySelector(`[data-kpi-id="${entry.kpi_id}"]`);
+        if (input) input.value = entry.value;
+        const saved = document.getElementById(`saved-${entry.kpi_id}`);
+        if (saved && entry.updated_at) {
+          const date = new Date(entry.updated_at).toLocaleDateString('en-CA');
+          const who = entry.updated_by ? ` by ${entry.updated_by}` : '';
+          saved.textContent = `Last saved: ${entry.value}${who} on ${date}`;
+        }
+      }
+    }
+  },
+
+  async saveDepartment(tabId) {
+    const section = document.querySelector(`[data-dept="${tabId}"]`);
+    if (!section) return;
+
+    const inputs = section.querySelectorAll('input[data-kpi-id]');
+    const period = this._currentPeriod();
+    let savedCount = 0;
+
+    for (const input of inputs) {
+      if (input.value === '') continue;
+
+      const entry = {
+        kpi_id: input.dataset.kpiId,
+        kpi_name: input.dataset.kpiName,
+        department: input.dataset.department,
+        period,
+        value: input.value,
+        updated_by: '',
+      };
+
+      const result = await this._storage.saveAndSync(entry);
+      this._entries[entry.kpi_id] = entry;
+
+      const saved = document.getElementById(`saved-${entry.kpi_id}`);
       if (saved) {
-        const input = document.getElementById(`field-${f.key}`);
-        if (input) input.value = saved.value;
-        const meta = document.getElementById(`saved-${f.key}`);
-        if (meta) {
-          const date = new Date(saved.updated).toLocaleDateString('en-CA');
-          meta.textContent = `Last saved: ${saved.value} on ${date}`;
-        }
+        const date = new Date().toLocaleDateString('en-CA');
+        const syncIcon = result.synced ? '☁' : '💾';
+        saved.textContent = `${syncIcon} Saved: ${input.value} on ${date}`;
       }
-    }
-  },
-
-  async saveSection(sectionName) {
-    if (sectionName !== 'partner') return;
-
-    for (const f of this._partnerFields) {
-      const input = document.getElementById(`field-${f.key}`);
-      if (input && input.value !== '') {
-        await this._storage.set('partner', f.key, input.value);
-        const meta = document.getElementById(`saved-${f.key}`);
-        if (meta) {
-          const date = new Date().toLocaleDateString('en-CA');
-          meta.textContent = `Last saved: ${input.value} on ${date}`;
-        }
-      }
+      savedCount++;
     }
 
-    const confirm = document.getElementById('partner-save-confirm');
-    if (confirm) {
+    const confirm = document.getElementById(`save-confirm-${tabId}`);
+    if (confirm && savedCount > 0) {
       confirm.classList.add('visible');
       setTimeout(() => confirm.classList.remove('visible'), 3000);
     }
@@ -125,34 +202,38 @@ export default {
     const tbody = document.getElementById('manual-summary-tbody');
     if (!tbody) return;
 
-    const rows = [];
-    for (const f of this._partnerFields) {
-      const saved = await this._storage.get('partner', f.key);
-      if (saved) {
-        const date = new Date(saved.updated).toLocaleString('en-CA', {
-          month: 'short', day: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        });
-        rows.push({ field: f.label, value: saved.value, date });
-      }
-    }
+    const rows = Object.values(this._entries).filter(e => e.value);
 
     if (rows.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="3" style="color:#9E9E9E;font-style:italic;padding:24px 16px;">
+          <td colspan="5" style="color:#9E9E9E;font-style:italic;padding:24px 16px;">
             No saved values yet — enter data above and click Save
           </td>
         </tr>`;
       return;
     }
 
-    tbody.innerHTML = rows.map(r => `
-      <tr>
-        <td style="font-weight:600">${r.field}</td>
-        <td class="col-right"><strong>${Number(r.value).toLocaleString()}</strong></td>
-        <td style="color:#9E9E9E;font-size:12px;">${r.date}</td>
-      </tr>
-    `).join('');
+    rows.sort((a, b) => (a.department || '').localeCompare(b.department || ''));
+
+    tbody.innerHTML = rows.map(r => {
+      const date = r.updated_at
+        ? new Date(r.updated_at).toLocaleDateString('en-CA')
+        : '';
+      return `
+        <tr>
+          <td>${r.department || ''}</td>
+          <td style="font-weight:600">${r.kpi_name || r.kpi_id}</td>
+          <td class="col-right"><strong>${Number(r.value).toLocaleString()}</strong></td>
+          <td>${r.updated_by || ''}</td>
+          <td style="color:#9E9E9E;font-size:12px;">${date}</td>
+        </tr>`;
+    }).join('');
+  },
+
+  _formatPeriod(period) {
+    const [y, m] = period.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(m) - 1]} ${y}`;
   }
 };

@@ -2122,6 +2122,84 @@ is explicitly requested."""
             return jsonify({"error": "kpis.yaml not found"}), 404
         return jsonify(catalog)
 
+    # ── API: Manual Entries (Google Sheets) ──────────────────────────────
+
+    def _get_sheets_connector():
+        creds = _load_credentials()
+        sheets_cfg = creds.get("google_sheets", {})
+        spreadsheet_id = sheets_cfg.get("spreadsheet_id", "")
+        if not spreadsheet_id:
+            return None
+        try:
+            from agents.data_connector.google_sheets import GoogleSheetsConnector
+            return GoogleSheetsConnector(spreadsheet_id, sheets_cfg)
+        except Exception as e:
+            logger.warning("Google Sheets connector failed: %s", e)
+            return None
+
+    @app.route("/api/manual-entries")
+    def api_manual_entries_read():
+        connector = _get_sheets_connector()
+        if not connector:
+            return jsonify({"error": "Google Sheets not configured", "entries": []}), 200
+        department = request.args.get("department")
+        period = request.args.get("period")
+        try:
+            entries = connector.read_entries(department=department, period=period)
+            return jsonify({"entries": entries})
+        except Exception as e:
+            logger.exception("Failed to read manual entries")
+            return jsonify({"error": str(e), "entries": []}), 500
+
+    @app.route("/api/manual-entries", methods=["POST"])
+    def api_manual_entries_write():
+        connector = _get_sheets_connector()
+        if not connector:
+            return jsonify({"error": "Google Sheets not configured"}), 503
+        body = request.get_json()
+        if not body:
+            return jsonify({"error": "No JSON body"}), 400
+
+        entries = body.get("entries")
+        if entries and isinstance(entries, list):
+            try:
+                count = connector.write_entries_batch(entries)
+                return jsonify({"written": count})
+            except Exception as e:
+                logger.exception("Failed to write batch entries")
+                return jsonify({"error": str(e)}), 500
+
+        required = ["kpi_id", "period", "value"]
+        if not all(body.get(k) for k in required):
+            return jsonify({"error": f"Missing required fields: {required}"}), 400
+        try:
+            connector.write_entry(
+                kpi_id=body["kpi_id"],
+                kpi_name=body.get("kpi_name", ""),
+                department=body.get("department", ""),
+                period=body["period"],
+                value=body["value"],
+                target=body.get("target"),
+                updated_by=body.get("updated_by", ""),
+                notes=body.get("notes", ""),
+            )
+            return jsonify({"written": 1})
+        except Exception as e:
+            logger.exception("Failed to write manual entry")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/manual-entries/init", methods=["POST"])
+    def api_manual_entries_init():
+        connector = _get_sheets_connector()
+        if not connector:
+            return jsonify({"error": "Google Sheets not configured"}), 503
+        try:
+            connector.initialize_sheet()
+            return jsonify({"status": "initialized"})
+        except Exception as e:
+            logger.exception("Failed to initialize sheet")
+            return jsonify({"error": str(e)}), 500
+
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 
     @app.route("/css/time-intelligence.css")

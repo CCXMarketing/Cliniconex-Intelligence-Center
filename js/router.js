@@ -11,7 +11,7 @@ const TABS = [
   { id: 'customer-success', label: 'Customer Success', file: 'tabs/customer-success.html', module: './modules/customer-success.js' },
   { id: 'support',          label: 'Customer Support', file: 'tabs/support.html',          module: './modules/support.js' },
   { id: 'product',          label: 'Product',          file: 'tabs/product.html',          module: './modules/product.js' },
-  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js', hidden: true },
+  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js' },
 ];
 
 const DATA_MODULES = {
@@ -66,6 +66,31 @@ window.CIC = {
         } else if (reversedAliases[mockKey]) {
           mockData.kpis[mockKey]._catalog = reversedAliases[mockKey];
         }
+      }
+
+      try {
+        const { storage } = await import('./data/storage.js');
+        const dept = catalog.tabIdToDeptId(department);
+        const deptName = reversedAliases[Object.keys(reversedAliases)[0]]?.departmentName;
+        if (deptName) {
+          const sheetEntries = await storage.readFromSheets(deptName);
+          for (const entry of sheetEntries) {
+            if (!entry.value) continue;
+            const kpiId = entry.kpi_id;
+            const suffix = kpiId.startsWith(dept + '__') ? kpiId.slice(dept.length + 2) : kpiId;
+            for (const [mockKey, kpi] of Object.entries(mockData.kpis)) {
+              const resolved = catalog.resolveMockKey(mockKey);
+              if (resolved === suffix || mockKey === suffix) {
+                if (!kpi._manualValue) {
+                  kpi._manualValue = parseFloat(entry.value);
+                  kpi._manualEntry = entry;
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Sheet data not available — continue with mock + catalog only
       }
 
       return merged;
