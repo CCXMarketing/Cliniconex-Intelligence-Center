@@ -117,19 +117,19 @@ export default {
     const oppsTarget = k.opportunities_created.targets[scenario] || k.opportunities_created.targets.target;
 
     const cards = [
-      { key: 'expansion_revenue', label: k.expansion_revenue.label, value: k.expansion_revenue.value, target: k.expansion_revenue.target, unit: 'currency', status: k.expansion_revenue.status, cadence: k.expansion_revenue.cadence, trend: k.expansion_revenue.trend, _catalog: k.expansion_revenue._catalog },
-      { key: 'new_logo_revenue', label: k.new_logo_revenue.label, value: k.new_logo_revenue.value, target: k.new_logo_revenue.target, unit: 'currency', status: k.new_logo_revenue.status, cadence: k.new_logo_revenue.cadence, trend: k.new_logo_revenue.trend, _catalog: k.new_logo_revenue._catalog },
-      { key: 'win_rate', label: k.win_rate.label, value: k.win_rate.value, target: k.win_rate.target, unit: 'percent', status: k.win_rate.status, cadence: k.win_rate.cadence, trend: k.win_rate.trend, _catalog: k.win_rate._catalog },
-      { key: 'avg_deal_size_acv', label: k.avg_deal_size_acv.label, value: k.avg_deal_size_acv.value, target: k.avg_deal_size_acv.target, unit: 'currency', status: k.avg_deal_size_acv.status, cadence: k.avg_deal_size_acv.cadence, trend: k.avg_deal_size_acv.trend, _catalog: k.avg_deal_size_acv._catalog },
-      { key: 'pipeline_coverage', label: k.pipeline_coverage.label, value: k.pipeline_coverage.value, target: k.pipeline_coverage.target, unit: 'multiplier', status: k.pipeline_coverage.status, cadence: k.pipeline_coverage.cadence, trend: k.pipeline_coverage.trend, _catalog: k.pipeline_coverage._catalog },
-      { key: 'opportunities_created', label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend, _catalog: k.opportunities_created._catalog }
+      { key: 'expansion_revenue', label: k.expansion_revenue.label, value: k.expansion_revenue.value, target: k.expansion_revenue.target, unit: 'currency', status: k.expansion_revenue.status, cadence: k.expansion_revenue.cadence, trend: k.expansion_revenue.trend, _catalog: k.expansion_revenue._catalog, _kpi: k.expansion_revenue },
+      { key: 'new_logo_revenue', label: k.new_logo_revenue.label, value: k.new_logo_revenue.value, target: k.new_logo_revenue.target, unit: 'currency', status: k.new_logo_revenue.status, cadence: k.new_logo_revenue.cadence, trend: k.new_logo_revenue.trend, _catalog: k.new_logo_revenue._catalog, _kpi: k.new_logo_revenue },
+      { key: 'win_rate', label: k.win_rate.label, value: k.win_rate.value, target: k.win_rate.target, unit: 'percent', status: k.win_rate.status, cadence: k.win_rate.cadence, trend: k.win_rate.trend, _catalog: k.win_rate._catalog, _kpi: k.win_rate },
+      { key: 'avg_deal_size_acv', label: k.avg_deal_size_acv.label, value: k.avg_deal_size_acv.value, target: k.avg_deal_size_acv.target, unit: 'currency', status: k.avg_deal_size_acv.status, cadence: k.avg_deal_size_acv.cadence, trend: k.avg_deal_size_acv.trend, _catalog: k.avg_deal_size_acv._catalog, _kpi: k.avg_deal_size_acv },
+      { key: 'pipeline_coverage', label: k.pipeline_coverage.label, value: k.pipeline_coverage.value, target: k.pipeline_coverage.target, unit: 'multiplier', status: k.pipeline_coverage.status, cadence: k.pipeline_coverage.cadence, trend: k.pipeline_coverage.trend, _catalog: k.pipeline_coverage._catalog, _kpi: k.pipeline_coverage },
+      { key: 'opportunities_created', label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend, _catalog: k.opportunities_created._catalog, _kpi: k.opportunities_created }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
     this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog, _kpi }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'multiplier' ? value.toFixed(1) + ':1'
@@ -141,8 +141,8 @@ export default {
       : target?.toLocaleString();
 
     let badgeHtml = '';
-    if (_catalog) {
-      const badge = CIC.catalog.measurabilityBadge(_catalog);
+    if (_kpi || _catalog) {
+      const badge = _kpi ? CIC.catalog.dataSourceBadge(_kpi) : CIC.catalog.measurabilityBadge(_catalog);
       badgeHtml = `<span class="kpi-badge ${badge.cssClass}">${badge.label}</span>`;
     }
 
@@ -213,6 +213,7 @@ export default {
           accountable: cat?.accountable || data.meta?.accountable,
           note:        cat?.notes || kpi.note,
           measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
+          dataSourceBadge: kpi._dataSource ? CIC.catalog.dataSourceBadge(kpi) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });

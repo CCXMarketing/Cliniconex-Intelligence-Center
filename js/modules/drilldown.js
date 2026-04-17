@@ -54,7 +54,8 @@ export const Drilldown = {
       config.dataSource ? `<div class="drilldown-meta-item">\uD83D\uDD0C Source <span>${config.dataSource}</span></div>` : '',
       config.accountable? `<div class="drilldown-meta-item">\uD83D\uDC64 Accountable <span>${config.accountable}</span></div>` : '',
       config.status     ? `<div class="drilldown-meta-item">\u25CF Status <span class="badge badge--${config.status}">${config.status.toUpperCase()}</span></div>` : '',
-      config.measurability ? `<div class="drilldown-meta-item">\uD83D\uDCCA Data <span class="kpi-badge ${config.measurability.cssClass}">${config.measurability.label}</span></div>` : '',
+      config.measurability ? `<div class="drilldown-meta-item">\uD83D\uDCCA Readiness <span class="kpi-badge ${config.measurability.cssClass}">${config.measurability.label}</span></div>` : '',
+      config.dataSourceBadge ? `<div class="drilldown-meta-item">\uD83D\uDD35 Value Source <span class="kpi-badge ${config.dataSourceBadge.cssClass}">${config.dataSourceBadge.label}</span></div>` : '',
     ].join('');
 
     // Build body content

@@ -190,6 +190,15 @@ export const catalog = {
     return { label: 'Manual', cssClass: 'badge-manual' };
   },
 
+  dataSourceBadge(kpi) {
+    const src = kpi._dataSource;
+    if (src === 'live') return { label: 'Live', cssClass: 'badge-live' };
+    if (src === 'manual') return { label: 'Entered', cssClass: 'badge-entered' };
+    if (src === 'mock') return { label: 'Demo', cssClass: 'badge-demo' };
+    if (kpi._catalog) return this.measurabilityBadge(kpi._catalog);
+    return { label: 'Demo', cssClass: 'badge-demo' };
+  },
+
   tabIdToDeptId(tabId) {
     return TAB_DEPT_MAP[tabId] || tabId;
   },

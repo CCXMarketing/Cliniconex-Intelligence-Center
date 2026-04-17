@@ -68,6 +68,12 @@ window.CIC = {
         }
       }
 
+      // Mark all KPIs as mock-sourced by default
+      for (const kpi of Object.values(mockData.kpis)) {
+        kpi._dataSource = 'mock';
+      }
+
+      // Overlay manual entries from Google Sheets
       try {
         const { storage } = await import('./data/storage.js');
         const dept = catalog.tabIdToDeptId(department);
@@ -81,9 +87,14 @@ window.CIC = {
             for (const [mockKey, kpi] of Object.entries(mockData.kpis)) {
               const resolved = catalog.resolveMockKey(mockKey);
               if (resolved === suffix || mockKey === suffix) {
-                if (!kpi._manualValue) {
-                  kpi._manualValue = parseFloat(entry.value);
-                  kpi._manualEntry = entry;
+                if (!kpi._manualEntry) {
+                  const parsed = parseFloat(entry.value);
+                  if (!isNaN(parsed)) {
+                    kpi._mockValue = kpi.value;
+                    kpi.value = parsed;
+                    kpi._dataSource = 'manual';
+                    kpi._manualEntry = entry;
+                  }
                 }
               }
             }

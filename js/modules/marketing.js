@@ -158,19 +158,19 @@ export default {
     const k = data.kpis;
 
     const cards = [
-      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend, _catalog: k.marketing_created_deals._catalog },
-      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend, _catalog: k.marketing_captured_deals._catalog },
-      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend, _catalog: k.hiro_conversion_rate._catalog },
-      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend, _catalog: k.pipeline_generated._catalog },
-      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend, _catalog: k.roas._catalog },
-      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend, _catalog: k.direct_channel_pipeline_pct._catalog }
+      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend, _catalog: k.marketing_created_deals._catalog, _kpi: k.marketing_created_deals },
+      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend, _catalog: k.marketing_captured_deals._catalog, _kpi: k.marketing_captured_deals },
+      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend, _catalog: k.hiro_conversion_rate._catalog, _kpi: k.hiro_conversion_rate },
+      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend, _catalog: k.pipeline_generated._catalog, _kpi: k.pipeline_generated },
+      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend, _catalog: k.roas._catalog, _kpi: k.roas },
+      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend, _catalog: k.direct_channel_pipeline_pct._catalog, _kpi: k.direct_channel_pipeline_pct }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
     this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog, _kpi }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'ratio' ? Math.round(value) + ':1'
@@ -184,8 +184,8 @@ export default {
       : target?.toLocaleString();
 
     let badgeHtml = '';
-    if (_catalog) {
-      const badge = CIC.catalog.measurabilityBadge(_catalog);
+    if (_kpi || _catalog) {
+      const badge = _kpi ? CIC.catalog.dataSourceBadge(_kpi) : CIC.catalog.measurabilityBadge(_catalog);
       badgeHtml = `<span class="kpi-badge ${badge.cssClass}">${badge.label}</span>`;
     }
 
@@ -236,6 +236,7 @@ export default {
           accountable: cat?.accountable || data.meta?.accountable,
           note:        cat?.notes || kpi.note,
           measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
+          dataSourceBadge: kpi._dataSource ? CIC.catalog.dataSourceBadge(kpi) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });
