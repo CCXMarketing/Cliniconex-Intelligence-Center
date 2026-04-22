@@ -13,7 +13,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, Response
+from flask import Flask, jsonify, render_template, request, Response, send_from_directory
 from flask_cors import CORS
 
 logger = logging.getLogger(__name__)
@@ -665,11 +665,27 @@ def create_app() -> Flask:
     from agents.dashboard.api import api_bp
     app.register_blueprint(api_bp)
 
-    # ── Main page ───────────────────────────────────────────────────────
+    # ── Main page (CIC multi-tab frontend from repo root) ───────────────
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        return send_from_directory(PROJECT_DIR, "index.html")
+
+    @app.route("/js/<path:filename>")
+    def serve_js(filename):
+        return send_from_directory(PROJECT_DIR / "js", filename)
+
+    @app.route("/css/<path:filename>")
+    def serve_css(filename):
+        return send_from_directory(PROJECT_DIR / "css", filename)
+
+    @app.route("/tabs/<path:filename>")
+    def serve_tabs(filename):
+        return send_from_directory(PROJECT_DIR / "tabs", filename)
+
+    @app.route("/config/kpis.json")
+    def serve_kpis_json():
+        return send_from_directory(PROJECT_DIR / "config", "kpis.json")
 
     # ── API: Hero metrics ───────────────────────────────────────────────
 

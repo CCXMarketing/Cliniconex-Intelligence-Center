@@ -61,7 +61,7 @@ async function load() {
   if (_catalog) return _catalog;
   if (_loading) return _loading;
 
-  _loading = fetch('/api/catalog')
+  _loading = fetch('api/catalog')
     .then(r => {
       if (!r.ok) throw new Error(`API ${r.status}`);
       return r.json();
