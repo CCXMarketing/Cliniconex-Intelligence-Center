@@ -55,7 +55,7 @@ export const storage = {
 
   async syncToSheets(entry) {
     try {
-      const resp = await fetch('/api/manual-entries', {
+      const resp = await fetch('api/manual-entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),
@@ -74,7 +74,7 @@ export const storage = {
       const params = new URLSearchParams();
       if (department) params.set('department', department);
       if (period) params.set('period', period);
-      const resp = await fetch(`/api/manual-entries?${params}`);
+      const resp = await fetch(`api/manual-entries?${params}`);
       if (!resp.ok) throw new Error(`API ${resp.status}`);
       const data = await resp.json();
       return data.entries || [];

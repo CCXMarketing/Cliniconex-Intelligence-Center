@@ -157,7 +157,7 @@ export async function fetchTrends(pipelineId, startDate, endDate) {
 }
 
 export async function checkConnections() {
-  const data = await fetchJson('/api/metrics');
+  const data = await fetchJson('api/metrics');
   if (!data) return { activecampaign: false, google_ads: false };
   return data.connections || { activecampaign: false, google_ads: false };
 }
