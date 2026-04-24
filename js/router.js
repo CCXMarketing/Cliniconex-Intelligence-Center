@@ -162,9 +162,10 @@ window.CIC = {
     }
 
     if (department === 'product' && data.kpis) {
-      const [sayDo, strategic] = await Promise.allSettled([
+      const [sayDo, strategic, sayDoByQuarter] = await Promise.allSettled([
         live.fetchSayDoRatio(),
         live.fetchStrategicAllocation(),
+        live.fetchSayDoByQuarter(),
       ]);
       if (sayDo.status === 'fulfilled' && sayDo.value && data.kpis.say_do_ratio) {
         data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
@@ -187,6 +188,9 @@ window.CIC = {
             { type: 'Maintenance', pct: pct(ns), target_pct: 10 }
           ];
         }
+      }
+      if (sayDoByQuarter.status === 'fulfilled' && sayDoByQuarter.value && data.kpis.say_do_ratio) {
+        data.kpis.say_do_ratio.by_quarter = sayDoByQuarter.value;
       }
     }
   },
