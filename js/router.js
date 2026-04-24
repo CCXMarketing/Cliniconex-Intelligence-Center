@@ -160,6 +160,18 @@ window.CIC = {
         data._liveMetrics = metrics.value;
       }
     }
+
+    if (department === 'product' && data.kpis) {
+      const sayDo = await Promise.allSettled([live.fetchSayDoRatio()]);
+      const res = sayDo[0];
+      if (res.status === 'fulfilled' && res.value && data.kpis.say_do_ratio) {
+        data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
+        data.kpis.say_do_ratio.value = res.value.value;
+        data.kpis.say_do_ratio.unit = res.value.unit;
+        data.kpis.say_do_ratio._dataSource = 'live';
+        data.kpis.say_do_ratio._meta = res.value._meta;
+      }
+    }
   },
 
   _connections: null,
