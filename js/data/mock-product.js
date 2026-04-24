@@ -93,13 +93,12 @@ export const data = {
     },
     strategic_allocation: {
       label: 'Strategic Development Allocation',
-      definition: '% of dev effort on strategic initiatives vs. maintenance/ad-hoc',
+      definition: '% of dev effort on strategic initiatives vs. maintenance (KTLO/KILO)',
       value: 72,
       target: 90,
       breakdown: [
-        { type: 'Strategic initiatives', pct: 72, target_pct: 90 },
-        { type: 'Maintenance',           pct: 18, target_pct: 8 },
-        { type: 'Ad-hoc / unplanned',    pct: 10, target_pct: 2 }
+        { type: 'Strategic',   pct: 72, target_pct: 90 },
+        { type: 'Maintenance', pct: 28, target_pct: 10 }
       ],
       status: 'red',
       unit: 'percent',
