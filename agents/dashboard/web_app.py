@@ -77,6 +77,12 @@ def _load_credentials() -> dict:
         "gemini": {
             "api_key": os.environ.get("GEMINI_API_KEY", ""),
         },
+        "jira": {
+            "site_url": os.environ.get("JIRA_SITE_URL", ""),
+            "email": os.environ.get("JIRA_EMAIL", ""),
+            "api_token": os.environ.get("JIRA_API_TOKEN", ""),
+            "project_key": os.environ.get("JIRA_PROJECT_KEY", "DELIVERY"),
+        },
     }
 
 
@@ -142,6 +148,17 @@ def _build_activecampaign(creds: dict):
     if not ac.get("api_url") or not ac.get("api_key"):
         return None
     return ActiveCampaignConnector(api_url=ac["api_url"], api_key=ac["api_key"])
+
+
+def _build_jira(creds: dict):
+    from agents.data_connector.jira import JiraConnector
+
+    j = creds.get("jira", {})
+    if not all(j.get(k) for k in ("site_url", "email", "api_token")):
+        return None
+    return JiraConnector(
+        site_url=j["site_url"], email=j["email"], api_token=j["api_token"]
+    )
 
 
 def _build_google_ads(creds: dict):
@@ -2214,6 +2231,36 @@ is explicitly requested."""
             return jsonify({"status": "initialized"})
         except Exception as e:
             logger.exception("Failed to initialize sheet")
+            return jsonify({"error": str(e)}), 500
+
+    # ── JIRA: Product-tab KPIs ──────────────────────────────────────────
+
+    @app.route("/api/jira/say-do-ratio")
+    def api_jira_say_do_ratio():
+        """On-time delivery ratio against Due Date over the lookback window.
+
+        Query params:
+          project_key: defaults to $JIRA_PROJECT_KEY or 'DELIVERY'
+          lookback_days: default 90
+        """
+        creds = _load_credentials()
+        jira = _build_jira(creds)
+        if not jira:
+            return jsonify({"error": "JIRA not configured"}), 503
+
+        project_key = request.args.get(
+            "project_key", creds.get("jira", {}).get("project_key") or "DELIVERY"
+        )
+        try:
+            lookback_days = int(request.args.get("lookback_days", 90))
+        except ValueError:
+            lookback_days = 90
+
+        try:
+            result = jira.compute_say_do_ratio(project_key, lookback_days=lookback_days)
+            return jsonify(result)
+        except Exception as e:
+            logger.exception("JIRA say/do ratio failed")
             return jsonify({"error": str(e)}), 500
 
     # ── CSS: Time Intelligence styles ────────────────────────────────────

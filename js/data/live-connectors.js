@@ -25,7 +25,7 @@ async function fetchJson(url) {
 
 export async function fetchFunnel(pipelineId) {
   const params = pipelineId ? `?pipeline_id=${pipelineId}` : '';
-  const data = await fetchJson(`/api/funnel${params}`);
+  const data = await fetchJson(`api/funnel${params}`);
   if (!data || !data.stages) return null;
 
   let prevCount = null;
@@ -71,7 +71,7 @@ export async function fetchCampaigns(startDate, endDate) {
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
   const qs = params.toString() ? `?${params}` : '';
-  const data = await fetchJson(`/api/campaigns${qs}`);
+  const data = await fetchJson(`api/campaigns${qs}`);
   if (!data || !data.campaigns) return null;
 
   const campaigns = data.campaigns.map(c => ({
@@ -119,7 +119,7 @@ export async function fetchCampaigns(startDate, endDate) {
 
 export async function fetchMetrics(pipelineId) {
   const params = pipelineId ? `?pipeline_id=${pipelineId}` : '';
-  const data = await fetchJson(`/api/metrics${params}`);
+  const data = await fetchJson(`api/metrics${params}`);
   if (!data) return null;
 
   return {
@@ -142,7 +142,7 @@ export async function fetchTrends(pipelineId, startDate, endDate) {
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
   const qs = params.toString() ? `?${params}` : '';
-  const data = await fetchJson(`/api/trends${qs}`);
+  const data = await fetchJson(`api/trends${qs}`);
   if (!data) return null;
 
   const rows = data.months || data.days || [];
@@ -160,4 +160,28 @@ export async function checkConnections() {
   const data = await fetchJson('api/metrics');
   if (!data) return { activecampaign: false, google_ads: false };
   return data.connections || { activecampaign: false, google_ads: false };
+}
+
+export async function fetchSayDoRatio(options = {}) {
+  const params = new URLSearchParams();
+  if (options.projectKey) params.set('project_key', options.projectKey);
+  if (options.lookbackDays) params.set('lookback_days', String(options.lookbackDays));
+  const qs = params.toString() ? `?${params}` : '';
+  const data = await fetchJson(`api/jira/say-do-ratio${qs}`);
+  if (!data || data.error || data.ratio == null) return null;
+
+  return {
+    value: parseFloat((data.ratio * 100).toFixed(1)),
+    unit: '%',
+    _meta: {
+      on_time: data.on_time,
+      resolved_late: data.resolved_late,
+      overdue_open: data.overdue_open,
+      late: data.late,
+      total: data.total,
+      period_days: data.period_days,
+      project_key: data.project_key,
+    },
+    _dataSource: 'live',
+  };
 }
