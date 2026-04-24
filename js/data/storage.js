@@ -53,10 +53,40 @@ export const storage = {
     }
   },
 
-  // Phase 2 stub — replace body with Google Sheets API write
-  async syncToSheets(department, key, value) {
-    console.log('[CIC Storage — Phase 2] syncToSheets not yet implemented');
-    console.log('Would write:', { department, key, value });
-    return false;
+  async syncToSheets(entry) {
+    try {
+      const resp = await fetch('api/manual-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      if (!resp.ok) throw new Error(`API ${resp.status}`);
+      const data = await resp.json();
+      return data.written > 0;
+    } catch (e) {
+      console.warn('[CIC Storage] syncToSheets failed:', e);
+      return false;
+    }
+  },
+
+  async readFromSheets(department, period) {
+    try {
+      const params = new URLSearchParams();
+      if (department) params.set('department', department);
+      if (period) params.set('period', period);
+      const resp = await fetch(`api/manual-entries?${params}`);
+      if (!resp.ok) throw new Error(`API ${resp.status}`);
+      const data = await resp.json();
+      return data.entries || [];
+    } catch (e) {
+      console.warn('[CIC Storage] readFromSheets failed:', e);
+      return [];
+    }
+  },
+
+  async saveAndSync(entry) {
+    await this.set(entry.department, entry.kpi_id, entry.value);
+    const synced = await this.syncToSheets(entry);
+    return { local: true, synced };
   }
 };

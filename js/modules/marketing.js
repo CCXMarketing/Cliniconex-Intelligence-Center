@@ -5,39 +5,25 @@ export default {
   charts: [],
 
   async init(containerEl, data) {
-    // Try to get live data — fall back to passed-in mock data
-    let liveData = data;
-    try {
-      const { getMarketingData } = await import('../data/mock-marketing.js');
-      liveData = await getMarketingData();
-      console.log('[Marketing] Data source:', liveData._live ? 'LIVE (AC)' : 'Mock');
-    } catch (err) {
-      console.warn('[Marketing] Could not load live data:', err.message);
+    this._data = data;
+
+    // Show connection status
+    const hasLive = Object.values(data.kpis || {}).some(k => k._dataSource === 'live');
+    if (hasLive) {
+      this._showLiveIndicator(containerEl);
     }
 
-    this._data = liveData;
+    this._renderKPICards(containerEl, data);
+    this._renderSegmentChart(data);
+    this._renderCampaignTable(data);
+    this._renderACFunnel(containerEl, data);
+    this._renderGoogleAds(containerEl, data);
+    this._renderGoogleAnalytics(containerEl, data);
+    this._renderSearchConsole(containerEl, data);
 
-    // Show live data indicator if using real data
-    if (liveData._live) {
-      this._showLiveIndicator(containerEl, liveData._fetched_at);
-    }
+    this._initROASCalculator(containerEl, data);
 
-    // Show errors if any data failed to load
-    if (liveData._errors?.length > 0) {
-      this._showDataWarning(containerEl, liveData._errors);
-    }
-
-    this._renderKPICards(containerEl, liveData);
-    this._renderSegmentChart(liveData);
-    this._renderCampaignTable(liveData);
-    this._renderACFunnel(containerEl, liveData);
-    this._renderGoogleAds(containerEl, liveData);
-    this._renderGoogleAnalytics(containerEl, liveData);
-    this._renderSearchConsole(containerEl, liveData);
-
-    this._initROASCalculator(containerEl, liveData);
-
-    CIC.onScenarioChange(() => this._renderKPICards(containerEl, liveData));
+    CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
 
     await renderInlineEntry(containerEl, {
       id: 'mkt-spend',
@@ -60,7 +46,7 @@ export default {
     Drilldown.close();
   },
 
-  _showLiveIndicator(containerEl, fetchedAt) {
+  _showLiveIndicator(containerEl) {
     const existing = containerEl.querySelector('.live-data-badge');
     if (existing) existing.remove();
 
@@ -80,14 +66,14 @@ export default {
       font-family: 'Nunito Sans', sans-serif;
       margin-bottom: 16px;
     `;
-    const time = new Date(fetchedAt).toLocaleTimeString('en-CA', {
+    const time = new Date().toLocaleTimeString('en-CA', {
       hour: '2-digit', minute: '2-digit'
     });
     badge.innerHTML = `
       <span style="width:6px;height:6px;border-radius:50%;
         background:#4CAF50;display:inline-block;
         animation: pulse 2s infinite;"></span>
-      Live data from ActiveCampaign \u2014 updated ${time}
+      Live data from API connectors \u2014 fetched ${time}
       <style>
         @keyframes pulse {
           0%,100%{opacity:1} 50%{opacity:0.4}
@@ -158,19 +144,19 @@ export default {
     const k = data.kpis;
 
     const cards = [
-      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend },
-      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend },
-      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend },
-      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend },
-      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend },
-      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend }
+      { key: 'marketing_created_deals', label: k.marketing_created_deals.label, value: k.marketing_created_deals.value, target: k.marketing_created_deals.target, unit: 'count', status: k.marketing_created_deals.status, cadence: k.marketing_created_deals.cadence, trend: k.marketing_created_deals.trend, _catalog: k.marketing_created_deals._catalog, _kpi: k.marketing_created_deals },
+      { key: 'marketing_captured_deals', label: k.marketing_captured_deals.label, value: k.marketing_captured_deals.value, target: k.marketing_captured_deals.target, unit: 'count', status: k.marketing_captured_deals.status, cadence: k.marketing_captured_deals.cadence, trend: k.marketing_captured_deals.trend, _catalog: k.marketing_captured_deals._catalog, _kpi: k.marketing_captured_deals },
+      { key: 'hiro_conversion_rate', label: k.hiro_conversion_rate.label, value: k.hiro_conversion_rate.value, target: k.hiro_conversion_rate.target, unit: 'percent', status: k.hiro_conversion_rate.status, cadence: k.hiro_conversion_rate.cadence, trend: k.hiro_conversion_rate.trend, _catalog: k.hiro_conversion_rate._catalog, _kpi: k.hiro_conversion_rate },
+      { key: 'pipeline_generated', label: k.pipeline_generated.label, value: k.pipeline_generated.value, target: k.pipeline_generated.target, unit: 'currency', status: k.pipeline_generated.status, cadence: k.pipeline_generated.cadence, trend: k.pipeline_generated.trend, _catalog: k.pipeline_generated._catalog, _kpi: k.pipeline_generated },
+      { key: 'roas', label: k.roas.label, value: k.roas.value, target: k.roas.target, unit: 'multiplier', status: k.roas.status, cadence: k.roas.cadence, trend: k.roas.trend, _catalog: k.roas._catalog, _kpi: k.roas },
+      { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend, _catalog: k.direct_channel_pipeline_pct._catalog, _kpi: k.direct_channel_pipeline_pct }
     ];
 
     grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
     this._wireClickHandlers(containerEl, data);
   },
 
-  _buildKPICard({ key, label, value, target, unit, status, cadence, trend }) {
+  _buildKPICard({ key, label, value, target, unit, status, cadence, trend, _catalog, _kpi }) {
     const fmtVal = unit === 'currency' ? CIC.formatCurrency(value)
       : unit === 'percent' ? CIC.formatPercent(value)
       : unit === 'ratio' ? Math.round(value) + ':1'
@@ -183,6 +169,12 @@ export default {
       : unit === 'multiplier' ? target.toFixed(1) + ':1'
       : target?.toLocaleString();
 
+    let badgeHtml = '';
+    if (_kpi || _catalog) {
+      const badge = _kpi ? CIC.catalog.dataSourceBadge(_kpi) : CIC.catalog.measurabilityBadge(_catalog);
+      badgeHtml = `<span class="kpi-badge ${badge.cssClass}">${badge.label}</span>`;
+    }
+
     let deltaHtml = '';
     if (trend && trend.length >= 2) {
       const prev = trend[trend.length - 2];
@@ -194,6 +186,7 @@ export default {
 
     return `
       <div class="kpi-card kpi-card--${status}" data-drilldown="${key}">
+        ${badgeHtml}
         <div class="kpi-cadence">${cadence}</div>
         <div class="kpi-label">${label}</div>
         <div class="kpi-value">${fmtVal}</div>
@@ -211,9 +204,10 @@ export default {
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
+        const cat = kpi._catalog;
         Drilldown.open({
           title:       kpi.label,
-          definition:  kpi.definition || '',
+          definition:  cat?.definition || kpi.definition || '',
           value:       kpi.value,
           target:      kpi.target,
           unit:        kpi.unit || 'count',
@@ -222,11 +216,13 @@ export default {
           trendLabels: kpi.trend_labels,
           ytd:         kpi.ytd,
           ytdTarget:   kpi.ytd_target,
-          okr:         kpi.okr,
-          cadence:     kpi.cadence,
-          dataSource:  data.meta?.data_source?.join(', '),
-          accountable: data.meta?.accountable,
-          note:        kpi.note,
+          okr:         cat?.key_result_raw || kpi.okr,
+          cadence:     cat?.cadence || kpi.cadence,
+          dataSource:  cat?.data_source_raw || data.meta?.data_source?.join(', '),
+          accountable: cat?.accountable || data.meta?.accountable,
+          note:        cat?.notes || kpi.note,
+          measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
+          dataSourceBadge: kpi._dataSource ? CIC.catalog.dataSourceBadge(kpi) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });

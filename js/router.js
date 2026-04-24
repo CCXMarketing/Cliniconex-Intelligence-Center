@@ -1,5 +1,8 @@
 // ── CIC Router — tab navigation, scenario management, shared utilities ──
 
+import { catalog } from './data/catalog.js';
+import * as live from './data/live-connectors.js';
+
 const TABS = [
   { id: 'executive',        label: 'Executive',        file: 'tabs/executive.html',        module: './modules/executive.js' },
   { id: 'squads',           label: 'Squads',           file: 'tabs/squads.html',           module: './modules/squads.js' },
@@ -9,7 +12,7 @@ const TABS = [
   { id: 'customer-success', label: 'Customer Success', file: 'tabs/customer-success.html', module: './modules/customer-success.js' },
   { id: 'support',          label: 'Customer Support', file: 'tabs/support.html',          module: './modules/support.js' },
   { id: 'product',          label: 'Product',          file: 'tabs/product.html',          module: './modules/product.js' },
-  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js', hidden: true },
+  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js' },
 ];
 
 const DATA_MODULES = {
@@ -32,15 +35,155 @@ window.CIC = {
     navigateTo(tabId);
   },
 
+  catalog,
+
   async getData(department) {
     const loader = DATA_MODULES[department];
     if (!loader) return {};
     try {
       const mod = await loader();
-      return mod.data;
+      const mockData = mod.data || {};
+      const catalogKpis = await catalog.getKpisForTab(department);
+
+      if (!mockData.kpis || Object.keys(catalogKpis).length === 0) {
+        return mockData;
+      }
+
+      const merged = { ...mockData, _catalog: catalogKpis };
+
+      const reversedAliases = {};
+      for (const [catalogId, catKpi] of Object.entries(catalogKpis)) {
+        const deptPrefix = catKpi.department + '__';
+        const shortKey = catalogId.startsWith(deptPrefix)
+          ? catalogId.slice(deptPrefix.length)
+          : catalogId;
+        reversedAliases[shortKey] = catKpi;
+      }
+
+      for (const mockKey of Object.keys(mockData.kpis)) {
+        const catalogSuffix = catalog.resolveMockKey(mockKey);
+        if (reversedAliases[catalogSuffix]) {
+          mockData.kpis[mockKey]._catalog = reversedAliases[catalogSuffix];
+        } else if (reversedAliases[mockKey]) {
+          mockData.kpis[mockKey]._catalog = reversedAliases[mockKey];
+        }
+      }
+
+      // Mark all KPIs as mock-sourced by default
+      for (const kpi of Object.values(mockData.kpis)) {
+        kpi._dataSource = 'mock';
+      }
+
+      // Overlay manual entries from Google Sheets
+      try {
+        const { storage } = await import('./data/storage.js');
+        const dept = catalog.tabIdToDeptId(department);
+        const deptName = reversedAliases[Object.keys(reversedAliases)[0]]?.departmentName;
+        if (deptName) {
+          const sheetEntries = await storage.readFromSheets(deptName);
+          for (const entry of sheetEntries) {
+            if (!entry.value) continue;
+            const kpiId = entry.kpi_id;
+            const suffix = kpiId.startsWith(dept + '__') ? kpiId.slice(dept.length + 2) : kpiId;
+            for (const [mockKey, kpi] of Object.entries(mockData.kpis)) {
+              const resolved = catalog.resolveMockKey(mockKey);
+              if (resolved === suffix || mockKey === suffix) {
+                if (!kpi._manualEntry) {
+                  const parsed = parseFloat(entry.value);
+                  if (!isNaN(parsed)) {
+                    kpi._mockValue = kpi.value;
+                    kpi.value = parsed;
+                    kpi._dataSource = 'manual';
+                    kpi._manualEntry = entry;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Sheet data not available — continue with mock + catalog only
+      }
+
+      // Overlay live connector data (highest priority)
+      try {
+        await this._overlayLiveData(department, mockData);
+      } catch {
+        // Live data not available — continue with mock/manual/catalog
+      }
+
+      return merged;
     } catch {
       return {};
     }
+  },
+
+  async _overlayLiveData(department, data) {
+    if (department === 'marketing' && data.kpis) {
+      const [funnel, campaigns, metrics, trends] = await Promise.allSettled([
+        live.fetchFunnel(),
+        live.fetchCampaigns(),
+        live.fetchMetrics(),
+        live.fetchTrends(),
+      ]);
+
+      if (funnel.status === 'fulfilled' && funnel.value && data.kpis.ac_demand_funnel) {
+        data.kpis.ac_demand_funnel._mockValue = { ...data.kpis.ac_demand_funnel };
+        Object.assign(data.kpis.ac_demand_funnel, funnel.value);
+        data.kpis.ac_demand_funnel._dataSource = 'live';
+      }
+
+      if (campaigns.status === 'fulfilled' && campaigns.value && data.kpis.google_ads) {
+        data.kpis.google_ads._mockValue = { ...data.kpis.google_ads };
+        Object.assign(data.kpis.google_ads, campaigns.value);
+        data.kpis.google_ads._dataSource = 'live';
+
+        if (trends.status === 'fulfilled' && trends.value) {
+          data.kpis.google_ads.spend_trend = trends.value.spend_trend;
+          data.kpis.google_ads.conversions_trend = trends.value.conversions_trend;
+          data.kpis.google_ads.cpa_trend = trends.value.cpa_trend;
+          data.kpis.google_ads.trend_labels = trends.value.trend_labels;
+        }
+      }
+
+      if (metrics.status === 'fulfilled' && metrics.value) {
+        if (data.kpis.pipeline_generated) {
+          data.kpis.pipeline_generated._mockValue = data.kpis.pipeline_generated.value;
+          data.kpis.pipeline_generated.value = metrics.value.pipeline_value;
+          data.kpis.pipeline_generated._dataSource = 'live';
+        }
+        if (data.kpis.marketing_created_deals) {
+          data.kpis.marketing_created_deals._mockValue = data.kpis.marketing_created_deals.value;
+          data.kpis.marketing_created_deals.value = metrics.value.deals_count;
+          data.kpis.marketing_created_deals._dataSource = 'live';
+        }
+        data._liveMetrics = metrics.value;
+      }
+    }
+
+    if (department === 'product' && data.kpis) {
+      const sayDo = await Promise.allSettled([live.fetchSayDoRatio()]);
+      const res = sayDo[0];
+      if (res.status === 'fulfilled' && res.value && data.kpis.say_do_ratio) {
+        data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
+        data.kpis.say_do_ratio.value = res.value.value;
+        data.kpis.say_do_ratio.unit = res.value.unit;
+        data.kpis.say_do_ratio._dataSource = 'live';
+        data.kpis.say_do_ratio._meta = res.value._meta;
+      }
+    }
+  },
+
+  _connections: null,
+
+  async getConnections() {
+    if (this._connections) return this._connections;
+    try {
+      this._connections = await live.checkConnections();
+    } catch {
+      this._connections = { activecampaign: false, google_ads: false };
+    }
+    return this._connections;
   },
 
   async setData(department, key, value) {

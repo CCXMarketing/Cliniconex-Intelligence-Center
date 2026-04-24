@@ -13,7 +13,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, Response
+from flask import Flask, jsonify, render_template, request, Response, send_from_directory
 from flask_cors import CORS
 
 logger = logging.getLogger(__name__)
@@ -76,6 +76,12 @@ def _load_credentials() -> dict:
         },
         "gemini": {
             "api_key": os.environ.get("GEMINI_API_KEY", ""),
+        },
+        "jira": {
+            "site_url": os.environ.get("JIRA_SITE_URL", ""),
+            "email": os.environ.get("JIRA_EMAIL", ""),
+            "api_token": os.environ.get("JIRA_API_TOKEN", ""),
+            "project_key": os.environ.get("JIRA_PROJECT_KEY", "DELIVERY"),
         },
     }
 
@@ -142,6 +148,17 @@ def _build_activecampaign(creds: dict):
     if not ac.get("api_url") or not ac.get("api_key"):
         return None
     return ActiveCampaignConnector(api_url=ac["api_url"], api_key=ac["api_key"])
+
+
+def _build_jira(creds: dict):
+    from agents.data_connector.jira import JiraConnector
+
+    j = creds.get("jira", {})
+    if not all(j.get(k) for k in ("site_url", "email", "api_token")):
+        return None
+    return JiraConnector(
+        site_url=j["site_url"], email=j["email"], api_token=j["api_token"]
+    )
 
 
 def _build_google_ads(creds: dict):
@@ -665,11 +682,27 @@ def create_app() -> Flask:
     from agents.dashboard.api import api_bp
     app.register_blueprint(api_bp)
 
-    # ── Main page ───────────────────────────────────────────────────────
+    # ── Main page (CIC multi-tab frontend from repo root) ───────────────
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        return send_from_directory(PROJECT_DIR, "index.html")
+
+    @app.route("/js/<path:filename>")
+    def serve_js(filename):
+        return send_from_directory(PROJECT_DIR / "js", filename)
+
+    @app.route("/css/<path:filename>")
+    def serve_css(filename):
+        return send_from_directory(PROJECT_DIR / "css", filename)
+
+    @app.route("/tabs/<path:filename>")
+    def serve_tabs(filename):
+        return send_from_directory(PROJECT_DIR / "tabs", filename)
+
+    @app.route("/config/kpis.json")
+    def serve_kpis_json():
+        return send_from_directory(PROJECT_DIR / "config", "kpis.json")
 
     # ── API: Hero metrics ───────────────────────────────────────────────
 
@@ -2112,6 +2145,123 @@ is explicitly requested."""
             "env_AC_API_URL": os.environ.get("AC_API_URL", "NOT SET"),
             "env_AC_API_KEY_length": len(os.environ.get("AC_API_KEY", "")),
         })
+
+    # ── API: KPI Catalog ──────────────────────────────────────────────────
+
+    @app.route("/api/catalog")
+    def api_catalog():
+        catalog = _load_yaml("kpis.yaml")
+        if not catalog:
+            return jsonify({"error": "kpis.yaml not found"}), 404
+        return jsonify(catalog)
+
+    # ── API: Manual Entries (Google Sheets) ──────────────────────────────
+
+    def _get_sheets_connector():
+        creds = _load_credentials()
+        sheets_cfg = creds.get("google_sheets", {})
+        spreadsheet_id = sheets_cfg.get("spreadsheet_id", "")
+        if not spreadsheet_id:
+            return None
+        try:
+            from agents.data_connector.google_sheets import GoogleSheetsConnector
+            return GoogleSheetsConnector(spreadsheet_id, sheets_cfg)
+        except Exception as e:
+            logger.warning("Google Sheets connector failed: %s", e)
+            return None
+
+    @app.route("/api/manual-entries")
+    def api_manual_entries_read():
+        connector = _get_sheets_connector()
+        if not connector:
+            return jsonify({"error": "Google Sheets not configured", "entries": []}), 200
+        department = request.args.get("department")
+        period = request.args.get("period")
+        try:
+            entries = connector.read_entries(department=department, period=period)
+            return jsonify({"entries": entries})
+        except Exception as e:
+            logger.exception("Failed to read manual entries")
+            return jsonify({"error": str(e), "entries": []}), 500
+
+    @app.route("/api/manual-entries", methods=["POST"])
+    def api_manual_entries_write():
+        connector = _get_sheets_connector()
+        if not connector:
+            return jsonify({"error": "Google Sheets not configured"}), 503
+        body = request.get_json()
+        if not body:
+            return jsonify({"error": "No JSON body"}), 400
+
+        entries = body.get("entries")
+        if entries and isinstance(entries, list):
+            try:
+                count = connector.write_entries_batch(entries)
+                return jsonify({"written": count})
+            except Exception as e:
+                logger.exception("Failed to write batch entries")
+                return jsonify({"error": str(e)}), 500
+
+        required = ["kpi_id", "period", "value"]
+        if not all(body.get(k) for k in required):
+            return jsonify({"error": f"Missing required fields: {required}"}), 400
+        try:
+            connector.write_entry(
+                kpi_id=body["kpi_id"],
+                kpi_name=body.get("kpi_name", ""),
+                department=body.get("department", ""),
+                period=body["period"],
+                value=body["value"],
+                target=body.get("target"),
+                updated_by=body.get("updated_by", ""),
+                notes=body.get("notes", ""),
+            )
+            return jsonify({"written": 1})
+        except Exception as e:
+            logger.exception("Failed to write manual entry")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/manual-entries/init", methods=["POST"])
+    def api_manual_entries_init():
+        connector = _get_sheets_connector()
+        if not connector:
+            return jsonify({"error": "Google Sheets not configured"}), 503
+        try:
+            connector.initialize_sheet()
+            return jsonify({"status": "initialized"})
+        except Exception as e:
+            logger.exception("Failed to initialize sheet")
+            return jsonify({"error": str(e)}), 500
+
+    # ── JIRA: Product-tab KPIs ──────────────────────────────────────────
+
+    @app.route("/api/jira/say-do-ratio")
+    def api_jira_say_do_ratio():
+        """On-time delivery ratio against Due Date over the lookback window.
+
+        Query params:
+          project_key: defaults to $JIRA_PROJECT_KEY or 'DELIVERY'
+          lookback_days: default 90
+        """
+        creds = _load_credentials()
+        jira = _build_jira(creds)
+        if not jira:
+            return jsonify({"error": "JIRA not configured"}), 503
+
+        project_key = request.args.get(
+            "project_key", creds.get("jira", {}).get("project_key") or "DELIVERY"
+        )
+        try:
+            lookback_days = int(request.args.get("lookback_days", 90))
+        except ValueError:
+            lookback_days = 90
+
+        try:
+            result = jira.compute_say_do_ratio(project_key, lookback_days=lookback_days)
+            return jsonify(result)
+        except Exception as e:
+            logger.exception("JIRA say/do ratio failed")
+            return jsonify({"error": str(e)}), 500
 
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 
