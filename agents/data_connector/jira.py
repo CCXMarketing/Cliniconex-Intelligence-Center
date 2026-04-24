@@ -143,8 +143,10 @@ class JiraConnector:
         """
         On-time delivery ratio, including currently-overdue-and-open as late.
 
-        Population: issues in `project_key` with a Due Date in the last
-        `lookback_days` up to and including today.
+        Population: non-Epic issues in `project_key` with a Due Date in
+        the last `lookback_days` up to and including today. Epics are
+        excluded because their Due Date is typically an aspirational
+        target rather than a delivery commitment.
 
           on_time        = resolved and resolutiondate (UTC date) <= duedate
           resolved_late  = resolved and resolutiondate > duedate
@@ -166,6 +168,7 @@ class JiraConnector:
         """
         jql = (
             f'project = "{project_key}" '
+            f"AND issuetype != Epic "
             f"AND duedate >= -{lookback_days}d "
             f"AND duedate <= now()"
         )
