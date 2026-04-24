@@ -15,8 +15,8 @@ ai_skills_pilots) are blocked on JIRA-side tagging — see
 
 import logging
 import time
-from datetime import date, datetime, timezone
-from typing import Dict, Optional
+from datetime import date, datetime, timedelta, timezone
+from typing import Dict, List, Optional
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -174,12 +174,22 @@ class JiraConnector:
             "project_key": str,
           }
         """
+        today = date.today()
+        start = today - timedelta(days=lookback_days)
+        result = self._compute_say_do_window(project_key, start, today)
+        result["period_days"] = lookback_days
+        return result
+
+    def _compute_say_do_window(
+        self, project_key: str, start: date, end: date
+    ) -> Dict:
+        """Run the say/do logic over an absolute duedate window [start, end]."""
         end_date_field = "customfield_10892"
         jql = (
             f'project = "{project_key}" '
             f"AND issuetype != Epic "
-            f"AND duedate >= -{lookback_days}d "
-            f"AND duedate <= now()"
+            f'AND duedate >= "{start.isoformat()}" '
+            f'AND duedate <= "{end.isoformat()}"'
         )
         issues = self.search(
             jql,
@@ -241,9 +251,43 @@ class JiraConnector:
             "overdue_open": overdue_open,
             "late": late,
             "total": total,
-            "period_days": lookback_days,
             "project_key": project_key,
+            "window_start": start.isoformat(),
+            "window_end": end.isoformat(),
         }
+
+    def compute_say_do_ratio_by_quarter(
+        self, project_key: str, num_quarters: int = 4
+    ) -> List[Dict]:
+        """Say/do ratio per calendar quarter, most recent last.
+
+        The current quarter's window ends at today — future-dated issues
+        aren't included because we can't yet say if they'll ship on time.
+        """
+        today = date.today()
+        cur_q = (today.month - 1) // 3 + 1
+        cur_y = today.year
+
+        quarters: List[Dict] = []
+        for i in range(num_quarters):
+            qi, yi = cur_q - i, cur_y
+            while qi < 1:
+                qi += 4
+                yi -= 1
+            start_month = (qi - 1) * 3 + 1
+            q_start = date(yi, start_month, 1)
+            q_end = (
+                date(yi + 1, 1, 1) if qi == 4
+                else date(yi, start_month + 3, 1)
+            ) - timedelta(days=1)
+            win_end = min(q_end, today)
+
+            result = self._compute_say_do_window(project_key, q_start, win_end)
+            result["quarter"] = f"Q{qi} {yi}"
+            quarters.append(result)
+
+        quarters.reverse()
+        return quarters
 
     # ── KPI: strategic allocation ───────────────────────────────────────────
 

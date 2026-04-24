@@ -162,9 +162,10 @@ window.CIC = {
     }
 
     if (department === 'product' && data.kpis) {
-      const [sayDo, strategic] = await Promise.allSettled([
+      const [sayDo, strategic, sayDoByQuarter] = await Promise.allSettled([
         live.fetchSayDoRatio(),
         live.fetchStrategicAllocation(),
+        live.fetchSayDoByQuarter(),
       ]);
       if (sayDo.status === 'fulfilled' && sayDo.value && data.kpis.say_do_ratio) {
         data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
@@ -179,6 +180,17 @@ window.CIC = {
         data.kpis.strategic_allocation.unit = strategic.value.unit;
         data.kpis.strategic_allocation._dataSource = 'live';
         data.kpis.strategic_allocation._meta = strategic.value._meta;
+        const { strategic: s, non_strategic: ns, total } = strategic.value._meta;
+        if (total > 0) {
+          const pct = n => Math.round((n / total) * 1000) / 10;
+          data.kpis.strategic_allocation.breakdown = [
+            { type: 'Strategic',   pct: pct(s),  target_pct: 90 },
+            { type: 'Maintenance', pct: pct(ns), target_pct: 10 }
+          ];
+        }
+      }
+      if (sayDoByQuarter.status === 'fulfilled' && sayDoByQuarter.value && data.kpis.say_do_ratio) {
+        data.kpis.say_do_ratio.by_quarter = sayDoByQuarter.value;
       }
     }
   },

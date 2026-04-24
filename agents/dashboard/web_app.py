@@ -2263,6 +2263,36 @@ is explicitly requested."""
             logger.exception("JIRA say/do ratio failed")
             return jsonify({"error": str(e)}), 500
 
+    @app.route("/api/jira/say-do-ratio-by-quarter")
+    def api_jira_say_do_ratio_by_quarter():
+        """Say/do ratio per calendar quarter (most recent last).
+
+        Query params:
+          project_key: defaults to $JIRA_PROJECT_KEY or 'DELIVERY'
+          num_quarters: default 4
+        """
+        creds = _load_credentials()
+        jira = _build_jira(creds)
+        if not jira:
+            return jsonify({"error": "JIRA not configured"}), 503
+
+        project_key = request.args.get(
+            "project_key", creds.get("jira", {}).get("project_key") or "DELIVERY"
+        )
+        try:
+            num_quarters = int(request.args.get("num_quarters", 4))
+        except ValueError:
+            num_quarters = 4
+
+        try:
+            result = jira.compute_say_do_ratio_by_quarter(
+                project_key, num_quarters=num_quarters
+            )
+            return jsonify({"quarters": result, "project_key": project_key})
+        except Exception as e:
+            logger.exception("JIRA say/do by quarter failed")
+            return jsonify({"error": str(e)}), 500
+
     @app.route("/api/jira/strategic-allocation")
     def api_jira_strategic_allocation():
         """Fraction of resolved non-Epic work that isn't labeled KILO/KTLO.
