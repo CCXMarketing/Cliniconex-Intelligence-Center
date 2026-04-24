@@ -245,6 +245,62 @@ class JiraConnector:
             "project_key": project_key,
         }
 
+    # ── KPI: strategic allocation ───────────────────────────────────────────
+
+    NON_STRATEGIC_LABELS = frozenset({"KILO", "KTLO"})
+
+    def compute_strategic_allocation(
+        self, project_key: str, lookback_days: int = 90
+    ) -> Dict:
+        """
+        Fraction of resolved work that was strategic (by issue count).
+
+        Population: non-Epic issues in `project_key` resolved in the last
+        `lookback_days`. An issue counts as non-strategic if it carries
+        the `KILO` or `KTLO` label (case-insensitive); everything else
+        counts as strategic.
+
+        Until KILO/KTLO start being applied to DELIVERY issues this will
+        report 100% strategic by construction.
+
+        Returns:
+          {
+            "ratio": float | None,
+            "strategic": int,
+            "non_strategic": int,
+            "total": int,
+            "period_days": int,
+            "project_key": str,
+          }
+        """
+        jql = (
+            f'project = "{project_key}" '
+            f"AND issuetype != Epic "
+            f"AND resolved >= -{lookback_days}d"
+        )
+        issues = self.search(jql, fields=["labels"])
+
+        non_strategic_upper = {s.upper() for s in self.NON_STRATEGIC_LABELS}
+        strategic = non_strategic = 0
+        for issue in issues:
+            labels = (issue.get("fields") or {}).get("labels") or []
+            if any(lbl.upper() in non_strategic_upper for lbl in labels):
+                non_strategic += 1
+            else:
+                strategic += 1
+
+        total = strategic + non_strategic
+        ratio = (strategic / total) if total else None
+
+        return {
+            "ratio": ratio,
+            "strategic": strategic,
+            "non_strategic": non_strategic,
+            "total": total,
+            "period_days": lookback_days,
+            "project_key": project_key,
+        }
+
     # ── Documentation ───────────────────────────────────────────────────────
 
     @staticmethod
@@ -257,8 +313,10 @@ class JiraConnector:
         """
         return {
             "strategic_allocation": (
-                "Add a 'strategic' label (or custom field) to every issue that "
-                "maps to a strategic initiative. KPI = strategic SP / total SP."
+                "Apply labels 'KILO' or 'KTLO' to non-strategic work "
+                "(keep-the-lights-on, maintenance). Everything without "
+                "those labels counts as strategic. KPI = strategic issues "
+                "/ total resolved issues (by count)."
             ),
             "bug_reduction": (
                 "Add a 'customer-facing' label to bug-type issues reported by "

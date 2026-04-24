@@ -162,14 +162,23 @@ window.CIC = {
     }
 
     if (department === 'product' && data.kpis) {
-      const sayDo = await Promise.allSettled([live.fetchSayDoRatio()]);
-      const res = sayDo[0];
-      if (res.status === 'fulfilled' && res.value && data.kpis.say_do_ratio) {
+      const [sayDo, strategic] = await Promise.allSettled([
+        live.fetchSayDoRatio(),
+        live.fetchStrategicAllocation(),
+      ]);
+      if (sayDo.status === 'fulfilled' && sayDo.value && data.kpis.say_do_ratio) {
         data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
-        data.kpis.say_do_ratio.value = res.value.value;
-        data.kpis.say_do_ratio.unit = res.value.unit;
+        data.kpis.say_do_ratio.value = sayDo.value.value;
+        data.kpis.say_do_ratio.unit = sayDo.value.unit;
         data.kpis.say_do_ratio._dataSource = 'live';
-        data.kpis.say_do_ratio._meta = res.value._meta;
+        data.kpis.say_do_ratio._meta = sayDo.value._meta;
+      }
+      if (strategic.status === 'fulfilled' && strategic.value && data.kpis.strategic_allocation) {
+        data.kpis.strategic_allocation._mockValue = { ...data.kpis.strategic_allocation };
+        data.kpis.strategic_allocation.value = strategic.value.value;
+        data.kpis.strategic_allocation.unit = strategic.value.unit;
+        data.kpis.strategic_allocation._dataSource = 'live';
+        data.kpis.strategic_allocation._meta = strategic.value._meta;
       }
     }
   },

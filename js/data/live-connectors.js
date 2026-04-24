@@ -185,3 +185,25 @@ export async function fetchSayDoRatio(options = {}) {
     _dataSource: 'live',
   };
 }
+
+export async function fetchStrategicAllocation(options = {}) {
+  const params = new URLSearchParams();
+  if (options.projectKey) params.set('project_key', options.projectKey);
+  if (options.lookbackDays) params.set('lookback_days', String(options.lookbackDays));
+  const qs = params.toString() ? `?${params}` : '';
+  const data = await fetchJson(`api/jira/strategic-allocation${qs}`);
+  if (!data || data.error || data.ratio == null) return null;
+
+  return {
+    value: parseFloat((data.ratio * 100).toFixed(1)),
+    unit: '%',
+    _meta: {
+      strategic: data.strategic,
+      non_strategic: data.non_strategic,
+      total: data.total,
+      period_days: data.period_days,
+      project_key: data.project_key,
+    },
+    _dataSource: 'live',
+  };
+}
