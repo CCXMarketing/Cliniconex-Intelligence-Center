@@ -2263,6 +2263,36 @@ is explicitly requested."""
             logger.exception("JIRA say/do ratio failed")
             return jsonify({"error": str(e)}), 500
 
+    @app.route("/api/jira/strategic-allocation")
+    def api_jira_strategic_allocation():
+        """Fraction of resolved non-Epic work that isn't labeled KILO/KTLO.
+
+        Query params:
+          project_key: defaults to $JIRA_PROJECT_KEY or 'DELIVERY'
+          lookback_days: default 90
+        """
+        creds = _load_credentials()
+        jira = _build_jira(creds)
+        if not jira:
+            return jsonify({"error": "JIRA not configured"}), 503
+
+        project_key = request.args.get(
+            "project_key", creds.get("jira", {}).get("project_key") or "DELIVERY"
+        )
+        try:
+            lookback_days = int(request.args.get("lookback_days", 90))
+        except ValueError:
+            lookback_days = 90
+
+        try:
+            result = jira.compute_strategic_allocation(
+                project_key, lookback_days=lookback_days
+            )
+            return jsonify(result)
+        except Exception as e:
+            logger.exception("JIRA strategic allocation failed")
+            return jsonify({"error": str(e)}), 500
+
     # ── CSS: Time Intelligence styles ────────────────────────────────────
 
     @app.route("/css/time-intelligence.css")

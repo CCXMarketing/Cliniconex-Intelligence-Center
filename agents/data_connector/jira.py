@@ -143,14 +143,24 @@ class JiraConnector:
         """
         On-time delivery ratio, including currently-overdue-and-open as late.
 
-        Population: issues in `project_key` with a Due Date in the last
-        `lookback_days` up to and including today.
+        Population: non-Epic issues in `project_key` with a Due Date in
+        the last `lookback_days` up to and including today. Epics are
+        excluded because their Due Date is typically an aspirational
+        target rather than a delivery commitment.
 
-          on_time        = resolved and resolutiondate (UTC date) <= duedate
-          resolved_late  = resolved and resolutiondate > duedate
-          overdue_open   = unresolved as of today (duedate has passed)
-          late           = resolved_late + overdue_open
-          ratio          = on_time / (on_time + late)
+        Completion signal, in order of precedence (a Done-category
+        status is required either way):
+          1. End Date custom field (customfield_10892) — the source of
+             truth the team maintains. Some DELIVERY workflows close
+             issues without setting resolutiondate, so this field is
+             more reliable.
+          2. resolutiondate — fallback for issues closed via workflows
+             that do set it.
+
+          on_time        = Done, completion date <= duedate
+          resolved_late  = Done, completion date > duedate
+          overdue_open   = not Done (or Done with no completion date)
+          ratio          = on_time / (on_time + resolved_late + overdue_open)
 
         Returns:
           {
@@ -164,12 +174,17 @@ class JiraConnector:
             "project_key": str,
           }
         """
+        end_date_field = "customfield_10892"
         jql = (
             f'project = "{project_key}" '
+            f"AND issuetype != Epic "
             f"AND duedate >= -{lookback_days}d "
             f"AND duedate <= now()"
         )
-        issues = self.search(jql, fields=["duedate", "resolutiondate"])
+        issues = self.search(
+            jql,
+            fields=["duedate", "resolutiondate", "status", end_date_field],
+        )
 
         on_time = resolved_late = overdue_open = 0
         for issue in issues:
@@ -182,17 +197,35 @@ class JiraConnector:
             except ValueError:
                 continue
 
-            resolved_raw = f.get("resolutiondate")
-            if not resolved_raw:
+            is_done = (
+                (f.get("status") or {}).get("statusCategory", {}).get("key")
+                == "done"
+            )
+            completion: Optional[date] = None
+            if is_done:
+                end_raw = f.get(end_date_field)
+                if end_raw:
+                    try:
+                        completion = date.fromisoformat(end_raw)
+                    except ValueError:
+                        pass
+                if completion is None:
+                    resolved_raw = f.get("resolutiondate")
+                    if resolved_raw:
+                        try:
+                            completion = (
+                                datetime.fromisoformat(
+                                    resolved_raw.replace("Z", "+00:00")
+                                )
+                                .astimezone(timezone.utc)
+                                .date()
+                            )
+                        except ValueError:
+                            pass
+
+            if completion is None:
                 overdue_open += 1
-                continue
-            try:
-                resolved = datetime.fromisoformat(
-                    resolved_raw.replace("Z", "+00:00")
-                ).astimezone(timezone.utc).date()
-            except ValueError:
-                continue
-            if resolved <= due:
+            elif completion <= due:
                 on_time += 1
             else:
                 resolved_late += 1
@@ -212,6 +245,62 @@ class JiraConnector:
             "project_key": project_key,
         }
 
+    # ── KPI: strategic allocation ───────────────────────────────────────────
+
+    NON_STRATEGIC_LABELS = frozenset({"KILO", "KTLO"})
+
+    def compute_strategic_allocation(
+        self, project_key: str, lookback_days: int = 90
+    ) -> Dict:
+        """
+        Fraction of resolved work that was strategic (by issue count).
+
+        Population: non-Epic issues in `project_key` resolved in the last
+        `lookback_days`. An issue counts as non-strategic if it carries
+        the `KILO` or `KTLO` label (case-insensitive); everything else
+        counts as strategic.
+
+        Until KILO/KTLO start being applied to DELIVERY issues this will
+        report 100% strategic by construction.
+
+        Returns:
+          {
+            "ratio": float | None,
+            "strategic": int,
+            "non_strategic": int,
+            "total": int,
+            "period_days": int,
+            "project_key": str,
+          }
+        """
+        jql = (
+            f'project = "{project_key}" '
+            f"AND issuetype != Epic "
+            f"AND resolved >= -{lookback_days}d"
+        )
+        issues = self.search(jql, fields=["labels"])
+
+        non_strategic_upper = {s.upper() for s in self.NON_STRATEGIC_LABELS}
+        strategic = non_strategic = 0
+        for issue in issues:
+            labels = (issue.get("fields") or {}).get("labels") or []
+            if any(lbl.upper() in non_strategic_upper for lbl in labels):
+                non_strategic += 1
+            else:
+                strategic += 1
+
+        total = strategic + non_strategic
+        ratio = (strategic / total) if total else None
+
+        return {
+            "ratio": ratio,
+            "strategic": strategic,
+            "non_strategic": non_strategic,
+            "total": total,
+            "period_days": lookback_days,
+            "project_key": project_key,
+        }
+
     # ── Documentation ───────────────────────────────────────────────────────
 
     @staticmethod
@@ -224,8 +313,10 @@ class JiraConnector:
         """
         return {
             "strategic_allocation": (
-                "Add a 'strategic' label (or custom field) to every issue that "
-                "maps to a strategic initiative. KPI = strategic SP / total SP."
+                "Apply labels 'KILO' or 'KTLO' to non-strategic work "
+                "(keep-the-lights-on, maintenance). Everything without "
+                "those labels counts as strategic. KPI = strategic issues "
+                "/ total resolved issues (by count)."
             ),
             "bug_reduction": (
                 "Add a 'customer-facing' label to bug-type issues reported by "
