@@ -1,0 +1,1665 @@
+{
+  "meta": {
+    "source_file": "CCX_2026_KPI_Framework.xlsx",
+    "imported_at": "2026-04-15",
+    "schema_version": 1,
+    "deferred_sections": [
+      "Missing: Services"
+    ]
+  },
+  "corporate_targets": {
+    "revenue": {
+      "name": "Revenue",
+      "display": "Revenue ($9.6M\u2013$10.4M)",
+      "scenarios": {
+        "threshold": 9600000,
+        "target": 10000000,
+        "overachieve": 10400000
+      }
+    },
+    "ebitda": {
+      "name": "EBITDA",
+      "display": "EBITDA ($1.1M)",
+      "annual_target": 1100000
+    },
+    "new_segment_revenue": {
+      "name": "New Segment Revenue",
+      "display": "New Segment Revenue ($790K)",
+      "annual_target": 790000
+    },
+    "partner_concentration": {
+      "name": "Partner Concentration",
+      "display": "Partner Concentration (-10%)",
+      "description": "Decrease top-2 partner reliance from 90% to 80%"
+    },
+    "yoy_growth_ai": {
+      "name": "YoY Growth (AI)",
+      "display": "YoY Growth 30% (AI)",
+      "target_pct": 0.3
+    }
+  },
+  "squads": {
+    "growth": {
+      "name": "Growth",
+      "pm": "Madison"
+    },
+    "diversification": {
+      "name": "Diversification",
+      "pm": "Madison"
+    },
+    "innovation": {
+      "name": "Innovation",
+      "pm": "Kristi"
+    }
+  },
+  "squad_key_results": [
+    {
+      "squad": "growth",
+      "pm": "Madison",
+      "corporate_target_raw": "Revenue $9.6M\u2013$10.4M",
+      "key_result": "KR1: 25% YoY total revenue increase",
+      "tracking_kpis_raw": "New MRR Added, Quota Attainment, Pipeline Generated",
+      "teams_involved_raw": "Sales, Marketing, CS",
+      "accountable": "Ange",
+      "monthly_target_note": "~$32K\u2013$47K gross MRR added/mo (varies by scenario)"
+    },
+    {
+      "squad": "growth",
+      "pm": "Madison",
+      "corporate_target_raw": "Revenue $9.6M\u2013$10.4M",
+      "key_result": "KR2: Expansion revenue = $1.2M",
+      "tracking_kpis_raw": "Expansion Revenue, NRR",
+      "teams_involved_raw": "Sales, CS",
+      "accountable": "Zach",
+      "monthly_target_note": "~$12.7K\u2013$13.6K expansion MRR/mo at Target"
+    },
+    {
+      "squad": "growth",
+      "pm": "Madison",
+      "corporate_target_raw": "Revenue $9.6M\u2013$10.4M",
+      "key_result": "KR3: 50% adoption rate of new products in current base",
+      "tracking_kpis_raw": "New Product Adoption Rate, Health Score",
+      "teams_involved_raw": "CS, Product",
+      "accountable": "Cathy",
+      "monthly_target_note": "Quarterly measurement \u2014 Q2 benchmark needed"
+    },
+    {
+      "squad": "growth",
+      "pm": "Madison",
+      "corporate_target_raw": "EBITDA $1.1M",
+      "key_result": "KR1: Protect profit margins while scaling",
+      "tracking_kpis_raw": "EBITDA actual vs. plan, Support Cost/Customer, RPE, Sales Cycle Length",
+      "teams_involved_raw": "All teams",
+      "accountable": "Ange",
+      "monthly_target_note": "Monthly EBITDA tracking vs. $91.7K/mo target"
+    },
+    {
+      "squad": "growth",
+      "pm": "Madison",
+      "corporate_target_raw": "EBITDA $1.1M",
+      "key_result": "KR2: MOFU-to-BOFU conversion >35%",
+      "tracking_kpis_raw": "MOFU-to-BOFU Conversion Rate, Win Rate",
+      "teams_involved_raw": "Marketing, Sales",
+      "accountable": "Zach",
+      "monthly_target_note": ">35% monthly"
+    },
+    {
+      "squad": "growth",
+      "pm": "Madison",
+      "corporate_target_raw": "EBITDA $1.1M",
+      "key_result": "KR3: Increase marketing-sourced leads by 30%, maintain/reduce CAC",
+      "tracking_kpis_raw": "Marketing-Sourced Leads, Cost Per MQL",
+      "teams_involved_raw": "Marketing",
+      "accountable": "Ger",
+      "monthly_target_note": "30% above 2025 baseline monthly"
+    },
+    {
+      "squad": "diversification",
+      "pm": "Madison",
+      "corporate_target_raw": "New Segment Revenue $790K",
+      "key_result": "KR1: $403K in new logo revenue from Senior Living",
+      "tracking_kpis_raw": "New Segment Bookings (SL), Senior Living Partner Revenue",
+      "teams_involved_raw": "Sales, Channel",
+      "accountable": "Bex",
+      "monthly_target_note": "~$5.2K SL MRR/mo at Target"
+    },
+    {
+      "squad": "diversification",
+      "pm": "Madison",
+      "corporate_target_raw": "New Segment Revenue $790K",
+      "key_result": "KR2: $385K new logo revenue from US Medical",
+      "tracking_kpis_raw": "New Segment Bookings (US Medical), AMB US Revenue",
+      "teams_involved_raw": "Sales",
+      "accountable": "Zach",
+      "monthly_target_note": "~$6.5K US Medical MRR/mo at Target (ramps from $0)"
+    },
+    {
+      "squad": "diversification",
+      "pm": "Madison",
+      "corporate_target_raw": "New Segment Revenue $790K",
+      "key_result": "KR3: Close 5 deals in one adjacent vertical",
+      "tracking_kpis_raw": "Adjacent Vertical Deals",
+      "teams_involved_raw": "Sales",
+      "accountable": "Zach",
+      "monthly_target_note": "5 cumulative by year-end"
+    },
+    {
+      "squad": "diversification",
+      "pm": "Madison",
+      "corporate_target_raw": "Partner Concentration -10%",
+      "key_result": "KR1: Decrease top-2 partner reliance from 90% to 80%",
+      "tracking_kpis_raw": "PCC Revenue %, Revenue by Partner, MxC Ramp",
+      "teams_involved_raw": "Channel, Sales",
+      "accountable": "Ange",
+      "monthly_target_note": "Monthly % trend \u2014 PCC should decline ~0.8%/mo"
+    },
+    {
+      "squad": "diversification",
+      "pm": "Madison",
+      "corporate_target_raw": "Partner Concentration -10%",
+      "key_result": "KR2: Close first deals through non-Reseller channels",
+      "tracking_kpis_raw": "Non-Reseller/Marketplace Deals, New Partner Activation",
+      "teams_involved_raw": "Channel",
+      "accountable": "Bex",
+      "monthly_target_note": "First deal by Q2; build pipeline Q1"
+    },
+    {
+      "squad": "diversification",
+      "pm": "Madison",
+      "corporate_target_raw": "Partner Concentration -10%",
+      "key_result": "KR3: Referrals = 10% of closed-won",
+      "tracking_kpis_raw": "Referral-Influenced Closed Won %",
+      "teams_involved_raw": "Marketing, CS",
+      "accountable": "Cathy",
+      "monthly_target_note": "10% by year-end \u2014 ramp through year"
+    },
+    {
+      "squad": "innovation",
+      "pm": "Kristi",
+      "corporate_target_raw": "YoY Growth 30% (AI)",
+      "key_result": "KR1: $400K new revenue from AI solutions (overachieve)",
+      "tracking_kpis_raw": "AI-Specific Revenue, AI Products Launched",
+      "teams_involved_raw": "Product, Sales",
+      "accountable": "Kristi",
+      "monthly_target_note": "$400K cumulative \u2014 ramps H2"
+    },
+    {
+      "squad": "innovation",
+      "pm": "Kristi",
+      "corporate_target_raw": "YoY Growth 30% (AI)",
+      "key_result": "KR2: 10 early-adopter case studies",
+      "tracking_kpis_raw": "AI Champion Case Studies, Customer Validations",
+      "teams_involved_raw": "Product, Marketing, CS",
+      "accountable": "Kristi",
+      "monthly_target_note": "10 cumulative by year-end"
+    },
+    {
+      "squad": "innovation",
+      "pm": "Kristi",
+      "corporate_target_raw": "YoY Growth 30% (AI)",
+      "key_result": "KR3: Improve RPE via AI-driven motions",
+      "tracking_kpis_raw": "Revenue Per Employee, Support Cost/Customer",
+      "teams_involved_raw": "All teams",
+      "accountable": "Ange",
+      "monthly_target_note": "Baseline Q1, improvement Q2-Q4"
+    }
+  ],
+  "departments": [
+    {
+      "id": "marketing",
+      "name": "Marketing",
+      "kpis": [
+        {
+          "id": "marketing__marketing_created_deals_demand_created",
+          "name": "Marketing-Created Deals (Demand Created)",
+          "definition": "Total new deals (MQLs) generated from marketing campaigns, content, events",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR3: Increase marketing-sourced leads by 30% while maintaining/reducing CAC",
+          "accountable": "Ger",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Baseline needed from 2025 actuals",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "marketing__marketing_captured_deals_demand_captured",
+          "name": "Marketing-Captured Deals (Demand Captured)",
+          "definition": "Total new deals (SQLs) generated from marketing campaigns, content, events",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR3: Increase marketing-sourced leads by 30% while maintaining/reducing CAC",
+          "accountable": "Ger",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Baseline needed from 2025 actuals",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "marketing__roas",
+          "name": "ROAS",
+          "definition": "Total ad spend / LTV",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR3: Maintain or reduce current CAC",
+          "accountable": "Ger",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign",
+            "manual"
+          ],
+          "data_source_raw": "ActiveCampaign + Sheet (I would like to create a tab in the dashboard where certain corporate KPIs are calculated based on other sources of dat, like this sheet)",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Requires marketing spend data linked to lead source",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "marketing__mofu_to_bofu_conversion_rate_hiro",
+          "name": "MOFU-to-BOFU Conversion Rate (HIRO)",
+          "definition": "% of MQLs that progress to SQLs/Opportunities (target >30%)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR2: Improve MOFU-to-BOFU conversion to >30%",
+          "accountable": "Zach / Ger",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Requires consistent stage definitions between AC and SF",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "marketing__pipeline_generated_total",
+          "name": "Pipeline Generated (Total)",
+          "definition": "Total $ pipeline value created from marketing-sourced or influenced leads",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase ($237K)",
+          "accountable": "Ger",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Track sourced vs. influenced separately",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "marketing__pipeline_by_segment",
+          "name": "Pipeline by Segment",
+          "definition": "Pipeline $ broken out: Senior Care, Medical CA, Senior Living, US Medical, Hospital",
+          "corporate_target_raw": "New Segment Revenue ($790K)",
+          "key_result_raw": "KR1: $409K Senior Living + KR2: $385K US Medical",
+          "accountable": "Ger",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "New segments may need new campaign tags in AC",
+          "extra_notes": null,
+          "corporate_target": "new_segment_revenue"
+        },
+        {
+          "id": "marketing__direct_channel_pipeline",
+          "name": "Direct-Channel Pipeline %",
+          "definition": "% of total pipeline that is NOT reseller-sourced",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR1: Decrease top-2 partner concentration from 90% to 80%",
+          "accountable": "Ger",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Requires source attribution tagging in AC",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "marketing__campaignprogram_roi",
+          "name": "Campaign/Program ROI",
+          "definition": "Revenue attributed to campaign / program cost",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect profit margins while scaling",
+          "accountable": "Ger",
+          "squads": [
+            "growth",
+            "diversification"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign (I believe AC has this capability)",
+          "cadence": "quarterly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Requires closed-loop attribution model",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        }
+      ]
+    },
+    {
+      "id": "direct_sales",
+      "name": "Direct Sales",
+      "kpis": [
+        {
+          "id": "direct_sales__quota_attainment_by_rep",
+          "name": "Quota Attainment by Rep",
+          "definition": "Actual MRR added vs. individual plan (Rebecca, Tanner, Chuk, Nathan)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign",
+            "manual"
+          ],
+          "data_source_raw": "ActiveCampaign + Calculation/Manual",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Commission plan has individual targets",
+          "extra_notes": "- AC also a data source for this (MRR added)",
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__new_mrr_added_total",
+          "name": "New MRR Added (Total)",
+          "definition": "Gross new MRR booked in month vs. forecast plan",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "manual"
+          ],
+          "data_source_raw": "Salesforce + Manual",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Target: ~$32K/mo gross at Threshold, ~$39K at Target",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__expansion_revenue",
+          "name": "Expansion Revenue",
+          "definition": "MRR from upsell/cross-sell into existing accounts (target: $1.2M total)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR2: Expansion revenue to account for $1.2M of total",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Track by segment: LTC EXP + AMB CA EXP",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__new_logo_revenue",
+          "name": "New Logo Revenue",
+          "definition": "MRR from net-new customer logos",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Forecast assumes 50/50 split at Target",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__new_segment_bookings",
+          "name": "New Segment Bookings",
+          "definition": "MRR booked in Senior Living, US Medical, Hospital segments",
+          "corporate_target_raw": "New Segment Revenue ($790K)",
+          "key_result_raw": "KR1: $82K (SL) + KR2: $385K (US Medical)",
+          "accountable": "Zach / Bex",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Nathan's $466K target is the primary new-segment number",
+          "extra_notes": null,
+          "corporate_target": "new_segment_revenue"
+        },
+        {
+          "id": "direct_sales__adjacent_vertical_deals",
+          "name": "Adjacent Vertical Deals",
+          "definition": "# deals closed in verticals outside core (cosmetics, nutrition, fitness, etc.)",
+          "corporate_target_raw": "New Segment Revenue ($790K)",
+          "key_result_raw": "KR3: Close 5 deals in one additional adjacent vertical",
+          "accountable": "Zach",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "quarterly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Needs segment/vertical tagging in SF Opportunity object",
+          "extra_notes": null,
+          "corporate_target": "new_segment_revenue"
+        },
+        {
+          "id": "direct_sales__win_rate",
+          "name": "Win Rate",
+          "definition": "% of qualified opportunities that close won",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR2: Improve MOFU-to-BOFU conversion >30%",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Forecast assumes 35% conversion rate",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__average_deal_size_acv",
+          "name": "Average Deal Size (ACV)",
+          "definition": "Average annual contract value of closed-won deals",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Forecast assumes $240 MRR ACV \u2014 track actual vs. plan",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__sales_cycle_length",
+          "name": "Sales Cycle Length",
+          "definition": "Average days from Opportunity creation to close.  ZK Note: Measure this per segment for a more meaningful metric since this number will differ greatly (ie., between inbound SMB Medical and outbound Enterprise Senior Living)",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect profit margins (efficiency)",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Segment by LTC vs. AMB vs. Enterprise",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "direct_sales__pipeline_coverage_ratio",
+          "name": "Pipeline Coverage Ratio",
+          "definition": "Total pipeline $ / quota remaining for period",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Target 3x coverage minimum",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__opportunities_created",
+          "name": "Opportunities Created",
+          "definition": "# new qualified opportunities entering pipeline",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Forecast: ~381/mo Threshold, ~468/mo Target",
+          "extra_notes": "- Are these only new deals in the Prospect Opportunity Pipeline?",
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "direct_sales__outreach_volume",
+          "name": "Outreach Volume",
+          "definition": "Number of emails, cold calls, LinkedIn Messages, etc., that help us build our sales activity funnel.",
+          "corporate_target_raw": "New Segment Revenue ($790K), & Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: $82K (SL) + KR2: $385K (US Medical), & KR1: 25% YoY revenue increase",
+          "accountable": "Zach",
+          "squads": [
+            "diversification",
+            "growth"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Challenge to measure, data comes from many sources / reports.  Hard to track emails in AC if messages not sent via campaign.  YesWare is a challenge.",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        }
+      ]
+    },
+    {
+      "id": "channel_partnerships",
+      "name": "Channel Partnerships",
+      "kpis": [
+        {
+          "id": "channel_partnerships__revenue_by_partner_of_total",
+          "name": "Revenue by Partner (% of Total)",
+          "definition": "Revenue share: PCC vs. MxC vs. QHR vs. Direct vs. Other",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR1: Decrease top-2 partner concentration from 90% to 80%",
+          "accountable": "Ange",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Primary concentration KPI \u2014 track monthly trend",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "channel_partnerships__pccqhr_revenue_as_of_total",
+          "name": "PCC/QHR Revenue as % of Total",
+          "definition": "PCC/QHR-sourced MRR / Total MRR",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR1: Decrease top-2 partner concentration from 90% to 80%",
+          "accountable": "Ange",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Currently ~90%, target ~80% by year-end",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "channel_partnerships__mxc_revenue_ramp",
+          "name": "MxC Revenue Ramp",
+          "definition": "MatrixCare-sourced MRR growth month-over-month",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR1: Decrease concentration + KR2: New route-to-market",
+          "accountable": "Bex",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Forecast: MxC LTC from $0 to ~$409K at Target",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "channel_partnerships__non_resellermarketplace_deals",
+          "name": "Non-Reseller/Marketplace Deals",
+          "definition": "# and $ of deals closed through ISV, SI, MSP, consultant channels",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR2: Close first deals through non-Reseller/Marketplace channels",
+          "accountable": "Bex",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "prm"
+          ],
+          "data_source_raw": "PRM",
+          "cadence": "quarterly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Needs new channel type field in SF Opportunity",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "channel_partnerships__new_partner_activation_rate",
+          "name": "New Partner Activation Rate",
+          "definition": "# of new partners that close their first deal within 6 months of signing",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR2: New route-to-market viability",
+          "accountable": "Bex",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "prm"
+          ],
+          "data_source_raw": "PRM",
+          "cadence": "quarterly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Requires partner onboarding tracking \u2014 build in SF",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "channel_partnerships__partner_pipeline_coverage",
+          "name": "Partner Pipeline Coverage",
+          "definition": "Pipeline $ by partner vs. partner-specific targets",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Bex",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "prm"
+          ],
+          "data_source_raw": "PRM",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "PCC pipeline visibility limited \u2014 push for data sharing",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "channel_partnerships__pccqhr_self_serve_delivery_snf_new",
+          "name": "PCC/QHR Self-Serve Delivery (SNF New)",
+          "definition": "# new PCC/QHR customers onboarded without CCX sales involvement",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Rebecca $1.1M SMB target = 100% PCC/QHR-driven",
+          "accountable": "Bex",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Rebecca's SNF new logo depends entirely on PCC delivery",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "channel_partnerships__senior_living_partner_revenue",
+          "name": "Senior Living Partner Revenue",
+          "definition": "MRR from SL segment through PCC and MxC",
+          "corporate_target_raw": "New Segment Revenue ($790K)",
+          "key_result_raw": "KR1: $327K Senior Living new logo",
+          "accountable": "Bex",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Forecast: PCC SL from $6.5K to ~$30K MRR; MxC SL from $0",
+          "extra_notes": null,
+          "corporate_target": "new_segment_revenue"
+        },
+        {
+          "id": "channel_partnerships__new_partner_outreach_volume",
+          "name": "New Partner Outreach Volume",
+          "definition": "# of qualified new partner accounts contacted through outbound efforts",
+          "corporate_target_raw": "New Segment Revenue ($790K)",
+          "key_result_raw": "KR2: New route-to-market viability",
+          "accountable": "Bex",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "prm"
+          ],
+          "data_source_raw": "PRM",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Requires consistent activity logging in PRM and clear definition of what qualifies as a \u201cnew partner\u201d and \u201cqualified outreach\u201d",
+          "extra_notes": null,
+          "corporate_target": "new_segment_revenue"
+        }
+      ]
+    },
+    {
+      "id": "customer_success",
+      "name": "Customer Success",
+      "kpis": [
+        {
+          "id": "customer_success__gross_retention_rate",
+          "name": "Gross Retention Rate",
+          "definition": "% of beginning-of-period MRR retained (excluding expansion)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Protects ~$8.2M annualized base",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Forecast assumes ~1% monthly churn; actual varies by segment",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__net_revenue_retention_nrr",
+          "name": "Net Revenue Retention (NRR)",
+          "definition": "MRR retained including expansion / beginning MRR",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR1: 25% YoY revenue increase",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Already tracked at company level \u2014 add segment view",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__churn_revenue_actual_vs_plan",
+          "name": "Churn Revenue (Actual vs. Plan)",
+          "definition": "$ MRR lost to churn vs. forecast ($420K LTC + $190K AMB CA = $610K planned)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Protects base revenue",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Critical early warning \u2014 track LTC and AMB CA separately",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__health_score_distribution",
+          "name": "Health Score Distribution",
+          "definition": "% of accounts in Green/Yellow/Red health status",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Protects base revenue",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Already exists \u2014 add trending over time",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__new_product_adoption_rate",
+          "name": "New Product Adoption Rate",
+          "definition": "% of existing customers actively using new products/features (target: 50%)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "KR3: 50% adoption rate of new products within current base",
+          "accountable": "Cathy / Beauty ?",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce (usage data)",
+          "cadence": "quarterly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Requires product usage analytics piped into SF",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__time_to_value_implementation",
+          "name": "Time-to-Value (Implementation)",
+          "definition": "Days from contract signed to customer live / first value milestone",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect margins (operational efficiency)",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Needs implementation milestone tracking in SF",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "customer_success__churn_rate_by_segment",
+          "name": "Churn Rate by Segment",
+          "definition": "Monthly churn rate: LTC SNF, LTC SL, AMB CA, AMB US, Hospital",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Protects base revenue",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Forecast shows LTC ~0.99% vs. AMB CA ~1.01-1.16%",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__at_risk_account_value",
+          "name": "At-Risk Account Value",
+          "definition": "Total MRR of accounts in Red health status",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Protects base revenue",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "weekly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Actionable leading indicator for churn prevention",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_success__referral_influenced_closed_won",
+          "name": "Referral-Influenced Closed Won %",
+          "definition": "% of closed-won deals where referral was an influenced source",
+          "corporate_target_raw": "Partner Concentration (-10%)",
+          "key_result_raw": "KR3: Build referral system to 10% of all closed-won deals",
+          "accountable": "Cathy",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "activecampaign"
+          ],
+          "data_source_raw": "ActiveCampaign",
+          "cadence": "monthly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Referral source tracking needs to be built in SF",
+          "extra_notes": null,
+          "corporate_target": "partner_concentration"
+        },
+        {
+          "id": "customer_success__csat_success",
+          "name": "CSAT (Success)",
+          "definition": "Customer satisfaction score from post-CS Engagement",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Indirect retention indicator",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Already exists - add trending over time",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        }
+      ]
+    },
+    {
+      "id": "customer_support",
+      "name": "Customer Support",
+      "kpis": [
+        {
+          "id": "customer_support__ticket_volume_trend",
+          "name": "Ticket Volume & Trend",
+          "definition": "Total external support tickets opened per month",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect margins (operational efficiency)",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "jira"
+          ],
+          "data_source_raw": "Salesforce (external) + JIRA (internal)",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Split external (SF) vs. internal (JIRA)",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "customer_support__first_contact_resolution_rate",
+          "name": "First-Contact Resolution Rate",
+          "definition": "% of tickets resolved on first interaction without escalation",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect margins",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "May need field additions in SF Case object",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "customer_support__average_resolution_time",
+          "name": "Average Resolution Time",
+          "definition": "Mean hours/days from ticket open to resolution",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect margins",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "jira"
+          ],
+          "data_source_raw": "Salesforce (external) + JIRA (internal)",
+          "cadence": "monthly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Segment by priority level",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "customer_support__escalation_rate",
+          "name": "Escalation Rate",
+          "definition": "% of tickets escalated to Tier 2/3 or engineering",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect margins",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "jira"
+          ],
+          "data_source_raw": "Salesforce + JIRA",
+          "cadence": "monthly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Needs escalation workflow tracking",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "customer_support__ces_support",
+          "name": "CES (Support)",
+          "definition": "Customer satisfaction score from post-ticket surveys",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Indirect retention indicator",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "survey_tool"
+          ],
+          "data_source_raw": "Salesforce (survey tool)",
+          "cadence": "monthly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Requires post-ticket survey implementation",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "customer_support__support_cost_per_customer",
+          "name": "Support Cost Per Customer",
+          "definition": "Total support department cost / active customer count",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR1: Protect margins",
+          "accountable": "Cathy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "finance",
+            "manual"
+          ],
+          "data_source_raw": "Finance + Salesforce + Manual",
+          "cadence": "quarterly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Requires finance data integration",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "customer_support__revenue_per_employee_rpe",
+          "name": "Revenue Per Employee (RPE)",
+          "definition": "Total revenue / total FTE headcount (company-wide metric, support contributes)",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "KR3: Improve RPE by deploying AI-driven motions without increasing headcount",
+          "accountable": "Ange",
+          "squads": [
+            "innovation"
+          ],
+          "data_sources": [
+            "salesforce",
+            "manual"
+          ],
+          "data_source_raw": "Salesforce + Manual",
+          "cadence": "quarterly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Company-wide \u2014 support efficiency directly impacts",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        }
+      ]
+    },
+    {
+      "id": "product_management",
+      "name": "Product Management",
+      "kpis": [
+        {
+          "id": "product_management__ai_products_launched_per_quarter",
+          "name": "AI Products Launched Per Quarter",
+          "definition": "# of AI-powered sellable products/features released to market (target: 3/quarter)",
+          "corporate_target_raw": "YoY Growth 30% (AI)",
+          "key_result_raw": "KR1: Launch 3 AI-powered sellable products/features per quarter",
+          "accountable": "Kristi",
+          "squads": [
+            "innovation"
+          ],
+          "data_sources": [
+            "jira"
+          ],
+          "data_source_raw": "JIRA + Product Roadmap",
+          "cadence": "quarterly",
+          "measurable_today": "yes",
+          "elt_flag": true,
+          "notes": "Track against Q1-Q4 roadmap milestones",
+          "extra_notes": null,
+          "corporate_target": "yoy_growth_ai"
+        },
+        {
+          "id": "product_management__ai_skills_pilots_completed",
+          "name": "AI Skills Pilots Completed",
+          "definition": "# of AI-powered skills pilots run with customers (target: 50)",
+          "corporate_target_raw": "YoY Growth 30% (AI)",
+          "key_result_raw": "KR2: Complete 50 AI-powered skills pilots",
+          "accountable": "Kristi",
+          "squads": [
+            "innovation"
+          ],
+          "data_sources": [
+            "jira",
+            "manual_cs"
+          ],
+          "data_source_raw": "JIRA + CS",
+          "cadence": "quarterly",
+          "measurable_today": "partial",
+          "elt_flag": true,
+          "notes": "Needs pilot tracking mechanism",
+          "extra_notes": null,
+          "corporate_target": "yoy_growth_ai"
+        },
+        {
+          "id": "product_management__customer_validations_ai",
+          "name": "Customer Validations (AI)",
+          "definition": "# of customers that validate AI product-market fit (target: 7 by Q3)",
+          "corporate_target_raw": "YoY Growth 30% (AI)",
+          "key_result_raw": "KR3: Achieve 7 customer validations by Q3",
+          "accountable": "Kristi",
+          "squads": [
+            "innovation"
+          ],
+          "data_sources": [
+            "salesforce",
+            "manual_cs"
+          ],
+          "data_source_raw": "CS + Salesforce",
+          "cadence": "quarterly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Define validation criteria, build tracking",
+          "extra_notes": null,
+          "corporate_target": "yoy_growth_ai"
+        },
+        {
+          "id": "product_management__ai_specific_revenue",
+          "name": "AI-Specific Revenue",
+          "definition": "MRR directly attributable to AI-integrated product solutions (target: $400K for overachieve)",
+          "corporate_target_raw": "YoY Growth 30% (AI)",
+          "key_result_raw": "KR1: Generate $400K in new revenue from AI solutions",
+          "accountable": "Kristi",
+          "squads": [
+            "innovation"
+          ],
+          "data_sources": [
+            "salesforce"
+          ],
+          "data_source_raw": "Salesforce",
+          "cadence": "monthly",
+          "measurable_today": "no",
+          "elt_flag": true,
+          "notes": "Requires product-level revenue tagging in SF",
+          "extra_notes": null,
+          "corporate_target": "yoy_growth_ai"
+        },
+        {
+          "id": "product_management__enhancement_revenue_existing",
+          "name": "Enhancement Revenue (Existing)",
+          "definition": "Revenue from enhancements supporting growth with existing customers (target: $360K)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Product OKR KR1: $360K from existing-customer enhancements",
+          "accountable": "Madison",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "jira"
+          ],
+          "data_source_raw": "Salesforce + JIRA",
+          "cadence": "quarterly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Needs revenue-tagged enhancements in JIRA",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "product_management__enhancement_revenue_new_segments",
+          "name": "Enhancement Revenue (New Segments)",
+          "definition": "Revenue from enhancements supporting new segments/partners (target: $158K)",
+          "corporate_target_raw": "New Segment Revenue ($790K)",
+          "key_result_raw": "Product OKR KR2: $158K from new-segment enhancements",
+          "accountable": "Madison",
+          "squads": [
+            "diversification"
+          ],
+          "data_sources": [
+            "salesforce",
+            "jira"
+          ],
+          "data_source_raw": "Salesforce + JIRA",
+          "cadence": "quarterly",
+          "measurable_today": "no",
+          "elt_flag": false,
+          "notes": "Needs revenue-tagged enhancements in JIRA",
+          "extra_notes": null,
+          "corporate_target": "new_segment_revenue"
+        },
+        {
+          "id": "product_management__saydo_ratio",
+          "name": "Say/Do Ratio",
+          "definition": "% of committed sprint/quarter deliverables actually shipped (target: 90%)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Product OKR KR2: 90% say/do ratio",
+          "accountable": "TBD",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "jira"
+          ],
+          "data_source_raw": "JIRA",
+          "cadence": "quarterly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Compare committed vs. delivered per sprint",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "product_management__customer_facing_bug_reduction",
+          "name": "Customer-Facing Bug Reduction",
+          "definition": "QoQ reduction in customer-reported bugs (target: 15% reduction)",
+          "corporate_target_raw": "Revenue ($9.6M\u2013$10.4M)",
+          "key_result_raw": "Product OKR KR3: Reduce customer-facing bugs 15% QoQ",
+          "accountable": "Jeremy",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "salesforce",
+            "jira",
+            "manual_cs"
+          ],
+          "data_source_raw": "JIRA + Salesforce (CS tickets)",
+          "cadence": "quarterly",
+          "measurable_today": "yes",
+          "elt_flag": false,
+          "notes": "Track bug tickets tagged as customer-facing",
+          "extra_notes": null,
+          "corporate_target": "revenue"
+        },
+        {
+          "id": "product_management__strategic_development_allocation",
+          "name": "Strategic Development Allocation",
+          "definition": "% of dev effort (time) on strategic initiatives vs. maintenance/ad-hoc (target: >90%)",
+          "corporate_target_raw": "EBITDA ($1.1M)",
+          "key_result_raw": "Product OKR KR3: >90% effort on strategic initiatives",
+          "accountable": "Madison",
+          "squads": [
+            "growth"
+          ],
+          "data_sources": [
+            "jira"
+          ],
+          "data_source_raw": "JIRA",
+          "cadence": "quarterly",
+          "measurable_today": "partial",
+          "elt_flag": false,
+          "notes": "Needs JIRA tagging taxonomy for strategic vs. non-strategic",
+          "extra_notes": null,
+          "corporate_target": "ebitda"
+        },
+        {
+          "id": "product_management__ai_champion_case_studies",
+          "name": "AI Champion Case Studies",
+          "definition": "# of early-adopter customers converted to published case studies (target: 10)",
+          "corporate_target_raw": "YoY Growth 30% (AI)",
+          "key_result_raw": "KR2: Convert 10 early-adopters into case studies",
+          "accountable": "Kristi",
+          "squads": [
+            "innovation"
+          ],
+          "data_sources": [
+            "manual_cs",
+            "manual_marketing"
+          ],
+          "data_source_raw": "Marketing + CS",
+          "cadence": "quarterly",
+          "measurable_today": "no",
+          "elt_flag": true,
+          "notes": "Coordinate with marketing for case study production",
+          "extra_notes": null,
+          "corporate_target": "yoy_growth_ai"
+        }
+      ]
+    }
+  ],
+  "monthly_revenue_targets": {
+    "threshold": {
+      "label": "THRESHOLD ($9.6M)",
+      "end_of_month_mrr_target": {
+        "jan": 710084,
+        "feb": 733175,
+        "mar": 756266,
+        "apr": 777258,
+        "may": 796151,
+        "jun": 810845,
+        "jul": 821341,
+        "aug": 825539,
+        "sep": 836035,
+        "oct": 842333,
+        "nov": 844432,
+        "dec": 846541,
+        "total": 9600000
+      },
+      "gross_revenue_needed": {
+        "jan": 32039,
+        "feb": 30192,
+        "mar": 30423,
+        "apr": 28555,
+        "may": 26666,
+        "jun": 22656,
+        "jul": 18604,
+        "aug": 12411,
+        "sep": 18751,
+        "oct": 14658,
+        "nov": 10522,
+        "dec": 10553,
+        "total": 256030
+      },
+      "churn_revenue_budget": {
+        "jan": -6849,
+        "feb": -7101,
+        "mar": -7332,
+        "apr": -7563,
+        "may": -7773,
+        "jun": -7962,
+        "jul": -8108,
+        "aug": -8213,
+        "sep": -8255,
+        "oct": -8360,
+        "nov": -8423,
+        "dec": -8444,
+        "total": -94383
+      }
+    },
+    "target": {
+      "label": "TARGET ($10.0M)",
+      "end_of_month_mrr_target": {
+        "jan": 717379,
+        "feb": 747157,
+        "mar": 776935,
+        "apr": 804006,
+        "may": 828370,
+        "jun": 847320,
+        "jul": 860856,
+        "aug": 866270,
+        "sep": 879806,
+        "oct": 887927,
+        "nov": 890634,
+        "dec": 893340,
+        "total": 10000000
+      },
+      "gross_revenue_needed": {
+        "jan": 39334,
+        "feb": 36952,
+        "mar": 37250,
+        "apr": 34840,
+        "may": 32404,
+        "jun": 27234,
+        "jul": 22009,
+        "aug": 14023,
+        "sep": 22199,
+        "oct": 16919,
+        "nov": 11586,
+        "dec": 11612,
+        "total": 306362
+      },
+      "churn_revenue_budget": {
+        "jan": -6849,
+        "feb": -7174,
+        "mar": -7472,
+        "apr": -7769,
+        "may": -8040,
+        "jun": -8284,
+        "jul": -8473,
+        "aug": -8609,
+        "sep": -8663,
+        "oct": -8798,
+        "nov": -8879,
+        "dec": -8906,
+        "total": -97916
+      }
+    },
+    "overachieve": {
+      "label": "OVERACHIEVE ($10.4M)",
+      "end_of_month_mrr_target": {
+        "jan": 724674,
+        "feb": 761139,
+        "mar": 797604,
+        "apr": 830754,
+        "may": 860589,
+        "jun": 883794,
+        "jul": 900369,
+        "aug": 906999,
+        "sep": 923574,
+        "oct": 933519,
+        "nov": 936834,
+        "dec": 940151,
+        "total": 10400000
+      },
+      "gross_revenue_needed": {
+        "jan": 46629,
+        "feb": 43712,
+        "mar": 44076,
+        "apr": 41126,
+        "may": 38143,
+        "jun": 31811,
+        "jul": 25413,
+        "aug": 15634,
+        "sep": 25645,
+        "oct": 19181,
+        "nov": 12650,
+        "dec": 12685,
+        "total": 356705
+      },
+      "churn_revenue_budget": {
+        "jan": -6849,
+        "feb": -7247,
+        "mar": -7611,
+        "apr": -7976,
+        "may": -8308,
+        "jun": -8606,
+        "jul": -8838,
+        "aug": -9004,
+        "sep": -9070,
+        "oct": -9236,
+        "nov": -9335,
+        "dec": -9368,
+        "total": -101448
+      }
+    }
+  },
+  "data_source_readiness": [
+    {
+      "data_source": "Salesforce \u2014 Billing/Revenue",
+      "system": "Salesforce",
+      "kpis_served": "Recognized revenue, MRR, quota attainment, churn, NRR, health scores, segment revenue",
+      "status": "Available",
+      "gaps": "Need: product-level revenue tagging for AI attribution; segment field for SL/US Medical/Hospital; referral source field on Opportunity"
+    },
+    {
+      "data_source": "Salesforce \u2014 Pipeline/Opps",
+      "system": "Salesforce",
+      "kpis_served": "Pipeline $, win rate, deal size, sales cycle, opportunities created, coverage ratio",
+      "status": "Available",
+      "gaps": "Need: channel type field (Reseller/Marketplace/ISV/SI/Direct); adjacent vertical tagging; consistent stage definitions"
+    },
+    {
+      "data_source": "Salesforce \u2014 Cases",
+      "system": "Salesforce",
+      "kpis_served": "External ticket volume, resolution time, escalation rate",
+      "status": "Available",
+      "gaps": "Need: first-contact resolution field; escalation workflow tracking; post-ticket survey integration"
+    },
+    {
+      "data_source": "Salesforce \u2014 Usage/Adoption",
+      "system": "Salesforce",
+      "kpis_served": "Product adoption rate, feature utilization, product-qualified leads",
+      "status": "Partial",
+      "gaps": "Usage analytics pipeline from ACP to SF needs to be built. Critical for 50% adoption KPI and AI product tracking."
+    },
+    {
+      "data_source": "ActiveCampaign \u2014 Leads",
+      "system": "ActiveCampaign",
+      "kpis_served": "Marketing-sourced leads, MQLs, campaign attribution, lead source",
+      "status": "Available",
+      "gaps": "Need: new segment campaign tags (SL, US Medical, Hospital); referral source tracking; consistent lead stage definitions synced to SF"
+    },
+    {
+      "data_source": "ActiveCampaign \u2014 Pipeline",
+      "system": "ActiveCampaign",
+      "kpis_served": "Direct sales pipeline, MOFU-to-BOFU conversion",
+      "status": "Available",
+      "gaps": "Need: alignment with SF opportunity stages for closed-loop attribution"
+    },
+    {
+      "data_source": "JIRA \u2014 Internal",
+      "system": "JIRA",
+      "kpis_served": "Internal tickets, sprint delivery, say/do ratio, bug tracking, strategic vs. non-strategic allocation",
+      "status": "Available",
+      "gaps": "Need: JIRA tagging taxonomy (strategic vs. non-strategic, revenue-tagged enhancements, customer-facing bug flag)"
+    },
+    {
+      "data_source": "JIRA \u2014 Product Roadmap",
+      "system": "JIRA",
+      "kpis_served": "AI products launched, AI skills pilots, feature velocity",
+      "status": "Partial",
+      "gaps": "Need: pilot tracking mechanism; AI product/feature tagging; link to revenue outcomes"
+    },
+    {
+      "data_source": "Finance / Accounting",
+      "system": "TBD",
+      "kpis_served": "EBITDA, CAC, LTV, support cost per customer, RPE, campaign ROI, marketing spend",
+      "status": "Partial",
+      "gaps": "Financial data not yet integrated into dashboard stack. Manual export or API needed."
+    },
+    {
+      "data_source": "HR / Headcount",
+      "system": "TBD",
+      "kpis_served": "Revenue Per Employee, headcount for efficiency metrics",
+      "status": "No",
+      "gaps": "No system integration \u2014 manual input required. Consider HRIS connection for automation."
+    },
+    {
+      "data_source": "Partner Data (PCC)",
+      "system": "External",
+      "kpis_served": "PCC self-serve pipeline, PCC-sourced new customers, partner activity metrics",
+      "status": "Limited",
+      "gaps": "PCC data sharing is limited. Push for API or regular data export. Critical for Rebecca's $535K SMB target tracking."
+    }
+  ]
+}

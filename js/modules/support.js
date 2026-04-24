@@ -66,8 +66,15 @@ export default {
 
     const tvDelta = Math.round(((tv.trend[3] - tv.trend[0]) / tv.trend[0]) * 100);
 
+    const _badge = (kpi) => {
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
+      return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    };
+
     grid.innerHTML = `
       <div class="kpi-card kpi-card--${tv.status}" data-drilldown="ticket_volume">
+        ${_badge(tv)}
         <div class="kpi-cadence">${tv.cadence}</div>
         <div class="kpi-label">${tv.label}</div>
         <div class="kpi-value">${tv.value}</div>
@@ -75,18 +82,21 @@ export default {
         <div class="kpi-note">Lower is better</div>
       </div>
       <div class="kpi-card kpi-card--${fcr.status}" data-drilldown="first_contact_resolution">
+        ${_badge(fcr)}
         <div class="kpi-cadence">${fcr.cadence}</div>
         <div class="kpi-label">First-Contact Resolution</div>
         <div class="kpi-value">${fmtPct(fcr.value)}</div>
         <div class="kpi-target">Target: ${fmtPct(fcr.target)}</div>
       </div>
       <div class="kpi-card kpi-card--${art.status}" data-drilldown="avg_resolution_time">
+        ${_badge(art)}
         <div class="kpi-cadence">${art.cadence}</div>
         <div class="kpi-label">Avg Resolution Time</div>
         <div class="kpi-value">${art.value} hrs</div>
         <div class="kpi-target">Target: ${art.target} hrs</div>
       </div>
       <div class="kpi-card kpi-card--${esc.status}" data-drilldown="escalation_rate">
+        ${_badge(esc)}
         <div class="kpi-cadence">${esc.cadence}</div>
         <div class="kpi-label">Escalation Rate</div>
         <div class="kpi-value">${fmtPct(esc.value)}</div>
@@ -248,14 +258,22 @@ export default {
     const scpc = k.support_cost_per_customer;
     const rpe = k.revenue_per_employee;
 
+    const _badge2 = (kpi) => {
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
+      return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    };
+
     grid.innerHTML = `
       <div class="kpi-card kpi-card--${scpc.status}" data-drilldown="support_cost_per_customer" data-editable="true" data-entry-key="support_dept_cost" data-unit="currency">
+        ${_badge2(scpc)}
         <div class="kpi-cadence">${scpc.cadence}</div>
         <div class="kpi-label">${scpc.label}</div>
         <div class="kpi-value">$${scpc.value.toFixed(2)}</div>
         <div class="kpi-target">Target: $${scpc.target.toFixed(2)}</div>
       </div>
       <div class="kpi-card kpi-card--${rpe.status}" data-drilldown="revenue_per_employee" data-editable="true" data-entry-key="total_headcount" data-unit="count">
+        ${_badge2(rpe)}
         <div class="kpi-cadence">${rpe.cadence}</div>
         <div class="kpi-label">${rpe.label}</div>
         <div class="kpi-value">${fmt$(rpe.value)}</div>
@@ -266,8 +284,15 @@ export default {
   // ── Pending Implementation (CES) ──
   _buildPendingGrid(el, ces) {
     const grid = el.querySelector('#support-pending-grid');
+    const _badge3 = (kpi) => {
+      if (!kpi?._catalog && !kpi?._dataSource) return '';
+      const b = CIC.catalog.dataSourceBadge(kpi);
+      return `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    };
+
     grid.innerHTML = `
       <div class="kpi-card kpi-card--grey" data-drilldown="ces">
+        ${_badge3(ces)}
         <div class="kpi-cadence">${ces.cadence}</div>
         <div class="kpi-label">${ces.label}</div>
         <div class="kpi-value">—</div>
@@ -285,9 +310,10 @@ export default {
         const key = card.dataset.drilldown;
         const kpi = k[key];
         if (!kpi) return;
+        const cat = kpi._catalog;
         Drilldown.open({
           title:       kpi.label,
-          definition:  kpi.definition || '',
+          definition:  cat?.definition || kpi.definition || '',
           value:       kpi.value,
           target:      kpi.target,
           unit:        kpi.unit || 'count',
@@ -296,11 +322,13 @@ export default {
           trendLabels: kpi.trend_labels,
           ytd:         kpi.ytd,
           ytdTarget:   kpi.ytd_target,
-          okr:         kpi.okr,
-          cadence:     kpi.cadence,
-          dataSource:  data.meta?.data_source?.join(', '),
-          accountable: data.meta?.accountable,
-          note:        kpi.note,
+          okr:         cat?.key_result_raw || kpi.okr,
+          cadence:     cat?.cadence || kpi.cadence,
+          dataSource:  cat?.data_source_raw || data.meta?.data_source?.join(', '),
+          accountable: cat?.accountable || data.meta?.accountable,
+          note:        cat?.notes || kpi.note,
+          measurability: cat ? CIC.catalog.measurabilityBadge(cat) : null,
+          dataSourceBadge: kpi._dataSource ? CIC.catalog.dataSourceBadge(kpi) : null,
           breakdown:   this._getBreakdown(key, kpi),
           breakdownTitle: this._getBreakdownTitle(key)
         });
