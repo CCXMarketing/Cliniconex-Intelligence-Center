@@ -186,6 +186,28 @@ export async function fetchSayDoRatio(options = {}) {
   };
 }
 
+export async function fetchSayDoByQuarter(options = {}) {
+  const params = new URLSearchParams();
+  if (options.projectKey) params.set('project_key', options.projectKey);
+  if (options.numQuarters) params.set('num_quarters', String(options.numQuarters));
+  const qs = params.toString() ? `?${params}` : '';
+  const data = await fetchJson(`api/jira/say-do-ratio-by-quarter${qs}`);
+  if (!data || data.error || !Array.isArray(data.quarters)) return null;
+
+  return data.quarters.map(q => ({
+    quarter:   q.quarter,
+    ratio:     q.ratio == null ? null : Math.round(q.ratio * 1000) / 10,
+    committed: q.total,
+    delivered: q.on_time,
+    _meta: {
+      resolved_late: q.resolved_late,
+      overdue_open: q.overdue_open,
+      window_start: q.window_start,
+      window_end: q.window_end,
+    },
+  }));
+}
+
 export async function fetchStrategicAllocation(options = {}) {
   const params = new URLSearchParams();
   if (options.projectKey) params.set('project_key', options.projectKey);

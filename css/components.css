@@ -203,6 +203,9 @@
   border-radius: var(--radius-full);
   line-height: 1.4;
 }
+.kpi-badge + .kpi-cadence {
+  top: 34px;
+}
 
 /* ── 2.3 Section Headers ── */
 
