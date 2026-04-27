@@ -83,6 +83,16 @@ def _load_credentials() -> dict:
             "api_token": os.environ.get("JIRA_API_TOKEN", ""),
             "project_key": os.environ.get("JIRA_PROJECT_KEY", "DELIVERY"),
         },
+        "salesforce": {
+            "instance_url": os.environ.get("SF_INSTANCE_URL", ""),
+            "username": os.environ.get("SF_USERNAME", ""),
+            "password": os.environ.get("SF_PASSWORD", ""),
+            "security_token": os.environ.get("SF_SECURITY_TOKEN", ""),
+            "consumer_key": os.environ.get("SF_CONSUMER_KEY", ""),
+            "consumer_secret": os.environ.get("SF_CONSUMER_SECRET", ""),
+            "domain": os.environ.get("SF_DOMAIN", "login"),
+            "mrr_field": os.environ.get("SF_MRR_FIELD", "Amount"),
+        },
     }
 
 
@@ -158,6 +168,25 @@ def _build_jira(creds: dict):
         return None
     return JiraConnector(
         site_url=j["site_url"], email=j["email"], api_token=j["api_token"]
+    )
+
+
+def _build_salesforce(creds: dict):
+    from agents.data_connector.salesforce import SalesforceConnector
+
+    s = creds.get("salesforce", {})
+    required = ("instance_url", "username", "password", "security_token")
+    if not all(s.get(k) for k in required):
+        return None
+    return SalesforceConnector(
+        instance_url=s["instance_url"],
+        username=s["username"],
+        password=s["password"],
+        security_token=s["security_token"],
+        consumer_key=s.get("consumer_key") or None,
+        consumer_secret=s.get("consumer_secret") or None,
+        domain=s.get("domain") or "login",
+        mrr_field=s.get("mrr_field") or "Amount",
     )
 
 
@@ -2321,6 +2350,31 @@ is explicitly requested."""
             return jsonify(result)
         except Exception as e:
             logger.exception("JIRA strategic allocation failed")
+            return jsonify({"error": str(e)}), 500
+
+    # ── Salesforce: Sales/CS/Exec KPIs ──────────────────────────────────
+
+    @app.route("/api/sf/new-mrr-added")
+    def api_sf_new_mrr_added():
+        """New MRR added in the current month (default) or quarter.
+
+        Query params:
+          window: 'month' | 'quarter' (default 'month')
+        Returns 503 until SF credentials are configured.
+        """
+        creds = _load_credentials()
+        sf = _build_salesforce(creds)
+        if not sf:
+            return jsonify({"error": "Salesforce not configured"}), 503
+
+        window = request.args.get("window", "month")
+        try:
+            result = sf.compute_new_mrr_added(window=window)
+            return jsonify(result)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception as e:
+            logger.exception("SF new MRR added failed")
             return jsonify({"error": str(e)}), 500
 
     # ── CSS: Time Intelligence styles ────────────────────────────────────

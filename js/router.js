@@ -197,6 +197,16 @@ window.CIC = {
         data.kpis.say_do_ratio.by_quarter = sayDoByQuarter.value;
       }
     }
+
+    if (department === 'sales' && data.kpis) {
+      const [mrr] = await Promise.allSettled([live.fetchNewMrrAdded()]);
+      if (mrr.status === 'fulfilled' && mrr.value && data.kpis.new_mrr_added && mrr.value.value != null) {
+        data.kpis.new_mrr_added._mockValue = data.kpis.new_mrr_added.value;
+        data.kpis.new_mrr_added.value = mrr.value.value;
+        data.kpis.new_mrr_added._dataSource = 'live';
+        data.kpis.new_mrr_added._meta = mrr.value._meta;
+      }
+    }
   },
 
   _connections: null,
