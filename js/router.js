@@ -127,13 +127,17 @@ window.CIC = {
         live.fetchTrends(),
       ]);
 
-      if (funnel.status === 'fulfilled' && funnel.value && data.kpis.ac_demand_funnel) {
+      const conns = (metrics.status === 'fulfilled' && metrics.value?.connections) || {};
+      const acConnected = conns.activecampaign === true;
+      const gaConnected = conns.google_ads === true;
+
+      if (acConnected && funnel.status === 'fulfilled' && funnel.value && data.kpis.ac_demand_funnel) {
         data.kpis.ac_demand_funnel._mockValue = { ...data.kpis.ac_demand_funnel };
         Object.assign(data.kpis.ac_demand_funnel, funnel.value);
         data.kpis.ac_demand_funnel._dataSource = 'live';
       }
 
-      if (campaigns.status === 'fulfilled' && campaigns.value && data.kpis.google_ads) {
+      if (gaConnected && campaigns.status === 'fulfilled' && campaigns.value && data.kpis.google_ads) {
         data.kpis.google_ads._mockValue = { ...data.kpis.google_ads };
         Object.assign(data.kpis.google_ads, campaigns.value);
         data.kpis.google_ads._dataSource = 'live';
@@ -146,13 +150,13 @@ window.CIC = {
         }
       }
 
-      if (metrics.status === 'fulfilled' && metrics.value) {
-        if (data.kpis.pipeline_generated) {
+      if (acConnected && metrics.status === 'fulfilled' && metrics.value) {
+        if (data.kpis.pipeline_generated && metrics.value.pipeline_value != null) {
           data.kpis.pipeline_generated._mockValue = data.kpis.pipeline_generated.value;
           data.kpis.pipeline_generated.value = metrics.value.pipeline_value;
           data.kpis.pipeline_generated._dataSource = 'live';
         }
-        if (data.kpis.marketing_created_deals) {
+        if (data.kpis.marketing_created_deals && metrics.value.deals_count != null) {
           data.kpis.marketing_created_deals._mockValue = data.kpis.marketing_created_deals.value;
           data.kpis.marketing_created_deals.value = metrics.value.deals_count;
           data.kpis.marketing_created_deals._dataSource = 'live';
