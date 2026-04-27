@@ -208,6 +208,26 @@ export async function fetchSayDoByQuarter(options = {}) {
   }));
 }
 
+export async function fetchNewMrrAdded(options = {}) {
+  const params = new URLSearchParams();
+  if (options.window) params.set('window', options.window);
+  const qs = params.toString() ? `?${params}` : '';
+  const data = await fetchJson(`api/sf/new-mrr-added${qs}`);
+  if (!data || data.error || data.value == null) return null;
+
+  return {
+    value: data.value,
+    won_count: data.won_count,
+    window: data.window,
+    _meta: {
+      window_start: data.window_start,
+      window_end: data.window_end,
+      field: data.field,
+    },
+    _dataSource: 'live',
+  };
+}
+
 export async function fetchStrategicAllocation(options = {}) {
   const params = new URLSearchParams();
   if (options.projectKey) params.set('project_key', options.projectKey);
