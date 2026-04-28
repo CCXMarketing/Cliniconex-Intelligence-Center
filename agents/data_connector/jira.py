@@ -257,14 +257,16 @@ class JiraConnector:
         }
 
     def compute_say_do_ratio_by_quarter(
-        self, project_key: str, num_quarters: int = 4
+        self, project_key: str, num_quarters: int = 4,
+        reference: Optional[date] = None,
     ) -> List[Dict]:
         """Say/do ratio per calendar quarter, most recent last.
 
-        The current quarter's window ends at today — future-dated issues
-        aren't included because we can't yet say if they'll ship on time.
+        The current quarter's window ends at `reference` (defaults to
+        today) — future-dated issues aren't included because we can't
+        yet say if they'll ship on time.
         """
-        today = date.today()
+        today = reference or date.today()
         cur_q = (today.month - 1) // 3 + 1
         cur_y = today.year
 
