@@ -47,7 +47,14 @@ class JiraConnector:
 
     # ── Low-level request helper ────────────────────────────────────────────
 
-    def _get(self, path: str, params: Optional[Dict] = None, max_retries: int = 3) -> Dict:
+    # (connect, read) — connect kept short so the cold-start TLS/DNS
+    # hang fails fast and the retry hits the warm connection. With
+    # max_retries=1 the worst-case budget is ~31s (15+1+15), comfortably
+    # under gunicorn's 45s worker timeout so the route's exception
+    # handler always runs (Phase 3 fallback to the snapshot).
+    _REQUEST_TIMEOUT = (5, 15)
+
+    def _get(self, path: str, params: Optional[Dict] = None, max_retries: int = 1) -> Dict:
         """GET a JIRA endpoint with retry/backoff on 429.
 
         Raises RuntimeError on auth failures (401/403) so they don't get
@@ -58,7 +65,8 @@ class JiraConnector:
         while attempt <= max_retries:
             try:
                 resp = requests.get(
-                    url, auth=self.auth, headers=self.headers, params=params, timeout=30
+                    url, auth=self.auth, headers=self.headers,
+                    params=params, timeout=self._REQUEST_TIMEOUT,
                 )
 
                 if resp.status_code in (401, 403):
