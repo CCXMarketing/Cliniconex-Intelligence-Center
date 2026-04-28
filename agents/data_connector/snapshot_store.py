@@ -19,6 +19,7 @@ issues when workers are recycled.
 import json
 import logging
 import sqlite3
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -73,13 +74,33 @@ class SnapshotStore:
         return conn
 
     def _init_schema(self) -> None:
-        conn = self._connect()
-        try:
-            with conn:
-                for stmt in _SCHEMA:
-                    conn.execute(stmt)
-        finally:
-            conn.close()
+        """Initialize schema with retry on transient lock contention.
+
+        Cold start with multiple gunicorn workers can race here: each
+        worker forks independently and runs CREATE TABLE on a fresh DB.
+        WAL handles concurrent read + write fine, but DDL needs a
+        brief exclusive lock. Retry with backoff so a worker doesn't
+        end up running with snapshot_store=None for its lifetime.
+        """
+        last_err: Optional[Exception] = None
+        for attempt in range(5):
+            try:
+                conn = self._connect()
+                try:
+                    with conn:
+                        for stmt in _SCHEMA:
+                            conn.execute(stmt)
+                    return
+                finally:
+                    conn.close()
+            except sqlite3.OperationalError as e:
+                if "locked" not in str(e).lower():
+                    raise
+                last_err = e
+                time.sleep(0.05 * (attempt + 1))
+        # Exhausted retries — re-raise the final lock error
+        if last_err is not None:
+            raise last_err
 
     @staticmethod
     def _now_iso() -> str:
@@ -206,3 +227,26 @@ def safe_write(
             "snapshot write failed for %s/%s (%s): %s",
             source, kpi_key, scope, e,
         )
+
+
+def safe_latest(
+    store: Optional[SnapshotStore],
+    source: str,
+    kpi_key: str,
+    scope: str = "",
+) -> Optional[Dict[str, Any]]:
+    """Read helper that returns None on a missing key OR on a DB error.
+
+    Routes call this from their except-block fallback so a flaky DB
+    read can never compound a live-fetch failure into a 500.
+    """
+    if store is None:
+        return None
+    try:
+        return store.latest(source, kpi_key, scope)
+    except Exception as e:
+        logger.warning(
+            "snapshot read failed for %s/%s (%s): %s",
+            source, kpi_key, scope, e,
+        )
+        return None

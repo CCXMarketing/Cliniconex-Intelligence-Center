@@ -11,7 +11,9 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from agents.data_connector.snapshot_store import SnapshotStore, safe_write
+from agents.data_connector.snapshot_store import (
+    SnapshotStore, safe_latest, safe_write,
+)
 
 
 @pytest.fixture
@@ -205,3 +207,70 @@ def test_safe_write_no_op_when_store_is_none():
 def test_safe_write_writes_through_on_success(store):
     safe_write(store, "jira", "y", "", {"v": 42})
     assert store.latest("jira", "y")["payload"] == {"v": 42}
+
+
+# ── safe_latest helper ────────────────────────────────────────────────────
+
+
+def test_safe_latest_returns_payload_on_hit(store):
+    store.write("jira", "k", "", {"v": 1})
+    got = safe_latest(store, "jira", "k", "")
+    assert got is not None
+    assert got["payload"] == {"v": 1}
+
+
+def test_safe_latest_returns_none_on_miss(store):
+    assert safe_latest(store, "jira", "missing") is None
+
+
+def test_safe_latest_no_op_when_store_is_none():
+    assert safe_latest(None, "jira", "k") is None
+
+
+def test_safe_latest_swallows_db_errors(store, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("disk corrupted")
+    monkeypatch.setattr(store, "latest", boom)
+    # Returns None instead of raising
+    assert safe_latest(store, "jira", "k") is None
+
+
+# ── Init schema retry on lock contention ──────────────────────────────────
+
+
+def test_init_schema_retries_on_locked_database(tmp_path, monkeypatch):
+    """First two attempts raise 'database is locked'; third succeeds.
+
+    Mirrors the cold-start race where multiple gunicorn workers fork and
+    all try CREATE TABLE on the same fresh file at the same time.
+    """
+    real_connect = SnapshotStore._connect
+    call_count = {"n": 0}
+
+    def flaky_connect(self):
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            raise sqlite3.OperationalError("database is locked")
+        return real_connect(self)
+
+    monkeypatch.setattr(SnapshotStore, "_connect", flaky_connect)
+
+    s = SnapshotStore(tmp_path / "race.db")
+    assert call_count["n"] >= 3  # 2 failures + at least 1 success
+
+    # Restore real _connect and verify post-init the store actually works
+    monkeypatch.setattr(SnapshotStore, "_connect", real_connect)
+    s.write("jira", "x", "", {"v": 1})
+    assert s.latest("jira", "x")["payload"] == {"v": 1}
+
+
+def test_init_schema_raises_non_lock_errors_immediately(tmp_path, monkeypatch):
+    """Non-lock OperationalError shouldn't be retried — fail fast."""
+
+    def broken_connect(self):
+        raise sqlite3.OperationalError("syntax error")
+
+    monkeypatch.setattr(SnapshotStore, "_connect", broken_connect)
+
+    with pytest.raises(sqlite3.OperationalError, match="syntax error"):
+        SnapshotStore(tmp_path / "broken.db")
