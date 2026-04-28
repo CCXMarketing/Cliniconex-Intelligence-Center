@@ -32,6 +32,9 @@ ENV/
 
 # Credentials — NEVER commit these
 config/credentials.yaml
+
+# Snapshot DB (KPI cache + history) — written at runtime
+data/
 config/*.key
 config/google-sheets-sa.json
 *.pem
