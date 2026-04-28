@@ -696,6 +696,19 @@ def create_app() -> Flask:
     )
     app.config["SECRET_KEY"] = "mic-dashboard-secret"
 
+    # ── KPI snapshot store (Phase 1: write-through only) ────────────────
+    from agents.data_connector.snapshot_store import SnapshotStore, safe_write
+
+    snapshot_db_path = Path(
+        os.environ.get("CIC_SNAPSHOT_DB", str(PROJECT_DIR / "data" / "cic.db"))
+    )
+    try:
+        snapshot_store = SnapshotStore(snapshot_db_path)
+        logger.info("Snapshot store opened at %s", snapshot_db_path)
+    except Exception as e:
+        logger.warning("Snapshot store init failed (%s); continuing without it", e)
+        snapshot_store = None
+
     # CORS — ToolHub-aware configuration
     toolhub_origin = os.environ.get("TOOLHUB_ORIGIN", "https://toolhub.cliniconex.com")
     CORS(app, resources={
@@ -2287,6 +2300,10 @@ is explicitly requested."""
 
         try:
             result = jira.compute_say_do_ratio(project_key, lookback_days=lookback_days)
+            safe_write(
+                snapshot_store, "jira", "say_do_ratio",
+                f"project={project_key},days={lookback_days}", result,
+            )
             return jsonify(result)
         except Exception as e:
             logger.exception("JIRA say/do ratio failed")
@@ -2317,7 +2334,12 @@ is explicitly requested."""
             result = jira.compute_say_do_ratio_by_quarter(
                 project_key, num_quarters=num_quarters
             )
-            return jsonify({"quarters": result, "project_key": project_key})
+            payload = {"quarters": result, "project_key": project_key}
+            safe_write(
+                snapshot_store, "jira", "say_do_ratio_by_quarter",
+                f"project={project_key},num_quarters={num_quarters}", payload,
+            )
+            return jsonify(payload)
         except Exception as e:
             logger.exception("JIRA say/do by quarter failed")
             return jsonify({"error": str(e)}), 500
@@ -2347,6 +2369,10 @@ is explicitly requested."""
             result = jira.compute_strategic_allocation(
                 project_key, lookback_days=lookback_days
             )
+            safe_write(
+                snapshot_store, "jira", "strategic_allocation",
+                f"project={project_key},days={lookback_days}", result,
+            )
             return jsonify(result)
         except Exception as e:
             logger.exception("JIRA strategic allocation failed")
@@ -2370,6 +2396,10 @@ is explicitly requested."""
         window = request.args.get("window", "month")
         try:
             result = sf.compute_new_mrr_added(window=window)
+            safe_write(
+                snapshot_store, "salesforce", "new_mrr_added",
+                f"window={window}", result,
+            )
             return jsonify(result)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
