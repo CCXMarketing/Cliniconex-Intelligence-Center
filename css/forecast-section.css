@@ -1,0 +1,551 @@
+/* ── Demand Generation Forecast — section-scoped styles ─────────────────── */
+
+#demand-forecast {
+  margin-top: 8px;
+}
+
+/* ── Sub-section headers ────────────────────────────────────────────────── */
+
+.fc-sub-header {
+  margin: 24px 0 12px;
+}
+
+.fc-sub-header h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+  margin: 0;
+}
+
+/* ── Warning banner ─────────────────────────────────────────────────────── */
+
+.fc-warning-banner {
+  background: #FFF8E1;
+  border: 1px solid #FFE082;
+  border-radius: var(--radius-md, 8px);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #BF6A02;
+  font-family: 'Nunito Sans', sans-serif;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-warning-icon {
+  font-size: 16px;
+}
+
+/* ── Pace strip — 4 KPI cards ───────────────────────────────────────────── */
+
+.fc-pace-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  .fc-pace-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── KPI cards (shared across pace strip and plan grid) ─────────────────── */
+
+.fc-kpi-card {
+  background: #fff;
+  border-radius: var(--radius-md, 8px);
+  padding: 20px;
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.08));
+  position: relative;
+}
+
+.fc-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9E9E9E;
+  margin-bottom: 6px;
+  font-family: 'Nunito Sans', sans-serif;
+}
+
+.fc-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+  line-height: 1.2;
+}
+
+.fc-kpi-sub {
+  font-size: 12px;
+  color: #9E9E9E;
+  margin-top: 6px;
+  font-family: 'Nunito Sans', sans-serif;
+}
+
+.fc-card--danger {
+  border: 2px solid #F44336;
+}
+
+/* ── Editable value ─────────────────────────────────────────────────────── */
+
+.fc-editable {
+  cursor: pointer;
+  border-bottom: 1px dashed #D2D5DA;
+  display: inline-block;
+  transition: border-color 0.15s ease;
+}
+
+.fc-editable:hover {
+  border-color: #02475A;
+}
+
+.fc-inline-input {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'Nunito Sans', sans-serif;
+  color: #303030;
+  border: 1px solid #02475A;
+  border-radius: 4px;
+  padding: 2px 6px;
+  width: 180px;
+  outline: none;
+  box-shadow: 0 0 0 2px #E0EEF2;
+}
+
+/* ── Status pills ───────────────────────────────────────────────────────── */
+
+.fc-status-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Nunito Sans', sans-serif;
+  padding: 2px 10px;
+  border-radius: 12px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.fc-status-pill--green {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.fc-status-pill--amber {
+  background: #FFF8E1;
+  color: #BF6A02;
+}
+
+.fc-status-pill--red {
+  background: #FFEBEE;
+  color: #C62828;
+}
+
+/* ── Assumptions bar ────────────────────────────────────────────────────── */
+
+.fc-card-block {
+  background: #fff;
+  border-radius: var(--radius-md, 8px);
+  padding: 20px;
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.08));
+  margin-bottom: 8px;
+}
+
+.fc-assumptions__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* Mode toggle */
+
+.fc-mode-toggle {
+  display: inline-flex;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid #D2D5DA;
+}
+
+.fc-mode-btn {
+  padding: 8px 20px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: #fff;
+  color: #404041;
+}
+
+.fc-mode-btn:first-child {
+  border-radius: 20px 0 0 20px;
+}
+
+.fc-mode-btn:last-child {
+  border-radius: 0 20px 20px 0;
+}
+
+.fc-mode-btn--active {
+  background: #ADC837;
+  color: #303030;
+}
+
+.fc-mode-btn:not(.fc-mode-btn--active):hover {
+  background: #F4F4F4;
+}
+
+/* Levers */
+
+.fc-levers {
+  display: flex;
+  gap: 24px;
+}
+
+.fc-lever {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.fc-lever__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+}
+
+.fc-lever__control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fc-lever__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #D2D5DA;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  color: #404041;
+  font-family: 'Nunito Sans', sans-serif;
+  padding: 0;
+  line-height: 1;
+}
+
+.fc-lever__btn:hover {
+  background: #F4F4F4;
+  border-color: #9E9E9E;
+}
+
+.fc-lever__input {
+  width: 56px;
+  height: 30px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Nunito Sans', sans-serif;
+  border: 1px solid #D2D5DA;
+  border-radius: 4px;
+  padding: 0 4px;
+  color: #303030;
+}
+
+.fc-lever__input:focus {
+  border-color: #02475A;
+  box-shadow: 0 0 0 2px #E0EEF2;
+  outline: none;
+}
+
+.fc-lever__resolved {
+  font-size: 11px;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+  white-space: nowrap;
+}
+
+.fc-resolved-caption {
+  font-size: 12px;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+  padding-top: 14px;
+  border-top: 1px solid #E1E6EF;
+  margin-top: 16px;
+}
+
+/* ── Plan grid — 3x2 ───────────────────────────────────────────────────── */
+
+.fc-plan {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  .fc-plan { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Pill toggle row ────────────────────────────────────────────────────── */
+
+.fc-toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fc-pill {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid #D2D5DA;
+  background: #fff;
+  color: #404041;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fc-pill:hover:not(.fc-pill--active) {
+  background: #F4F4F4;
+}
+
+.fc-pill--active {
+  background: #ADC837;
+  color: #303030;
+  border-color: #ADC837;
+}
+
+/* ── Table inputs ───────────────────────────────────────────────────────── */
+
+.fc-table-input {
+  width: 80px;
+  height: 28px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Nunito Sans', sans-serif;
+  border: 1px solid #E1E6EF;
+  border-radius: 4px;
+  padding: 0 6px;
+  color: #303030;
+  text-align: right;
+  background: #FAFAFA;
+}
+
+.fc-table-input:focus {
+  border-color: #02475A;
+  box-shadow: 0 0 0 1px #E0EEF2;
+  outline: none;
+  background: #fff;
+}
+
+td .fc-table-input[type="text"] {
+  text-align: left;
+  width: 140px;
+}
+
+.fc-table-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.fc-caption {
+  font-size: 11px;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+}
+
+/* ── Channel mix section ────────────────────────────────────────────────── */
+
+.fc-channel-meta {
+  font-size: 13px;
+  color: #404041;
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.fc-gap-chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Nunito Sans', sans-serif;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.fc-gap-chip--amber {
+  background: #FFF8E1;
+  color: #BF6A02;
+}
+
+.fc-gap-chip--green {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.fc-channel-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.fc-btn-pill {
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: none;
+  background: #ADC837;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.fc-btn-pill:hover {
+  opacity: 0.85;
+}
+
+.fc-btn-link {
+  background: none;
+  border: none;
+  color: #02475A;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+}
+
+.fc-btn-link:hover {
+  text-decoration: underline;
+}
+
+.fc-icon-btn {
+  background: none;
+  border: 1px solid #E1E6EF;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #9E9E9E;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  padding: 0;
+}
+
+.fc-icon-btn:hover {
+  background: #F4F4F4;
+  color: #404041;
+  border-color: #9E9E9E;
+}
+
+.fc-val--red {
+  color: #C62828 !important;
+  font-weight: 800;
+}
+
+.fc-totals-row td {
+  border-top: 2px solid #D2D5DA;
+  padding-top: 10px;
+}
+
+/* ── Scenarios table ────────────────────────────────────────────────────── */
+
+.fc-scenario-current {
+  background: #F4F4F4;
+}
+
+.fc-scenario-current td {
+  font-weight: 700;
+}
+
+.fc-scenario-warn {
+  border-left: 4px solid #BF6A02;
+}
+
+/* ── Risk cards ─────────────────────────────────────────────────────────── */
+
+#fc-risks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.fc-risk-card {
+  background: #fff;
+  border-radius: var(--radius-md, 8px);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.08));
+  position: relative;
+}
+
+.fc-risk-card--high {
+  border-left: 4px solid #F44336;
+}
+
+.fc-risk-card--med {
+  border-left: 4px solid #BF6A02;
+}
+
+.fc-risk-card--success {
+  border-left: 4px solid #4CAF50;
+}
+
+.fc-risk-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+  margin-bottom: 4px;
+}
+
+.fc-risk-body {
+  font-size: 13px;
+  color: #404041;
+  font-family: 'Nunito Sans', sans-serif;
+  line-height: 1.5;
+}
+
+.fc-risk-pill {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+}
+
+/* ── Pacing data table tweaks ───────────────────────────────────────────── */
+
+.fc-pacing-data td {
+  padding: 6px 10px;
+}
+
+.fc-pacing-data .fc-table-input {
+  width: 90px;
+}
