@@ -38,11 +38,24 @@ export default {
         { key: 'spend_events',      label: 'Events Spend',       type: 'number', placeholder: '1500',  unit: 'currency' }
       ]
     });
+
+    // Initialize demand generation forecast section
+    try {
+      const forecastMod = await import('../forecast-section.js');
+      await forecastMod.init(containerEl);
+      this._forecastMod = forecastMod;
+    } catch (e) {
+      console.warn('[CIC] Forecast section not available:', e.message);
+    }
   },
 
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    if (this._forecastMod) {
+      this._forecastMod.destroy();
+      this._forecastMod = null;
+    }
     Drilldown.close();
   },
 
