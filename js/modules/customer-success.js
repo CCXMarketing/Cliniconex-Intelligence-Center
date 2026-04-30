@@ -1,5 +1,7 @@
 import { Drilldown } from './drilldown.js';
 import { wireKpiEdit } from './kpi-edit.js';
+import { wireTargets } from './kpi-targets.js';
+import { buildCard } from './kpi-card.js';
 
 // ── Customer Success tab module ──
 
@@ -39,9 +41,48 @@ export default {
     this._buildTTVChart(containerEl, k.time_to_value);
     this._buildAdditionalGrid(containerEl, k);
 
+    // ── Missing spec cards ──
+    this._renderSpecCards(containerEl, k);
+
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireKpiEdit(containerEl, 'customer-success', data.kpis);
+
+    const reRender = () => {
+      this._buildRetentionGrid(containerEl, k);
+      this._buildAdditionalGrid(containerEl, k);
+      this._renderSpecCards(containerEl, k);
+      this._wireClickHandlers(containerEl, data);
+      wireKpiEdit(containerEl, 'customer-success', data.kpis);
+      wireTargets(containerEl, 'customer-success', reRender);
+    };
+    wireTargets(containerEl, 'customer-success', reRender);
+    CIC.onScenarioChange(reRender);
+  },
+
+  _renderSpecCards(el, k) {
+    const grid = el.querySelector('#cs-additional-grid');
+    if (!grid) return;
+    // Append missing spec cards after existing cards
+    let extra = '';
+    // Health Score Distribution (summary)
+    const hsd = k.health_score_distribution;
+    if (hsd && !grid.querySelector('[data-drilldown="health_score_distribution"]')) {
+      const greenPct = hsd.green || 0;
+      extra += buildCard({ key: 'health_score_distribution', label: 'Health Score Distribution', value: greenPct, unit: 'percent', status: greenPct >= 70 ? 'green' : greenPct >= 50 ? 'yellow' : 'red', cadence: 'Monthly', source: 'Salesforce', module: 'customer-success' });
+    }
+    // Churn Rate by Segment (summary)
+    const crs = k.churn_rate_by_segment;
+    if (crs && !grid.querySelector('[data-drilldown="churn_rate_by_segment"]')) {
+      const avgRate = crs.segments ? crs.segments.reduce((s, seg) => s + seg.rate, 0) / crs.segments.length : null;
+      extra += buildCard({ key: 'churn_rate_by_segment', label: 'Churn Rate by Segment', value: avgRate, unit: 'percent', status: avgRate != null && avgRate <= 1 ? 'green' : 'yellow', cadence: 'Monthly', source: 'Salesforce', module: 'customer-success' });
+    }
+    // At-Risk Account Value
+    const arv = k.at_risk_account_value;
+    if (arv && !grid.querySelector('[data-drilldown="at_risk_account_value"]')) {
+      extra += buildCard({ key: 'at_risk_account_value', label: 'At-Risk Account Value', value: arv.value, unit: 'currency', status: arv.status || 'red', cadence: 'Weekly', source: 'Salesforce', module: 'customer-success' });
+    }
+    if (extra) grid.insertAdjacentHTML('beforeend', extra);
   },
 
   // ── Retention Overview Grid ──

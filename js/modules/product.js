@@ -1,6 +1,7 @@
 import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
 import { wireKpiEdit } from './kpi-edit.js';
+import { wireTargets } from './kpi-targets.js';
 
 export default {
   charts: [],
@@ -19,6 +20,10 @@ export default {
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireKpiEdit(containerEl, 'product', data.kpis);
+    wireTargets(containerEl, 'product', () => {
+      this._wireClickHandlers(containerEl, data);
+      wireKpiEdit(containerEl, 'product', data.kpis);
+    });
 
     await renderInlineEntry(containerEl, {
       id: 'product-actuals',

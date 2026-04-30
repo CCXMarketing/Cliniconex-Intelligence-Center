@@ -1,6 +1,7 @@
 import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
 import { wireKpiEdit } from './kpi-edit.js';
+import { wireTargets } from './kpi-targets.js';
 
 // ── Customer Support tab module ──
 
@@ -42,6 +43,11 @@ export default {
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireKpiEdit(containerEl, 'support', data.kpis);
+    wireTargets(containerEl, 'support', () => {
+      this._buildKPIGrid(containerEl, data.kpis);
+      this._wireClickHandlers(containerEl, data);
+      wireKpiEdit(containerEl, 'support', data.kpis);
+    });
 
     await renderInlineEntry(containerEl, {
       id: 'support-ops',

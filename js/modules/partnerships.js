@@ -1,6 +1,8 @@
 import { Drilldown, PartnerPanel } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
 import { wireKpiEdit } from './kpi-edit.js';
+import { wireTargets } from './kpi-targets.js';
+import { buildCard } from './kpi-card.js';
 
 // ── Channel Partnerships tab module ──
 
@@ -64,9 +66,21 @@ export default {
     // ── Partner Detail Panel ──
     PartnerPanel.init(k.revenue_by_partner.partners);
 
+    // ── KPI Overview Grid (spec-aligned 9 cards) ──
+    this._renderKPIOverview(containerEl, k);
+
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
     wireKpiEdit(containerEl, 'partnerships', data.kpis);
+
+    const reRender = () => {
+      this._renderKPIOverview(containerEl, k);
+      this._wireClickHandlers(containerEl, data);
+      wireKpiEdit(containerEl, 'partnerships', data.kpis);
+      wireTargets(containerEl, 'partnerships', reRender);
+    };
+    wireTargets(containerEl, 'partnerships', reRender);
+    CIC.onScenarioChange(reRender);
 
     await renderInlineEntry(containerEl, {
       id: 'pcc-data',
@@ -81,6 +95,40 @@ export default {
         { key: 'qhr_pipeline_est',    label: 'QHR Pipeline Estimate ($)',      type: 'number', placeholder: '0', unit: 'currency' }
       ]
     });
+  },
+
+  // ── KPI Overview Grid (spec: 9 cards) ──
+  _renderKPIOverview(el, k) {
+    const grid = el.querySelector('#partnerships-kpi-grid');
+    if (!grid) return;
+    const rbp = k.revenue_by_partner;
+    const cards = [];
+
+    // 1. Revenue by Partner (% of Total)
+    if (rbp) cards.push({ key: 'revenue_by_partner', label: 'Revenue by Partner (% of Total)', value: rbp.partners?.[0]?.pct, unit: 'percent', status: 'yellow', cadence: 'Monthly', source: 'Salesforce', module: 'partnerships' });
+    // 2. PCC/QHR Concentration
+    if (rbp) cards.push({ key: 'pcc_qhr_concentration', label: 'PCC/QHR Revenue as % of Total', value: rbp.concentration_current, unit: 'percent', status: rbp.concentration_current <= 80 ? 'green' : 'red', cadence: 'Monthly', source: 'Salesforce', module: 'partnerships' });
+    // 3. MxC Revenue Ramp
+    const mxc = rbp?.partners?.find(p => p.name === 'MxC');
+    if (mxc) cards.push({ key: 'mxc_revenue_ramp', label: 'MxC Revenue Ramp', value: mxc.mrr, unit: 'currency', status: 'yellow', cadence: 'Monthly', source: 'Salesforce', module: 'partnerships' });
+    // 4. Non-Reseller Deals (Not Yet)
+    cards.push({ key: 'non_reseller_deals', label: 'Non-Reseller/Marketplace Deals', value: null, unit: 'count', readiness: 'not_yet', definition: '# and $ of deals closed through ISV, SI, MSP, consultant channels.', cadence: 'Quarterly', source: 'PRM', module: 'partnerships' });
+    // 5. New Partner Activation (Not Yet)
+    cards.push({ key: 'new_partner_activation', label: 'New Partner Activation Rate', value: null, unit: 'percent', readiness: 'not_yet', definition: '# of new partners that close their first deal within 6 months.', cadence: 'Quarterly', source: 'PRM', module: 'partnerships' });
+    // 6. Partner Pipeline Coverage
+    if (k.partner_pipeline_coverage) {
+      const ppc = k.partner_pipeline_coverage;
+      const totalPipeline = ppc.partners?.reduce((s, p) => s + (p.pipeline || 0), 0) || 0;
+      cards.push({ key: 'partner_pipeline_coverage', label: 'Partner Pipeline Coverage', value: totalPipeline, unit: 'currency', status: 'yellow', cadence: 'Monthly', source: 'PRM', readiness: 'partial', note: 'PCC pipeline visibility limited', module: 'partnerships' });
+    }
+    // 7. PCC/QHR Self-Serve
+    cards.push({ key: 'pcc_qhr_self_serve', label: 'PCC/QHR Self-Serve Delivery', value: null, unit: 'count', readiness: 'partial', note: 'Depends entirely on PCC delivery', cadence: 'Monthly', source: 'Salesforce', module: 'partnerships' });
+    // 8. Senior Living Partner Revenue
+    cards.push({ key: 'sl_partner_revenue', label: 'Senior Living Partner Revenue', value: null, unit: 'currency', status: 'yellow', cadence: 'Monthly', source: 'Salesforce', module: 'partnerships' });
+    // 9. New Partner Outreach
+    if (k.new_partner_outreach) cards.push({ key: 'new_partner_outreach', label: 'New Partner Outreach Volume', value: k.new_partner_outreach.value, unit: 'count', status: k.new_partner_outreach.status || 'yellow', cadence: 'Monthly', source: 'PRM', module: 'partnerships' });
+
+    grid.innerHTML = cards.map(c => buildCard(c)).join('');
   },
 
   // ── Partner Donut ──

@@ -1,5 +1,7 @@
 import { Drilldown } from './drilldown.js';
 import { wireKpiEdit } from './kpi-edit.js';
+import { wireTargets } from './kpi-targets.js';
+import { buildCard } from './kpi-card.js';
 
 export default {
   charts: [],
@@ -21,18 +23,16 @@ export default {
 
     wireKpiEdit(containerEl, 'sales', data.kpis);
 
-    CIC.onScenarioChange((scenario) => {
+    const reRender = (scenario) => {
       this._renderMRRTracker(containerEl, data);
       this._renderKPICards(containerEl, data);
-      this._refreshScenarioTargets(containerEl, data, scenario);
+      this._refreshScenarioTargets(containerEl, data, scenario || CIC.getScenario());
+      wireKpiEdit(containerEl, 'sales', data.kpis);
+      wireTargets(containerEl, 'sales', reRender);
+    };
+    wireTargets(containerEl, 'sales', reRender);
 
-      const oppCard = containerEl.querySelector('[data-drilldown="opportunities_created"]');
-      if (oppCard) {
-        const target = data.kpis.opportunities_created.targets[scenario];
-        const targetEl = oppCard.querySelector('.kpi-target');
-        if (targetEl) targetEl.textContent = `Target: ${target?.toLocaleString() || '\u2014'}`;
-      }
-    });
+    CIC.onScenarioChange(reRender);
   },
 
   destroy() {
@@ -128,7 +128,32 @@ export default {
       { key: 'opportunities_created', label: k.opportunities_created.label, value: k.opportunities_created.value, target: oppsTarget, unit: 'count', status: k.opportunities_created.status, cadence: k.opportunities_created.cadence, trend: k.opportunities_created.trend, _catalog: k.opportunities_created._catalog, _kpi: k.opportunities_created }
     ];
 
-    grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
+    // Summary cards for KPIs that also have detailed sections below
+    if (k.new_mrr_added) {
+      cards.push({ key: 'new_mrr_added', label: 'New MRR Added (Total)', value: k.new_mrr_added.value, unit: 'currency', status: k.new_mrr_added.status, cadence: 'Monthly', source: 'Salesforce + Manual', trend: k.new_mrr_added.trend, module: 'sales', _kpi: k.new_mrr_added });
+    }
+    if (k.quota_attainment?.reps) {
+      const reps = k.quota_attainment.reps;
+      const avg = Math.round(reps.reduce((s, r) => s + r.attainment, 0) / reps.length);
+      cards.push({ key: 'quota_attainment', label: 'Quota Attainment (Avg)', value: avg, unit: 'percent', status: avg >= 100 ? 'green' : avg >= 80 ? 'yellow' : 'red', cadence: 'Monthly', source: 'ActiveCampaign + Manual', module: 'sales' });
+    }
+    if (k.new_segment_bookings?.segments) {
+      const total = k.new_segment_bookings.segments.reduce((s, seg) => s + seg.value, 0);
+      cards.push({ key: 'new_segment_bookings', label: 'New Segment Bookings', value: total, unit: 'currency', status: k.new_segment_bookings.status || 'yellow', cadence: 'Monthly', source: 'Salesforce', module: 'sales' });
+    }
+    if (k.adjacent_vertical_deals) {
+      cards.push({ key: 'adjacent_vertical_deals', label: 'Adjacent Vertical Deals', value: k.adjacent_vertical_deals.value, unit: 'count', status: k.adjacent_vertical_deals.status || 'yellow', cadence: 'Quarterly', source: 'ActiveCampaign', module: 'sales' });
+    }
+    if (k.sales_cycle_length) {
+      cards.push({ key: 'sales_cycle_length', label: 'Sales Cycle Length', value: k.sales_cycle_length.value, unit: 'count', status: k.sales_cycle_length.status || 'yellow', cadence: 'Monthly', source: 'ActiveCampaign', module: 'sales' });
+    }
+    // Outreach Volume — Partial, no data source yet
+    cards.push({ key: 'outreach_volume', label: 'Outreach Volume', value: null, unit: 'count', status: 'grey', cadence: 'Monthly', source: 'ActiveCampaign', readiness: 'partial', note: 'Hard to track emails in AC if not sent via campaign', module: 'sales' });
+
+    grid.innerHTML = cards.map(card => {
+      if (card.module) return buildCard(card);
+      return this._buildKPICard(card);
+    }).join('');
     this._wireClickHandlers(containerEl, data);
   },
 

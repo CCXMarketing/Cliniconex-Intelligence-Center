@@ -1,6 +1,8 @@
 import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
 import { wireKpiEdit } from './kpi-edit.js';
+import { wireTargets } from './kpi-targets.js';
+import { buildCard } from './kpi-card.js';
 
 export default {
   charts: [],
@@ -23,7 +25,14 @@ export default {
 
     wireKpiEdit(containerEl, 'marketing', data.kpis);
 
-    CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
+    const reRender = () => {
+      this._renderKPICards(containerEl, data);
+      wireKpiEdit(containerEl, 'marketing', data.kpis);
+      wireTargets(containerEl, 'marketing', reRender);
+    };
+    wireTargets(containerEl, 'marketing', reRender);
+
+    CIC.onScenarioChange(reRender);
 
     await renderInlineEntry(containerEl, {
       id: 'mkt-spend',
@@ -178,7 +187,28 @@ export default {
       { key: 'direct_channel_pipeline_pct', label: k.direct_channel_pipeline_pct.label, value: k.direct_channel_pipeline_pct.value, target: k.direct_channel_pipeline_pct.target, unit: 'percent', status: k.direct_channel_pipeline_pct.status, cadence: k.direct_channel_pipeline_pct.cadence, trend: k.direct_channel_pipeline_pct.trend, _catalog: k.direct_channel_pipeline_pct._catalog, _kpi: k.direct_channel_pipeline_pct }
     ];
 
-    grid.innerHTML = cards.map(card => this._buildKPICard(card)).join('');
+    // Pipeline by Segment summary card
+    const segments = k.pipeline_by_segment?.segments;
+    if (segments) {
+      const totalPipeline = segments.reduce((s, seg) => s + seg.value, 0);
+      const totalTarget = segments.reduce((s, seg) => s + seg.target, 0);
+      const segStatus = totalPipeline >= totalTarget ? 'green' : totalPipeline >= totalTarget * 0.8 ? 'yellow' : 'red';
+      cards.push({ key: 'pipeline_by_segment', label: 'Pipeline by Segment', value: totalPipeline, target: totalTarget, unit: 'currency', status: segStatus, cadence: 'Monthly', source: 'ActiveCampaign', readiness: 'partial', note: 'New segments may need new campaign tags in AC', module: 'marketing' });
+    }
+
+    // Campaign/Program ROI summary card
+    const campaignROI = k.campaign_roi;
+    if (campaignROI?.campaigns) {
+      const totalSpend = campaignROI.campaigns.reduce((s, c) => s + c.spend, 0);
+      const totalRev = campaignROI.campaigns.reduce((s, c) => s + c.attributed_revenue, 0);
+      const avgRoi = totalSpend > 0 ? totalRev / totalSpend : 0;
+      cards.push({ key: 'campaign_roi', label: 'Campaign/Program ROI', value: avgRoi, target: 4.0, unit: 'multiplier', status: avgRoi >= 4 ? 'green' : avgRoi >= 3 ? 'yellow' : 'red', cadence: 'Quarterly', source: 'ActiveCampaign', readiness: 'partial', note: 'Requires closed-loop attribution model', module: 'marketing' });
+    }
+
+    grid.innerHTML = cards.map(card => {
+      if (card.module) return buildCard(card);
+      return this._buildKPICard(card);
+    }).join('');
     this._wireClickHandlers(containerEl, data);
   },
 
