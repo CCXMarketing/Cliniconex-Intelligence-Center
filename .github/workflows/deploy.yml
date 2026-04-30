@@ -1,0 +1,90 @@
+name: Deploy to radar
+
+# Triggers:
+#   push to main           — auto-deploy on every merge
+#   workflow_dispatch      — manual trigger for testing or re-running
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Prevent two deploys from racing each other on the same target.
+concurrency:
+  group: deploy-radar
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-mock
+
+      - name: Run tests
+        run: pytest -q
+
+      # Joins the GHA runner to the Cliniconex tailnet as an ephemeral node.
+      # Tags it `tag:ci` — the Tailscale ACL must allow tag:ci to SSH to radar
+      # as root. No SSH keypair needed: Tailscale SSH (already enabled on
+      # radar) handles authentication via tailnet identity.
+      - name: Set up Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          version: latest
+
+      # Same exclude list we've been using manually:
+      #   .env / .env.bak    — secrets, never overwrite
+      #   data/              — runtime SQLite snapshot store
+      #   WIP.md             — session scratchpad, untracked anyway but belt+suspenders
+      #   .git / .github     — repo metadata, not needed at runtime
+      #   .venv / __pycache__ — local Python state
+      - name: Rsync code to radar
+        run: |
+          rsync -az --delete-after \
+            -e "tailscale ssh" \
+            --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' \
+            --exclude='.env' --exclude='.env.bak' --exclude='WIP.md' --exclude='data' \
+            --exclude='.git' --exclude='.github' --exclude='.claude' \
+            ./ root@radar:/opt/cic/
+
+      - name: Install deps + restart cic.service on radar
+        run: |
+          tailscale ssh root@radar bash -s <<'EOF'
+          set -euo pipefail
+          /opt/cic/venv/bin/pip install -q -r /opt/cic/requirements.txt
+          systemctl restart cic.service
+          # systemctl restart returns immediately; give workers a moment to boot.
+          sleep 3
+          systemctl is-active --quiet cic.service
+          EOF
+
+      # Confirms gunicorn is actually serving — a green workflow with a
+      # broken deploy would be a worse failure mode than the current manual
+      # process.
+      - name: Smoke test /api/health
+        run: |
+          for attempt in 1 2 3; do
+            if curl --fail-with-body --silent --max-time 30 \
+                https://radar.merino-mooneye.ts.net/okr/api/health > /tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "health check attempt $attempt failed; retrying..."
+            sleep 5
+          done
+          echo "health check failed after 3 attempts"
+          exit 1
