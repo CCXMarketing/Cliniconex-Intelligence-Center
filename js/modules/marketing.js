@@ -39,7 +39,16 @@ export default {
       ]
     });
 
-    // Initialize demand generation forecast section
+    // Initialize DG forecast & actual tables
+    try {
+      const forecastTables = await import('../forecast-tables.js');
+      await forecastTables.init(containerEl);
+      this._forecastTables = forecastTables;
+    } catch (e) {
+      console.warn('[CIC] Forecast tables not available:', e.message);
+    }
+
+    // Initialize demand generation forecast engine
     try {
       const forecastMod = await import('../forecast-section.js');
       await forecastMod.init(containerEl);
@@ -52,6 +61,10 @@ export default {
   destroy() {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
+    if (this._forecastTables) {
+      this._forecastTables.destroy();
+      this._forecastTables = null;
+    }
     if (this._forecastMod) {
       this._forecastMod.destroy();
       this._forecastMod = null;
