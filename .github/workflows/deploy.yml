@@ -75,17 +75,22 @@ jobs:
             ServerAliveInterval 30
           EOF
 
-      # Same exclude list we've been using manually:
-      #   .env / .env.bak    — secrets, never overwrite
+      # Excludes preserve runtime state on radar that mustn't be touched:
+      #   .env / .env.bak    — secrets
       #   data/              — runtime SQLite snapshot store
-      #   WIP.md             — session scratchpad, untracked anyway but belt+suspenders
-      #   .git / .github     — repo metadata, not needed at runtime
-      #   .venv / __pycache__ — local Python state
+      #   venv* / .venv      — Python virtualenv on radar (named 'venv',
+      #                        no leading dot — without this exclude
+      #                        --delete-after wipes it and breaks deploy)
+      #   WIP.md             — session scratchpad
+      #   .git / .github     — repo metadata not needed at runtime
+      #   __pycache__ / *.pyc — local Python build artifacts
       - name: Rsync code to radar
         run: |
           rsync -az --delete-after \
-            --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' \
-            --exclude='.env' --exclude='.env.bak' --exclude='WIP.md' --exclude='data' \
+            --exclude='__pycache__' --exclude='*.pyc' \
+            --exclude='venv' --exclude='venv312' --exclude='.venv' \
+            --exclude='.env' --exclude='.env.bak' \
+            --exclude='WIP.md' --exclude='data' \
             --exclude='.git' --exclude='.github' --exclude='.claude' \
             ./ root@radar:/opt/cic/
 
