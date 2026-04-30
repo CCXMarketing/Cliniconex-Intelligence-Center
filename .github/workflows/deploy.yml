@@ -46,19 +46,21 @@ jobs:
           tags: tag:ci
           version: latest
 
-      # The GHA runner's resolver doesn't pick up Tailscale's MagicDNS
-      # even after `tailscale up`, so plain `ssh radar` fails with
-      # "Temporary failure in name resolution". Resolve the IP via the
-      # Tailscale CLI and pin it into ~/.ssh/config so the rest of the
-      # workflow can keep using `radar` as a friendly alias.
+      # The GHA runner's resolver doesn't pick up Tailscale's MagicDNS,
+      # AND `tailscale ip -4 <name>` itself routes through the system
+      # resolver too. Query tailscaled directly via `tailscale status
+      # --json` and pull radar's IP straight from the peer list. Then
+      # pin it into ~/.ssh/config so the rest of the workflow can keep
+      # using `radar` as a friendly alias.
       #
       # Tailscale SSH on radar accepts `none` auth from tagged peers, so
       # no SSH keypair is needed on either side.
       - name: Configure SSH client
         run: |
-          RADAR_IP=$(tailscale ip -4 radar)
+          RADAR_IP=$(tailscale status --json \
+            | jq -r '.Peer[] | select(.HostName == "radar") | .TailscaleIPs[0] // empty')
           if [ -z "$RADAR_IP" ]; then
-            echo "Failed to resolve radar via Tailscale" >&2
+            echo "radar not visible in tailnet — check ACL allows tag:ci to see it" >&2
             tailscale status >&2 || true
             exit 1
           fi
