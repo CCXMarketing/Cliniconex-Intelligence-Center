@@ -1,10 +1,13 @@
+import { wireKpiEdit } from './kpi-edit.js';
+
 export default {
   charts: [],
   _data: null,
 
-  init(containerEl, data) {
+  async init(containerEl, data) {
     this._data = data;
     this._renderSquads(containerEl, data);
+    wireKpiEdit(containerEl, 'squads', data.kpis || {});
   },
 
   destroy() {

@@ -1,5 +1,6 @@
 import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 export default {
   charts: [],
@@ -30,6 +31,8 @@ export default {
         { key: 'ebitda_actual_mtd', label: 'EBITDA Actual MTD ($)', type: 'number', placeholder: '80000',  unit: 'currency' }
       ]
     });
+
+    wireKpiEdit(containerEl, 'executive', data.kpis || {});
 
     // Subscribe to scenario changes
     this._scenarioUnsub = (scenario) => {

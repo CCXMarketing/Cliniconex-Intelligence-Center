@@ -1,5 +1,6 @@
-import { Drilldown, wireEditableCards } from './drilldown.js';
+import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 // ── Customer Support tab module ──
 
@@ -40,7 +41,7 @@ export default {
 
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
-    wireEditableCards(containerEl, 'support');
+    wireKpiEdit(containerEl, 'support', data.kpis);
 
     await renderInlineEntry(containerEl, {
       id: 'support-ops',
@@ -265,14 +266,14 @@ export default {
     };
 
     grid.innerHTML = `
-      <div class="kpi-card kpi-card--${scpc.status}" data-drilldown="support_cost_per_customer" data-editable="true" data-entry-key="support_dept_cost" data-unit="currency">
+      <div class="kpi-card kpi-card--${scpc.status}" data-drilldown="support_cost_per_customer" data-unit="currency">
         ${_badge2(scpc)}
         <div class="kpi-cadence">${scpc.cadence}</div>
         <div class="kpi-label">${scpc.label}</div>
         <div class="kpi-value">$${scpc.value.toFixed(2)}</div>
         <div class="kpi-target">Target: $${scpc.target.toFixed(2)}</div>
       </div>
-      <div class="kpi-card kpi-card--${rpe.status}" data-drilldown="revenue_per_employee" data-editable="true" data-entry-key="total_headcount" data-unit="count">
+      <div class="kpi-card kpi-card--${rpe.status}" data-drilldown="revenue_per_employee" data-unit="count">
         ${_badge2(rpe)}
         <div class="kpi-cadence">${rpe.cadence}</div>
         <div class="kpi-label">${rpe.label}</div>

@@ -193,6 +193,7 @@ export const catalog = {
   dataSourceBadge(kpi) {
     const src = kpi._dataSource;
     if (src === 'live') return { label: 'Live', cssClass: 'badge-live' };
+    if (src === 'manual_override') return { label: 'Override', cssClass: 'badge-override' };
     if (src === 'manual') return { label: 'Entered', cssClass: 'badge-entered' };
     if (src === 'mock') return { label: 'Demo', cssClass: 'badge-demo' };
     if (kpi._catalog) return this.measurabilityBadge(kpi._catalog);
