@@ -32,6 +32,8 @@ ENV/
 
 # Credentials — NEVER commit these
 config/credentials.yaml
+service-account*.json
+oauth-token*.json
 
 # Snapshot DB (KPI cache + history) — written at runtime
 data/
@@ -39,9 +41,14 @@ config/*.key
 config/google-sheets-sa.json
 *.pem
 *.key
+*.crt
 .env
+.env.*
 *.env
 secrets.yaml
+
+# Tailscale
+.tailscale/
 
 # Debug and dev files
 debug_*.py
@@ -84,5 +91,9 @@ reports/
 htmlcov/
 .tox/
 
+# Node
+node_modules/
+
 # API credentials — never commit these
 js/config.js
+js/data/

@@ -1,0 +1,17 @@
+name = "cic-ac-proxy"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+[vars]
+ENVIRONMENT = "production"
+# Allowed origins (comma-separated) — set per environment
+# Local dev origins are only allowed when ENVIRONMENT = "development"
+ALLOWED_ORIGINS = ""
+
+# Secrets are set via `wrangler secret put <NAME>`:
+# AC_API_TOKEN
+# GEMINI_API_KEY
+# GOOGLE_ADS_CLIENT_ID
+# GOOGLE_ADS_CLIENT_SECRET
+# GOOGLE_ADS_REFRESH_TOKEN
+# GOOGLE_ADS_DEVELOPER_TOKEN

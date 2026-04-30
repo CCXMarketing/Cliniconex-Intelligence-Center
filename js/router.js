@@ -12,6 +12,7 @@ const TABS = [
   { id: 'customer-success', label: 'Customer Success', file: 'tabs/customer-success.html', module: './modules/customer-success.js' },
   { id: 'support',          label: 'Customer Support', file: 'tabs/support.html',          module: './modules/support.js' },
   { id: 'product',          label: 'Product',          file: 'tabs/product.html',          module: './modules/product.js' },
+  { id: 'status',           label: '\u2699 Status',     file: 'tabs/status.html',           module: './modules/status.js' },
 ];
 
 const DATA_MODULES = {

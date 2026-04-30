@@ -1,0 +1,61 @@
+# Gitleaks configuration for CIC repo
+# Tuned for ActiveCampaign, Google, Anthropic, Gemini, and generic secrets
+
+title = "CIC gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "activecampaign-api-token"
+description = "ActiveCampaign API Token (40-char hex)"
+regex = '''[0-9a-f]{40,64}'''
+keywords = ["api_key", "api-key", "apikey", "api_token"]
+tags = ["activecampaign", "api"]
+
+[[rules]]
+id = "google-oauth-refresh-token"
+description = "Google OAuth Refresh Token"
+regex = '''1//[0-9A-Za-z_-]{40,}'''
+tags = ["google", "oauth"]
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API Key"
+regex = '''sk-ant-[A-Za-z0-9_-]{20,}'''
+tags = ["anthropic", "api"]
+
+[[rules]]
+id = "gemini-api-key"
+description = "Gemini / Google AI API Key"
+regex = '''AIza[A-Za-z0-9_-]{35}'''
+tags = ["gemini", "google", "api"]
+
+[[rules]]
+id = "generic-jwt"
+description = "Generic JWT"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+tags = ["jwt"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws"]
+
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Access Key"
+regex = '''(?i)aws_secret_access_key\s*[=:]\s*[A-Za-z0-9/+=]{40}'''
+tags = ["aws"]
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''\.gitleaks\.toml$''',
+  '''SECURITY\.md$''',
+  '''\.pre-commit-config\.yaml$''',
+  '''config\.example\.js$''',
+  '''node_modules/''',
+  '''\.git/'''
+]
