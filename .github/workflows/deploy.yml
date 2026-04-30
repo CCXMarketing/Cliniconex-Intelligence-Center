@@ -46,6 +46,21 @@ jobs:
           tags: tag:ci
           version: latest
 
+      # Configure plain ssh to use Tailscale's identity / accept the host
+      # key on first use. `tailscale ssh` (the wrapper) doesn't grok
+      # rsync's -l flag, but plain ssh through the tailnet works fine —
+      # Tailscale SSH on radar accepts `none` auth from tailnet peers.
+      - name: Configure SSH client
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config <<'EOF'
+          Host radar radar.*
+            User root
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile /tmp/ssh_known_hosts
+            ServerAliveInterval 30
+          EOF
+
       # Same exclude list we've been using manually:
       #   .env / .env.bak    — secrets, never overwrite
       #   data/              — runtime SQLite snapshot store
@@ -55,7 +70,6 @@ jobs:
       - name: Rsync code to radar
         run: |
           rsync -az --delete-after \
-            -e "tailscale ssh" \
             --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' \
             --exclude='.env' --exclude='.env.bak' --exclude='WIP.md' --exclude='data' \
             --exclude='.git' --exclude='.github' --exclude='.claude' \
@@ -63,7 +77,7 @@ jobs:
 
       - name: Install deps + restart cic.service on radar
         run: |
-          tailscale ssh root@radar bash -s <<'EOF'
+          ssh root@radar bash -s <<'EOF'
           set -euo pipefail
           /opt/cic/venv/bin/pip install -q -r /opt/cic/requirements.txt
           systemctl restart cic.service
