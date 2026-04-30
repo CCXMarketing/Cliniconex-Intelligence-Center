@@ -1,4 +1,5 @@
 import { Drilldown } from './drilldown.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 // ── Customer Success tab module ──
 
@@ -40,6 +41,7 @@ export default {
 
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
+    wireKpiEdit(containerEl, 'customer-success', data.kpis);
   },
 
   // ── Retention Overview Grid ──

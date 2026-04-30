@@ -12,7 +12,6 @@ const TABS = [
   { id: 'customer-success', label: 'Customer Success', file: 'tabs/customer-success.html', module: './modules/customer-success.js' },
   { id: 'support',          label: 'Customer Support', file: 'tabs/support.html',          module: './modules/support.js' },
   { id: 'product',          label: 'Product',          file: 'tabs/product.html',          module: './modules/product.js' },
-  { id: 'manual-entry',     label: 'Manual Entry',     file: 'tabs/manual-entry.html',     module: './modules/manual-entry.js' },
 ];
 
 const DATA_MODULES = {
@@ -24,7 +23,6 @@ const DATA_MODULES = {
   product:            () => import('./data/mock-product.js'),
   executive:          () => import('./data/mock-executive.js'),
   squads:             () => import('./data/mock-executive.js'),
-  'manual-entry':     () => Promise.resolve({ data: {} }),
   'revenue-targets':  () => import('./data/mock-revenue-targets.js'),
 };
 
@@ -111,6 +109,9 @@ window.CIC = {
       } catch {
         // Live data not available — continue with mock/manual/catalog
       }
+
+      // Re-apply manual overrides on live KPIs (user intentionally overrode API values)
+      this._applyManualOverrides(department, mockData);
 
       return merged;
     } catch {
@@ -219,6 +220,26 @@ window.CIC = {
       this._connections = { activecampaign: false, google_ads: false };
     }
     return this._connections;
+  },
+
+  _applyManualOverrides(department, data) {
+    if (!data.kpis) return;
+    const prefix = `cic_override_${department}_`;
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith(prefix)) continue;
+      const kpiKey = k.slice(prefix.length);
+      const kpi = data.kpis[kpiKey];
+      if (kpi && kpi._dataSource === 'live' && kpi._manualEntry) {
+        // Manual override flag exists and there's a manual entry — re-apply it
+        kpi._liveValue = kpi.value;
+        kpi.value = kpi._manualEntry.value != null ? parseFloat(kpi._manualEntry.value) : kpi.value;
+        kpi._dataSource = 'manual_override';
+      } else if (kpi && kpi._dataSource === 'live') {
+        // Override flag exists but no manual entry data loaded yet —
+        // kpi-edit.js will handle reading from storage at render time
+        kpi._liveValue = kpi.value;
+      }
+    }
   },
 
   async setData(department, key, value) {

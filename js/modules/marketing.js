@@ -1,5 +1,6 @@
-import { Drilldown, wireEditableCards } from './drilldown.js';
+import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 export default {
   charts: [],
@@ -18,10 +19,9 @@ export default {
     this._renderCampaignTable(data);
     this._renderACFunnel(containerEl, data);
     this._renderGoogleAds(containerEl, data);
-    this._renderGoogleAnalytics(containerEl, data);
-    this._renderSearchConsole(containerEl, data);
-
     this._initROASCalculator(containerEl, data);
+
+    wireKpiEdit(containerEl, 'marketing', data.kpis);
 
     CIC.onScenarioChange(() => this._renderKPICards(containerEl, data));
 
@@ -846,110 +846,6 @@ export default {
           <td class="col-right">${Math.round(c.roas)}:1</td>
           <td class="col-center">
             <span class="badge badge--${c.status_badge}">${c.status_badge.toUpperCase()}</span>
-          </td>
-        </tr>`).join('');
-    }
-  },
-
-  _renderGoogleAnalytics(containerEl, data) {
-    const ga = data.kpis.google_analytics;
-    if (!ga) return;
-    const s = ga.summary;
-
-    const kpiGrid = containerEl.querySelector('#mkt-ga-kpis');
-    if (kpiGrid) {
-      const fmtTime = sec => `${Math.floor(sec/60)}m ${sec%60}s`;
-      kpiGrid.innerHTML = `
-        <div class="kpi-card kpi-card--teal">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Sessions</div>
-          <div class="kpi-value">${s.sessions.toLocaleString()}</div>
-          <div class="kpi-target">${s.new_users.toLocaleString()} new users</div>
-        </div>
-        <div class="kpi-card kpi-card--green">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Goal Completions</div>
-          <div class="kpi-value">${s.goal_completions}</div>
-          <div class="kpi-target">Conv. rate: ${s.goal_conversion_rate}%</div>
-        </div>
-        <div class="kpi-card kpi-card--yellow">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Bounce Rate</div>
-          <div class="kpi-value">${s.bounce_rate}%</div>
-          <div class="kpi-target">Avg session: ${fmtTime(s.avg_session_duration)}</div>
-        </div>
-        <div class="kpi-card kpi-card--blue">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Pages / Session</div>
-          <div class="kpi-value">${s.pages_per_session}</div>
-        </div>`;
-    }
-
-    const sourcesTbody = containerEl.querySelector('#mkt-ga-sources-tbody');
-    if (sourcesTbody) {
-      sourcesTbody.innerHTML = ga.traffic_sources.map(src => `
-        <tr>
-          <td>${src.source}</td>
-          <td class="col-right">${src.sessions.toLocaleString()}</td>
-          <td class="col-right">${src.pct}%</td>
-          <td class="col-right">${src.conversions}</td>
-        </tr>`).join('');
-    }
-
-    const pagesTbody = containerEl.querySelector('#mkt-ga-pages-tbody');
-    if (pagesTbody) {
-      pagesTbody.innerHTML = ga.top_pages.map(p => `
-        <tr>
-          <td style="font-family:monospace;font-size:12px;">${p.page}</td>
-          <td class="col-right">${p.sessions.toLocaleString()}</td>
-          <td class="col-right" style="color:${p.bounce_rate > 50 ? '#C62828' : p.bounce_rate > 40 ? '#F57F17' : '#2E7D32'}">
-            ${p.bounce_rate}%
-          </td>
-        </tr>`).join('');
-    }
-  },
-
-  _renderSearchConsole(containerEl, data) {
-    const gsc = data.kpis.google_search_console;
-    if (!gsc) return;
-    const s = gsc.summary;
-
-    const kpiGrid = containerEl.querySelector('#mkt-gsc-kpis');
-    if (kpiGrid) {
-      kpiGrid.innerHTML = `
-        <div class="kpi-card kpi-card--teal">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Organic Clicks</div>
-          <div class="kpi-value">${s.total_clicks.toLocaleString()}</div>
-        </div>
-        <div class="kpi-card kpi-card--green">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Total Impressions</div>
-          <div class="kpi-value">${(s.total_impressions/1000).toFixed(0)}K</div>
-        </div>
-        <div class="kpi-card kpi-card--yellow">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Avg CTR</div>
-          <div class="kpi-value">${s.avg_ctr}%</div>
-        </div>
-        <div class="kpi-card kpi-card--blue">
-          <div class="kpi-cadence">MONTHLY</div>
-          <div class="kpi-label">Avg Position</div>
-          <div class="kpi-value">${s.avg_position}</div>
-          <div class="kpi-target">Lower is better</div>
-        </div>`;
-    }
-
-    const tbody = containerEl.querySelector('#mkt-gsc-tbody');
-    if (tbody) {
-      tbody.innerHTML = gsc.top_queries.map(q => `
-        <tr>
-          <td>${q.query}</td>
-          <td class="col-right">${q.clicks.toLocaleString()}</td>
-          <td class="col-right">${q.impressions.toLocaleString()}</td>
-          <td class="col-right">${q.ctr}%</td>
-          <td class="col-right" style="color:${q.position <= 5 ? '#2E7D32' : q.position <= 15 ? '#F57F17' : '#9E9E9E'}">
-            ${q.position}
           </td>
         </tr>`).join('');
     }

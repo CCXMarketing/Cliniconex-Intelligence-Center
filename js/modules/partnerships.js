@@ -1,5 +1,6 @@
-import { Drilldown, PartnerPanel, wireEditableCards } from './drilldown.js';
+import { Drilldown, PartnerPanel } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 // ── Channel Partnerships tab module ──
 
@@ -65,7 +66,7 @@ export default {
 
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
-    wireEditableCards(containerEl, 'partnerships');
+    wireKpiEdit(containerEl, 'partnerships', data.kpis);
 
     await renderInlineEntry(containerEl, {
       id: 'pcc-data',
@@ -447,7 +448,7 @@ export default {
         <div class="kpi-target">Target: ${npa.target}</div>
         <div class="kpi-note">${npa.note}</div>
       </div>
-      <div class="kpi-card kpi-card--yellow" data-drilldown="new_partner_outreach" data-editable="true" data-entry-key="partner_outreach_count" data-unit="count">
+      <div class="kpi-card kpi-card--yellow" data-drilldown="new_partner_outreach" data-unit="count">
         ${_badge(npo)}
         <div class="kpi-cadence">${npo.cadence}</div>
         <div class="kpi-label">New Partner Outreach</div>

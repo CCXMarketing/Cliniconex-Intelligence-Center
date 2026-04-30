@@ -101,6 +101,11 @@
   color: var(--purple);
   border: 1px solid #CE93D8;
 }
+.badge-override {
+  background: #522E76;
+  color: #FFFFFF;
+  border: 1px solid #522E76;
+}
 
 /* ── Manual Entry Department Sections ── */
 

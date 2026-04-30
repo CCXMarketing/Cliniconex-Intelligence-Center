@@ -77,7 +77,7 @@ export const data = {
     department: 'Marketing',
     accountable: 'Ger',
     squad: 'Growth',
-    data_source: ['ActiveCampaign', 'Google Ads', 'Google Analytics', 'Google Search Console'],
+    data_source: ['ActiveCampaign', 'Google Ads'],
     updated: '2026-03-01'
   },
   kpis: {
@@ -340,67 +340,6 @@ export const data = {
       cpa_trend: [144.90, 150.00, 134.38, 130.28],
       trend_labels: ['Dec', 'Jan', 'Feb', 'Mar'],
       cpa_thresholds: { excellent: 75, warning: 200, critical: 300 }
-    },
-
-    // ── Google Analytics ──
-    google_analytics: {
-      label: 'Google Analytics',
-      data_source: 'Google Analytics 4',
-      period: 'March 2026',
-      summary: {
-        sessions: 18420,
-        users: 14280,
-        new_users: 9840,
-        bounce_rate: 42.1,
-        avg_session_duration: 185,
-        pages_per_session: 3.4,
-        goal_completions: 284,
-        goal_conversion_rate: 1.54
-      },
-      top_pages: [
-        { page: '/home', sessions: 4820, bounce_rate: 38.2, avg_time: 142 },
-        { page: '/products/acm', sessions: 2940, bounce_rate: 34.8, avg_time: 218 },
-        { page: '/solutions/senior-care', sessions: 2180, bounce_rate: 41.2, avg_time: 196 },
-        { page: '/demo', sessions: 1840, bounce_rate: 22.4, avg_time: 284 },
-        { page: '/pricing', sessions: 1620, bounce_rate: 45.1, avg_time: 168 }
-      ],
-      traffic_sources: [
-        { source: 'Organic Search', sessions: 6840, pct: 37.1, conversions: 98 },
-        { source: 'Paid Search', sessions: 4280, pct: 23.2, conversions: 142 },
-        { source: 'Direct', sessions: 3420, pct: 18.6, conversions: 24 },
-        { source: 'Referral', sessions: 2180, pct: 11.8, conversions: 12 },
-        { source: 'Email', sessions: 1120, pct: 6.1, conversions: 6 },
-        { source: 'Social', sessions: 580, pct: 3.2, conversions: 2 }
-      ],
-      sessions_trend: [14200, 15800, 17100, 18420],
-      conversions_trend: [198, 224, 256, 284],
-      trend_labels: ['Dec', 'Jan', 'Feb', 'Mar']
-    },
-
-    // ── Google Search Console ──
-    google_search_console: {
-      label: 'Google Search Console',
-      data_source: 'Google Search Console',
-      period: 'March 2026',
-      summary: {
-        total_clicks: 6840,
-        total_impressions: 284000,
-        avg_ctr: 2.41,
-        avg_position: 18.4
-      },
-      top_queries: [
-        { query: 'automated care messaging', clicks: 842, impressions: 4200, ctr: 20.0, position: 2.1 },
-        { query: 'senior care communication software', clicks: 624, impressions: 8400, ctr: 7.4, position: 4.8 },
-        { query: 'cliniconex', clicks: 584, impressions: 1840, ctr: 31.7, position: 1.2 },
-        { query: 'patient appointment reminders', clicks: 420, impressions: 12000, ctr: 3.5, position: 8.4 },
-        { query: 'ltc communication platform', clicks: 384, impressions: 6800, ctr: 5.6, position: 6.2 },
-        { query: 'acm messenger software', clicks: 298, impressions: 2400, ctr: 12.4, position: 3.8 },
-        { query: 'care home automated messaging', clicks: 242, impressions: 9200, ctr: 2.6, position: 11.4 }
-      ],
-      clicks_trend: [4820, 5400, 6100, 6840],
-      impressions_trend: [218000, 242000, 264000, 284000],
-      position_trend: [22.1, 20.8, 19.6, 18.4],
-      trend_labels: ['Dec', 'Jan', 'Feb', 'Mar']
     }
   }
 };

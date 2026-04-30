@@ -1,5 +1,6 @@
-import { Drilldown, wireEditableCards } from './drilldown.js';
+import { Drilldown } from './drilldown.js';
 import { renderInlineEntry } from './datepicker.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 export default {
   charts: [],
@@ -15,24 +16,9 @@ export default {
     this._renderSayDoChart(data);
     this._renderRevenueGrid(containerEl, data);
 
-    // ── Editable card attributes ──
-    const editables = {
-      'ai_skills_pilots':      { key: 'pilots_completed',   unit: 'count' },
-      'say_do_ratio':          { key: 'say_do_pct',         unit: 'percent' },
-      'customer_validations':  { key: 'validations_count',  unit: 'count' }
-    };
-    for (const [dd, cfg] of Object.entries(editables)) {
-      const card = containerEl.querySelector(`[data-drilldown="${dd}"]`);
-      if (card) {
-        card.dataset.editable = 'true';
-        card.dataset.entryKey = cfg.key;
-        card.dataset.unit = cfg.unit;
-      }
-    }
-
     // ── Drilldown click handlers ──
     this._wireClickHandlers(containerEl, data);
-    wireEditableCards(containerEl, 'product');
+    wireKpiEdit(containerEl, 'product', data.kpis);
 
     await renderInlineEntry(containerEl, {
       id: 'product-actuals',

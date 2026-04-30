@@ -1,4 +1,5 @@
 import { Drilldown } from './drilldown.js';
+import { wireKpiEdit } from './kpi-edit.js';
 
 export default {
   charts: [],
@@ -17,6 +18,8 @@ export default {
     this._renderAdjacentDeals(containerEl, data);
     this._renderProductBreakdown(containerEl, data);
     this._wirePipelineSelector(containerEl, data);
+
+    wireKpiEdit(containerEl, 'sales', data.kpis);
 
     CIC.onScenarioChange((scenario) => {
       this._renderMRRTracker(containerEl, data);
