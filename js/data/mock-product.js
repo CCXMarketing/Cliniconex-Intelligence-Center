@@ -69,10 +69,11 @@ export const data = {
       label: 'Say / Do Ratio',
       definition: '% of committed sprint/quarter deliverables actually shipped',
       value: 84,
+      value_grace_1d: 88,
       target: 90,
       by_quarter: [
-        { quarter: 'Q4 2025', ratio: 78, committed: 32, delivered: 25 },
-        { quarter: 'Q1 2026', ratio: 84, committed: 25, delivered: 21 }
+        { quarter: 'Q4 2025', ratio: 78, ratio_grace_1d: 81, committed: 32, delivered: 25 },
+        { quarter: 'Q1 2026', ratio: 84, ratio_grace_1d: 88, committed: 25, delivered: 21 }
       ],
       status: 'yellow',
       unit: 'percent',
