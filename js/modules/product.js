@@ -228,70 +228,91 @@ export default {
       </div>`;
   },
 
-  // ── Allocation Donut Chart ──
+  // ── Allocation by Quarter Bar Chart ──
 
   _renderAllocationChart(data) {
     const canvas = document.getElementById('product-allocation-chart');
     if (!canvas) return;
-    const breakdown = data.kpis.strategic_allocation.breakdown;
+    const quarters = data.kpis.strategic_allocation.by_quarter || [];
+    if (quarters.length === 0) return;
+
+    const fallbackQuarters = quarters.some(
+      q => q.weight_basis && q.weight_basis !== 'time'
+    );
 
     const chart = new Chart(canvas, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: breakdown.map(b => b.type),
+        labels: quarters.map(q => q.quarter),
         datasets: [{
-          data: breakdown.map(b => b.pct),
-          backgroundColor: ['#ADC837', '#F57F17', '#E53935'],
-          borderWidth: 2,
-          borderColor: '#FFFFFF'
+          label: 'Strategic %',
+          data: quarters.map(q => q.ratio),
+          backgroundColor: '#ADC837',
+          borderRadius: 4,
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '55%',
-        onClick: (evt, elements) => {
-          if (elements.length === 0) return;
-          const idx = elements[0].index;
-          const b = breakdown[idx];
-          const sa = data.kpis.strategic_allocation;
-          Drilldown.open({
-            title:      `${b.type} Allocation`,
-            definition: sa.definition || 'Engineering time allocation by category',
-            value:      b.pct,
-            target:     b.target_pct,
-            unit:       'percent',
-            status:     b.pct >= b.target_pct ? 'green' : 'red',
-            cadence:    sa.cadence || 'Quarterly',
-            dataSource: data.meta?.data_source?.join(', '),
-            accountable: data.meta?.accountable,
-            note:       sa.note || 'Requires consistent JIRA ticket tagging'
-          });
+        scales: {
+          y: {
+            min: 0, max: 100,
+            ticks: { callback: v => v + '%', font: { family: 'Nunito Sans', size: 11 } }
+          },
+          x: { ticks: { font: { family: 'Nunito Sans', size: 11 } } }
         },
         plugins: {
-          legend: { position: 'bottom', labels: { font: { family: 'Nunito Sans', size: 12 } } },
+          legend: { display: false },
           tooltip: {
-            callbacks: { label: ctx => `${ctx.label}: ${ctx.raw}%` }
+            callbacks: {
+              label: ctx => {
+                const q = quarters[ctx.dataIndex];
+                const basis = q.weight_basis === 'count'
+                  ? ' (by issue count — no time data)'
+                  : '';
+                return `${ctx.parsed.y}%${basis}`;
+              }
+            }
           }
         }
       },
       plugins: [{
-        id: 'doughnutLabels',
+        id: 'targetLine',
         afterDraw(chart) {
+          const yScale = chart.scales.y;
+          const yPos = yScale.getPixelForValue(90);
           const { ctx } = chart;
-          chart.data.datasets[0].data.forEach((val, i) => {
-            const meta = chart.getDatasetMeta(0).data[i];
-            const { x, y } = meta.tooltipPosition();
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 13px Nunito Sans';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(val + '%', x, y);
-          });
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([6, 3]);
+          ctx.strokeStyle = '#E53935';
+          ctx.lineWidth = 2;
+          ctx.moveTo(chart.chartArea.left, yPos);
+          ctx.lineTo(chart.chartArea.right, yPos);
+          ctx.stroke();
+          ctx.fillStyle = '#E53935';
+          ctx.font = '11px Nunito Sans';
+          ctx.textAlign = 'right';
+          ctx.fillText('Target 90%', chart.chartArea.right, yPos - 6);
+          ctx.restore();
         }
       }]
     });
     this.charts.push(chart);
+
+    // If any quarter is reporting count-based (no time data), surface that
+    // once below the chart so it doesn't get lost in tooltips.
+    if (fallbackQuarters) {
+      const card = canvas.closest('.chart-card');
+      const subtitle = card?.querySelector('.chart-card__subtitle');
+      if (subtitle && !subtitle.dataset.basisAnnotated) {
+        subtitle.dataset.basisAnnotated = '1';
+        subtitle.insertAdjacentHTML(
+          'beforeend',
+          ' <span style="color:#9E9E9E;">· some quarters use issue-count fallback (no time tracking)</span>'
+        );
+      }
+    }
   },
 
   // ── Say/Do Bar Chart ──

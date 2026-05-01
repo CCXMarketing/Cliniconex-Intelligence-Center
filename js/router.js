@@ -168,10 +168,11 @@ window.CIC = {
     }
 
     if (department === 'product' && data.kpis) {
-      const [sayDo, strategic, sayDoByQuarter] = await Promise.allSettled([
+      const [sayDo, strategic, sayDoByQuarter, strategicByQuarter] = await Promise.allSettled([
         live.fetchSayDoRatio(),
         live.fetchStrategicAllocation(),
         live.fetchSayDoByQuarter(),
+        live.fetchStrategicAllocationByQuarter(),
       ]);
       if (sayDo.status === 'fulfilled' && sayDo.value && data.kpis.say_do_ratio) {
         data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
@@ -184,20 +185,35 @@ window.CIC = {
       if (strategic.status === 'fulfilled' && strategic.value && data.kpis.strategic_allocation) {
         data.kpis.strategic_allocation._mockValue = { ...data.kpis.strategic_allocation };
         data.kpis.strategic_allocation.value = strategic.value.value;
+        data.kpis.strategic_allocation.value_by_count = strategic.value.value_by_count;
+        data.kpis.strategic_allocation.weight_basis = strategic.value.weight_basis;
         data.kpis.strategic_allocation.unit = strategic.value.unit;
         data.kpis.strategic_allocation._dataSource = 'live';
         data.kpis.strategic_allocation._meta = strategic.value._meta;
-        const { strategic: s, non_strategic: ns, total } = strategic.value._meta;
-        if (total > 0) {
-          const pct = n => Math.round((n / total) * 1000) / 10;
+        // Drilldown breakdown: prefer time-weighted seconds, fall back to count.
+        const meta = strategic.value._meta;
+        const sSec = meta.strategic_seconds || 0;
+        const nsSec = meta.non_strategic_seconds || 0;
+        const totalSec = sSec + nsSec;
+        if (totalSec > 0) {
+          const pct = n => Math.round((n / totalSec) * 1000) / 10;
           data.kpis.strategic_allocation.breakdown = [
-            { type: 'Strategic',   pct: pct(s),  target_pct: 90 },
-            { type: 'Maintenance', pct: pct(ns), target_pct: 10 }
+            { type: 'Strategic',   pct: pct(sSec),  target_pct: 90 },
+            { type: 'Maintenance', pct: pct(nsSec), target_pct: 10 }
+          ];
+        } else if (meta.total > 0) {
+          const pct = n => Math.round((n / meta.total) * 1000) / 10;
+          data.kpis.strategic_allocation.breakdown = [
+            { type: 'Strategic',   pct: pct(meta.strategic),     target_pct: 90 },
+            { type: 'Maintenance', pct: pct(meta.non_strategic), target_pct: 10 }
           ];
         }
       }
       if (sayDoByQuarter.status === 'fulfilled' && sayDoByQuarter.value && data.kpis.say_do_ratio) {
         data.kpis.say_do_ratio.by_quarter = sayDoByQuarter.value;
+      }
+      if (strategicByQuarter.status === 'fulfilled' && strategicByQuarter.value && data.kpis.strategic_allocation) {
+        data.kpis.strategic_allocation.by_quarter = strategicByQuarter.value;
       }
     }
 

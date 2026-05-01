@@ -322,58 +322,227 @@ class JiraConnector:
     # ── KPI: strategic allocation ───────────────────────────────────────────
 
     NON_STRATEGIC_LABELS = frozenset({"KILO", "KTLO"})
+    END_DATE_FIELD = "customfield_10892"
+    SECONDS_PER_WORKDAY = 8 * 3600
+
+    @staticmethod
+    def _issue_weight_seconds(
+        fields: Dict,
+        end_date_field: str,
+        start_date_field: Optional[str],
+    ):
+        """Time spent on an issue, in seconds, with provenance tag.
+
+        Tier 1: Jira's `timespent` (logged work) when > 0.
+        Tier 2: (End Date - Start Date), inclusive, in 8-hour workdays
+                when both fields are set. Calendar duration with each
+                day counted as one workday — keeps the unit comparable
+                to Tier 1's logged hours.
+        Tier 3: 1 workday (8h) by default — every issue contributes
+                something to the time-weighted ratio so a sparsely
+                time-tracked project doesn't reduce to a tiny subset.
+                The bias is symmetric across strategic vs maintenance
+                so it cancels out as long as both populations are
+                roughly equally tracked.
+
+        Returns (seconds: int, source: str). Source is one of
+        "timespent", "date_span", "default_workday".
+        """
+        timespent = fields.get("timespent")
+        if isinstance(timespent, (int, float)) and timespent > 0:
+            return int(timespent), "timespent"
+
+        if start_date_field:
+            start_raw = fields.get(start_date_field)
+            end_raw = fields.get(end_date_field)
+            if start_raw and end_raw:
+                try:
+                    start = date.fromisoformat(start_raw[:10])
+                    end = date.fromisoformat(end_raw[:10])
+                    if end >= start:
+                        days = (end - start).days + 1
+                        return days * JiraConnector.SECONDS_PER_WORKDAY, "date_span"
+                except ValueError:
+                    pass
+
+        return JiraConnector.SECONDS_PER_WORKDAY, "default_workday"
 
     def compute_strategic_allocation(
-        self, project_key: str, lookback_days: int = 90
+        self,
+        project_key: str,
+        lookback_days: int = 90,
+        start_date_field: Optional[str] = None,
     ) -> Dict:
         """
-        Fraction of resolved work that was strategic (by issue count).
+        Fraction of resolved work that was strategic, weighted by time spent.
 
         Population: non-Epic issues in `project_key` resolved in the last
         `lookback_days`. An issue counts as non-strategic if it carries
         the `KILO` or `KTLO` label (case-insensitive); everything else
         counts as strategic.
 
+        Each issue's contribution is weighted by `_issue_weight_seconds`:
+        Jira `timespent` if logged, else (End Date - Start Date) when
+        `start_date_field` is provided and both dates are set, else
+        dropped. The count-weighted ratio is also returned for fallback
+        and diagnostic purposes.
+
         Until KILO/KTLO start being applied to DELIVERY issues this will
         report 100% strategic by construction.
 
         Returns:
           {
-            "ratio": float | None,
-            "strategic": int,
+            "ratio": float | None,           # time-weighted (primary)
+            "ratio_by_count": float | None,  # legacy / fallback
+            "strategic_seconds": int,
+            "non_strategic_seconds": int,
+            "total_seconds": int,
+            "strategic": int,                # issue counts
             "non_strategic": int,
             "total": int,
+            "weight_sources": {"timespent": int, "date_span": int, "no_data": int},
             "period_days": int,
             "project_key": str,
+            "start_date_field": str | None,
           }
         """
+        today = date.today()
+        start = today - timedelta(days=lookback_days)
+        result = self._compute_allocation_window(
+            project_key, start, today, start_date_field=start_date_field,
+        )
+        result["period_days"] = lookback_days
+        return result
+
+    def _compute_allocation_window(
+        self,
+        project_key: str,
+        start: date,
+        end: date,
+        start_date_field: Optional[str] = None,
+    ) -> Dict:
+        """Run the strategic-allocation logic over a resolved-date window."""
         jql = (
             f'project = "{project_key}" '
             f"AND issuetype != Epic "
-            f"AND resolved >= -{lookback_days}d"
+            f'AND resolved >= "{start.isoformat()}" '
+            f'AND resolved <= "{end.isoformat()}"'
         )
-        issues = self.search(jql, fields=["labels"])
+        fields_to_fetch = ["labels", "timespent", self.END_DATE_FIELD]
+        if start_date_field:
+            fields_to_fetch.append(start_date_field)
+        issues = self.search(jql, fields=fields_to_fetch)
 
         non_strategic_upper = {s.upper() for s in self.NON_STRATEGIC_LABELS}
         strategic = non_strategic = 0
+        strategic_seconds = non_strategic_seconds = 0
+        weight_sources = {"timespent": 0, "date_span": 0, "default_workday": 0}
+
         for issue in issues:
-            labels = (issue.get("fields") or {}).get("labels") or []
-            if any(lbl.upper() in non_strategic_upper for lbl in labels):
+            f = issue.get("fields") or {}
+            labels = f.get("labels") or []
+            is_non_strategic = any(
+                lbl.upper() in non_strategic_upper for lbl in labels
+            )
+
+            seconds, source = self._issue_weight_seconds(
+                f, self.END_DATE_FIELD, start_date_field,
+            )
+            weight_sources[source] += 1
+
+            if is_non_strategic:
                 non_strategic += 1
+                non_strategic_seconds += seconds
             else:
                 strategic += 1
+                strategic_seconds += seconds
 
         total = strategic + non_strategic
-        ratio = (strategic / total) if total else None
+        ratio_by_count = (strategic / total) if total else None
+
+        total_seconds = strategic_seconds + non_strategic_seconds
+        ratio = (
+            (strategic_seconds / total_seconds) if total_seconds else None
+        )
 
         return {
             "ratio": ratio,
+            "ratio_by_count": ratio_by_count,
+            "strategic_seconds": strategic_seconds,
+            "non_strategic_seconds": non_strategic_seconds,
+            "total_seconds": total_seconds,
             "strategic": strategic,
             "non_strategic": non_strategic,
             "total": total,
-            "period_days": lookback_days,
+            "weight_sources": weight_sources,
             "project_key": project_key,
+            "start_date_field": start_date_field,
+            "window_start": start.isoformat(),
+            "window_end": end.isoformat(),
         }
+
+    def compute_strategic_allocation_by_quarter(
+        self,
+        project_key: str,
+        num_quarters: int = 4,
+        start_date_field: Optional[str] = None,
+        reference: Optional[date] = None,
+    ) -> List[Dict]:
+        """Time-weighted strategic allocation per calendar quarter, oldest first.
+
+        Bucketed by resolution date — issues that span multiple quarters
+        attribute all of their time to the quarter they resolved in. The
+        current quarter's window ends at `reference` (defaults to today).
+        """
+        today = reference or date.today()
+        cur_q = (today.month - 1) // 3 + 1
+        cur_y = today.year
+
+        quarters: List[Dict] = []
+        for i in range(num_quarters):
+            qi, yi = cur_q - i, cur_y
+            while qi < 1:
+                qi += 4
+                yi -= 1
+            start_month = (qi - 1) * 3 + 1
+            q_start = date(yi, start_month, 1)
+            q_end = (
+                date(yi + 1, 1, 1) if qi == 4
+                else date(yi, start_month + 3, 1)
+            ) - timedelta(days=1)
+            win_end = min(q_end, today)
+
+            result = self._compute_allocation_window(
+                project_key, q_start, win_end,
+                start_date_field=start_date_field,
+            )
+            result["quarter"] = f"Q{qi} {yi}"
+            quarters.append(result)
+
+        quarters.reverse()
+        return quarters
+
+    def list_custom_fields(self, contains: Optional[str] = None) -> List[Dict]:
+        """List custom fields on this Jira site, optionally filtered by name.
+
+        Helper for finding the right `customfield_XXXXX` ID for fields
+        like Start Date. Returns [{id, name, schema_type}] sorted by id.
+        """
+        all_fields = self._get("/rest/api/3/field")
+        custom = [
+            {
+                "id": fld.get("id", ""),
+                "name": fld.get("name", ""),
+                "schema_type": (fld.get("schema") or {}).get("type"),
+            }
+            for fld in all_fields
+            if isinstance(fld, dict) and fld.get("custom") is True
+        ]
+        if contains:
+            needle = contains.lower()
+            custom = [c for c in custom if needle in c["name"].lower()]
+        custom.sort(key=lambda c: c["id"])
+        return custom
 
     # ── Documentation ───────────────────────────────────────────────────────
 

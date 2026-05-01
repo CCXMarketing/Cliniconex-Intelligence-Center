@@ -246,18 +246,67 @@ export async function fetchStrategicAllocation(options = {}) {
   if (options.lookbackDays) params.set('lookback_days', String(options.lookbackDays));
   const qs = params.toString() ? `?${params}` : '';
   const data = await fetchJson(`api/jira/strategic-allocation${qs}`);
-  if (!data || data.error || data.ratio == null) return null;
+  if (!data || data.error) return null;
+
+  // Prefer the time-weighted ratio; fall back to count-weighted when no
+  // issue had loggable time data so the dashboard still renders.
+  const timeRatio = data.ratio;
+  const countRatio = data.ratio_by_count;
+  const effective = timeRatio != null ? timeRatio : countRatio;
+  if (effective == null) return null;
 
   return {
-    value: parseFloat((data.ratio * 100).toFixed(1)),
+    value: parseFloat((effective * 100).toFixed(1)),
+    value_by_count: countRatio == null
+      ? null
+      : parseFloat((countRatio * 100).toFixed(1)),
+    weight_basis: timeRatio != null ? 'time' : 'count',
     unit: '%',
     _meta: {
       strategic: data.strategic,
       non_strategic: data.non_strategic,
       total: data.total,
+      strategic_seconds: data.strategic_seconds,
+      non_strategic_seconds: data.non_strategic_seconds,
+      total_seconds: data.total_seconds,
+      weight_sources: data.weight_sources,
       period_days: data.period_days,
       project_key: data.project_key,
+      start_date_field: data.start_date_field,
     },
     _dataSource: 'live',
   };
+}
+
+export async function fetchStrategicAllocationByQuarter(options = {}) {
+  const params = new URLSearchParams();
+  if (options.projectKey) params.set('project_key', options.projectKey);
+  if (options.numQuarters) params.set('num_quarters', String(options.numQuarters));
+  const qs = params.toString() ? `?${params}` : '';
+  const data = await fetchJson(`api/jira/strategic-allocation-by-quarter${qs}`);
+  if (!data || data.error || !Array.isArray(data.quarters)) return null;
+
+  return data.quarters.map(q => {
+    const time = q.ratio;
+    const count = q.ratio_by_count;
+    const effective = time != null ? time : count;
+    return {
+      quarter: q.quarter,
+      ratio: effective == null ? null : Math.round(effective * 1000) / 10,
+      ratio_time_weighted: time == null ? null : Math.round(time * 1000) / 10,
+      ratio_by_count: count == null ? null : Math.round(count * 1000) / 10,
+      weight_basis: time != null ? 'time' : (count != null ? 'count' : 'none'),
+      strategic: q.strategic,
+      non_strategic: q.non_strategic,
+      total: q.total,
+      _meta: {
+        strategic_seconds: q.strategic_seconds,
+        non_strategic_seconds: q.non_strategic_seconds,
+        total_seconds: q.total_seconds,
+        weight_sources: q.weight_sources,
+        window_start: q.window_start,
+        window_end: q.window_end,
+      },
+    };
+  });
 }

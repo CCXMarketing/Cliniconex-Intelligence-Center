@@ -96,10 +96,17 @@ export const data = {
       label: 'Strategic Development Allocation',
       definition: '% of dev effort on strategic initiatives vs. maintenance (KTLO/KILO)',
       value: 72,
+      weight_basis: 'time',
       target: 90,
       breakdown: [
         { type: 'Strategic',   pct: 72, target_pct: 90 },
         { type: 'Maintenance', pct: 28, target_pct: 10 }
+      ],
+      by_quarter: [
+        { quarter: 'Q3 2025', ratio: 65, weight_basis: 'time' },
+        { quarter: 'Q4 2025', ratio: 68, weight_basis: 'time' },
+        { quarter: 'Q1 2026', ratio: 70, weight_basis: 'time' },
+        { quarter: 'Q2 2026', ratio: 72, weight_basis: 'time' }
       ],
       status: 'red',
       unit: 'percent',
