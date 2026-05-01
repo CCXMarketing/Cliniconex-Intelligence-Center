@@ -82,6 +82,10 @@ def _load_credentials() -> dict:
             "email": os.environ.get("JIRA_EMAIL", ""),
             "api_token": os.environ.get("JIRA_API_TOKEN", ""),
             "project_key": os.environ.get("JIRA_PROJECT_KEY", "DELIVERY"),
+            # Custom field ID for "Start date" (e.g. customfield_10891).
+            # Used by strategic-allocation as a tier-2 weight when an
+            # issue has no logged work. Discover via /api/jira/custom-fields.
+            "start_date_field": os.environ.get("JIRA_START_DATE_FIELD", ""),
         },
         "salesforce": {
             "instance_url": os.environ.get("SF_INSTANCE_URL", ""),
@@ -2366,11 +2370,13 @@ is explicitly requested."""
 
     @app.route("/api/jira/strategic-allocation")
     def api_jira_strategic_allocation():
-        """Fraction of resolved non-Epic work that isn't labeled KILO/KTLO.
+        """Fraction of resolved non-Epic work that isn't labeled KILO/KTLO,
+        weighted by time spent (Jira `timespent` → (End-Start) → drop).
 
         Query params:
-          project_key: defaults to $JIRA_PROJECT_KEY or 'DELIVERY'
-          lookback_days: default 90
+          project_key:       defaults to $JIRA_PROJECT_KEY or 'DELIVERY'
+          lookback_days:     default 90
+          start_date_field:  override $JIRA_START_DATE_FIELD for a request
         """
         creds = _load_credentials()
         jira = _build_jira(creds)
@@ -2380,15 +2386,24 @@ is explicitly requested."""
         project_key = request.args.get(
             "project_key", creds.get("jira", {}).get("project_key") or "DELIVERY"
         )
+        start_date_field = request.args.get(
+            "start_date_field",
+            creds.get("jira", {}).get("start_date_field") or "",
+        ) or None
         try:
             lookback_days = int(request.args.get("lookback_days", 90))
         except ValueError:
             lookback_days = 90
 
-        scope = f"project={project_key},days={lookback_days}"
+        scope = (
+            f"project={project_key},days={lookback_days},"
+            f"start_field={start_date_field or 'none'}"
+        )
         try:
             result = jira.compute_strategic_allocation(
-                project_key, lookback_days=lookback_days
+                project_key,
+                lookback_days=lookback_days,
+                start_date_field=start_date_field,
             )
             safe_write(snapshot_store, "jira", "strategic_allocation", scope, result)
             return jsonify(result)
@@ -2396,6 +2411,75 @@ is explicitly requested."""
             return _stale_or_error(
                 "jira", "strategic_allocation", scope, e, "JIRA strategic allocation",
             )
+
+    @app.route("/api/jira/strategic-allocation-by-quarter")
+    def api_jira_strategic_allocation_by_quarter():
+        """Time-weighted strategic allocation per calendar quarter.
+
+        Query params mirror the lookback variant, plus:
+          num_quarters: default 4
+        """
+        creds = _load_credentials()
+        jira = _build_jira(creds)
+        if not jira:
+            return jsonify({"error": "JIRA not configured"}), 503
+
+        project_key = request.args.get(
+            "project_key", creds.get("jira", {}).get("project_key") or "DELIVERY"
+        )
+        start_date_field = request.args.get(
+            "start_date_field",
+            creds.get("jira", {}).get("start_date_field") or "",
+        ) or None
+        try:
+            num_quarters = int(request.args.get("num_quarters", 4))
+        except ValueError:
+            num_quarters = 4
+
+        scope = (
+            f"project={project_key},num_quarters={num_quarters},"
+            f"start_field={start_date_field or 'none'}"
+        )
+        try:
+            result = jira.compute_strategic_allocation_by_quarter(
+                project_key,
+                num_quarters=num_quarters,
+                start_date_field=start_date_field,
+            )
+            payload = {"quarters": result, "project_key": project_key}
+            safe_write(
+                snapshot_store, "jira",
+                "strategic_allocation_by_quarter", scope, payload,
+            )
+            return jsonify(payload)
+        except Exception as e:
+            return _stale_or_error(
+                "jira", "strategic_allocation_by_quarter", scope, e,
+                "JIRA strategic allocation by quarter",
+            )
+
+    @app.route("/api/jira/custom-fields")
+    def api_jira_custom_fields():
+        """List Jira custom fields, optionally filtered by name substring.
+
+        Helps the operator find the correct customfield_XXXXX ID for
+        Start Date so JIRA_START_DATE_FIELD can be set on radar.
+
+        Query params:
+          contains: case-insensitive name filter (e.g. 'date', 'start')
+        """
+        creds = _load_credentials()
+        jira = _build_jira(creds)
+        if not jira:
+            return jsonify({"error": "JIRA not configured"}), 503
+
+        contains = request.args.get("contains") or None
+        try:
+            fields = jira.list_custom_fields(contains=contains)
+            return jsonify({"fields": fields, "filter": contains})
+        except Exception as e:
+            logger.exception("Failed to list Jira custom fields")
+            return jsonify({"error": str(e)}), 500
 
     # ── Salesforce: Sales/CS/Exec KPIs ──────────────────────────────────
 

@@ -364,31 +364,43 @@ class TestComputeSayDoByQuarter:
 # ── compute_strategic_allocation ────────────────────────────────────────────
 
 
-class TestStrategicAllocation:
+START_DATE_FIELD = "customfield_10891"
 
-    @staticmethod
-    def labeled(*labels):
-        return {"key": "X", "fields": {"labels": list(labels)}}
+
+def alloc_issue(*labels, timespent=None, start=None, end=None):
+    """Build a strategic-allocation issue with optional time-tracking fields."""
+    fields = {"labels": list(labels)}
+    if timespent is not None:
+        fields["timespent"] = timespent
+    if start is not None:
+        fields[START_DATE_FIELD] = start
+    if end is not None:
+        fields[END_DATE_FIELD] = end
+    return {"key": "X", "fields": fields}
+
+
+class TestStrategicAllocationCounts:
+    """ratio_by_count remains the count-weighted ratio (legacy semantics)."""
 
     def test_no_labels_counts_as_strategic(self):
         c = make_connector()
-        stub_search(c, [self.labeled(), self.labeled()])
+        stub_search(c, [alloc_issue(), alloc_issue()])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["strategic"] == 2
         assert r["non_strategic"] == 0
-        assert r["ratio"] == 1.0
+        assert r["ratio_by_count"] == 1.0
 
     def test_kilo_label_marks_non_strategic(self):
         c = make_connector()
-        stub_search(c, [self.labeled("KILO"), self.labeled()])
+        stub_search(c, [alloc_issue("KILO"), alloc_issue()])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["strategic"] == 1
         assert r["non_strategic"] == 1
-        assert r["ratio"] == 0.5
+        assert r["ratio_by_count"] == 0.5
 
     def test_ktlo_label_marks_non_strategic(self):
         c = make_connector()
-        stub_search(c, [self.labeled("KTLO")])
+        stub_search(c, [alloc_issue("KTLO")])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["non_strategic"] == 1
         assert r["strategic"] == 0
@@ -396,9 +408,9 @@ class TestStrategicAllocation:
     def test_label_match_is_case_insensitive(self):
         c = make_connector()
         stub_search(c, [
-            self.labeled("kilo"),
-            self.labeled("Ktlo"),
-            self.labeled("KILO"),
+            alloc_issue("kilo"),
+            alloc_issue("Ktlo"),
+            alloc_issue("KILO"),
         ])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["non_strategic"] == 3
@@ -408,25 +420,204 @@ class TestStrategicAllocation:
         """Any KILO/KTLO label flips the issue to non-strategic, even if
         other labels are present too."""
         c = make_connector()
-        stub_search(c, [self.labeled("KILO", "frontend", "urgent")])
+        stub_search(c, [alloc_issue("KILO", "frontend", "urgent")])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["non_strategic"] == 1
         assert r["strategic"] == 0
 
-    def test_empty_population_ratio_is_none(self):
+    def test_empty_population_both_ratios_none(self):
         c = make_connector()
         stub_search(c, [])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["total"] == 0
         assert r["ratio"] is None
+        assert r["ratio_by_count"] is None
+        assert r["total_seconds"] == 0
 
     def test_jql_uses_resolved_window(self):
         c = make_connector()
         captured = stub_search(c, [])
         c.compute_strategic_allocation("DELIVERY", lookback_days=30)
         jql = captured["jql"]
-        assert "resolved >= -30d" in jql
+        assert "resolved >=" in jql and "resolved <=" in jql
         assert "issuetype != Epic" in jql
+
+    def test_no_time_data_yields_count_only_results(self):
+        """Without timespent or Start/End, time-weighted ratio is None and
+        all issues land in the no_data weight source."""
+        c = make_connector()
+        stub_search(c, [alloc_issue(), alloc_issue("KILO")])
+        r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
+        assert r["ratio"] is None
+        assert r["ratio_by_count"] == 0.5
+        assert r["weight_sources"] == {"timespent": 0, "date_span": 0, "no_data": 2}
+
+
+class TestStrategicAllocationTimeWeighted:
+
+    def test_timespent_drives_weighting(self):
+        """Same count split (1 vs 1), but strategic logged 9x more time —
+        time-weighted ratio is 0.9, count-weighted is 0.5."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(timespent=9 * 3600),         # strategic, 9h
+            alloc_issue("KILO", timespent=1 * 3600), # non-strategic, 1h
+        ])
+        r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
+        assert r["strategic_seconds"] == 9 * 3600
+        assert r["non_strategic_seconds"] == 1 * 3600
+        assert r["total_seconds"] == 10 * 3600
+        assert r["ratio"] == 0.9
+        assert r["ratio_by_count"] == 0.5
+        assert r["weight_sources"]["timespent"] == 2
+
+    def test_date_span_used_when_timespent_absent(self):
+        """Tier-2 fallback: 5-day span = 5*86400 seconds (inclusive)."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(start="2026-04-01", end="2026-04-05"),
+        ])
+        r = c.compute_strategic_allocation(
+            "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
+        )
+        assert r["strategic_seconds"] == 5 * 86400
+        assert r["weight_sources"]["date_span"] == 1
+        assert r["ratio"] == 1.0
+
+    def test_timespent_preferred_over_date_span(self):
+        """When both signals are present, logged work wins."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(timespent=2 * 3600, start="2026-04-01", end="2026-04-10"),
+        ])
+        r = c.compute_strategic_allocation(
+            "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
+        )
+        assert r["strategic_seconds"] == 2 * 3600  # not 10 days
+        assert r["weight_sources"]["timespent"] == 1
+        assert r["weight_sources"]["date_span"] == 0
+
+    def test_date_span_skipped_when_start_field_not_configured(self):
+        """Tier 2 is opt-in via start_date_field; without it, drop to no_data."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(start="2026-04-01", end="2026-04-10"),
+        ])
+        r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
+        assert r["weight_sources"]["no_data"] == 1
+        assert r["weight_sources"]["date_span"] == 0
+        assert r["total_seconds"] == 0
+
+    def test_date_span_handles_iso_datetime_strings(self):
+        """Jira sometimes returns ISO datetime — strip to date for the math."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(
+                start="2026-04-01T09:00:00.000-0400",
+                end="2026-04-03T17:00:00.000-0400",
+            ),
+        ])
+        r = c.compute_strategic_allocation(
+            "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
+        )
+        assert r["strategic_seconds"] == 3 * 86400  # Apr 1, 2, 3 inclusive
+
+    def test_zero_timespent_falls_through_to_date_span(self):
+        """timespent=0 isn't a valid weight — should use the next tier."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(timespent=0, start="2026-04-01", end="2026-04-02"),
+        ])
+        r = c.compute_strategic_allocation(
+            "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
+        )
+        assert r["weight_sources"]["timespent"] == 0
+        assert r["weight_sources"]["date_span"] == 1
+        assert r["strategic_seconds"] == 2 * 86400
+
+    def test_mixed_population_partial_time_data(self):
+        """Some issues have time data, others don't — time-weighted ratio
+        only reflects the issues with weights."""
+        c = make_connector()
+        stub_search(c, [
+            alloc_issue(timespent=8 * 3600),          # strategic, weighted
+            alloc_issue("KILO", timespent=2 * 3600),  # non-strategic, weighted
+            alloc_issue(),                            # strategic, no data
+            alloc_issue("KILO"),                      # non-strategic, no data
+        ])
+        r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
+        assert r["strategic"] == 2
+        assert r["non_strategic"] == 2
+        assert r["ratio_by_count"] == 0.5
+        assert r["strategic_seconds"] == 8 * 3600
+        assert r["non_strategic_seconds"] == 2 * 3600
+        assert r["ratio"] == 0.8
+        assert r["weight_sources"] == {
+            "timespent": 2, "date_span": 0, "no_data": 2,
+        }
+
+    def test_jql_includes_time_fields(self):
+        c = make_connector()
+        captured = stub_search(c, [])
+        c.compute_strategic_allocation(
+            "DELIVERY", lookback_days=30, start_date_field=START_DATE_FIELD,
+        )
+        assert "timespent" in captured["fields"]
+        assert "customfield_10892" in captured["fields"]
+        assert START_DATE_FIELD in captured["fields"]
+
+    def test_start_date_field_omitted_from_query_when_unset(self):
+        c = make_connector()
+        captured = stub_search(c, [])
+        c.compute_strategic_allocation("DELIVERY", lookback_days=30)
+        assert START_DATE_FIELD not in captured["fields"]
+        # End Date and timespent are always fetched.
+        assert "timespent" in captured["fields"]
+        assert "customfield_10892" in captured["fields"]
+
+
+# ── compute_strategic_allocation_by_quarter ────────────────────────────────
+
+
+class TestStrategicAllocationByQuarter:
+
+    def test_returns_n_quarters_oldest_first(self):
+        c = make_connector()
+        stub_search(c, [])
+        out = c.compute_strategic_allocation_by_quarter(
+            "DELIVERY", num_quarters=4, reference=date(2026, 4, 28),
+        )
+        assert [q["quarter"] for q in out] == [
+            "Q3 2025", "Q4 2025", "Q1 2026", "Q2 2026",
+        ]
+
+    def test_current_quarter_capped_at_reference(self):
+        c = make_connector()
+        stub_search(c, [])
+        out = c.compute_strategic_allocation_by_quarter(
+            "DELIVERY", num_quarters=1, reference=date(2026, 4, 28),
+        )
+        assert out[0]["window_end"] == "2026-04-28"
+        assert out[0]["window_start"] == "2026-04-01"
+
+    def test_jql_uses_resolved_window_per_quarter(self):
+        c = make_connector()
+        captured = stub_search(c, [])
+        c.compute_strategic_allocation_by_quarter(
+            "DELIVERY", num_quarters=1, reference=date(2026, 4, 28),
+        )
+        # Last call's JQL should be the most recent quarter
+        assert 'resolved >= "2026-04-01"' in captured["jql"]
+        assert 'resolved <= "2026-04-28"' in captured["jql"]
+
+    def test_propagates_start_date_field(self):
+        c = make_connector()
+        captured = stub_search(c, [])
+        c.compute_strategic_allocation_by_quarter(
+            "DELIVERY", num_quarters=1, reference=date(2026, 4, 28),
+            start_date_field=START_DATE_FIELD,
+        )
+        assert START_DATE_FIELD in captured["fields"]
 
 
 # ── describe_tagging_requirements ───────────────────────────────────────────
