@@ -77,7 +77,10 @@ jobs:
 
       # Excludes preserve runtime state on radar that mustn't be touched:
       #   .env / .env.bak    — secrets
-      #   data/              — runtime SQLite snapshot store
+      #   /data/             — runtime SQLite snapshot store at the source
+      #                        root. The leading slash anchors the pattern
+      #                        so it doesn't also match js/data/, which
+      #                        holds frontend modules that DO need to sync.
       #   venv* / .venv      — Python virtualenv on radar (named 'venv',
       #                        no leading dot — without this exclude
       #                        --delete-after wipes it and breaks deploy)
@@ -90,7 +93,7 @@ jobs:
             --exclude='__pycache__' --exclude='*.pyc' \
             --exclude='venv' --exclude='venv312' --exclude='.venv' \
             --exclude='.env' --exclude='.env.bak' \
-            --exclude='WIP.md' --exclude='data' \
+            --exclude='WIP.md' --exclude='/data' \
             --exclude='.git' --exclude='.github' --exclude='.claude' \
             ./ root@radar:/opt/cic/
 
