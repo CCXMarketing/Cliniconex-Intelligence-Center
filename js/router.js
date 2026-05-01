@@ -176,6 +176,7 @@ window.CIC = {
       if (sayDo.status === 'fulfilled' && sayDo.value && data.kpis.say_do_ratio) {
         data.kpis.say_do_ratio._mockValue = { ...data.kpis.say_do_ratio };
         data.kpis.say_do_ratio.value = sayDo.value.value;
+        data.kpis.say_do_ratio.value_grace_1d = sayDo.value.value_grace_1d;
         data.kpis.say_do_ratio.unit = sayDo.value.unit;
         data.kpis.say_do_ratio._dataSource = 'live';
         data.kpis.say_do_ratio._meta = sayDo.value._meta;

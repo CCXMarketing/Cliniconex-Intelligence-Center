@@ -172,6 +172,9 @@ export async function fetchSayDoRatio(options = {}) {
 
   return {
     value: parseFloat((data.ratio * 100).toFixed(1)),
+    value_grace_1d: data.ratio_grace_1d == null
+      ? null
+      : parseFloat((data.ratio_grace_1d * 100).toFixed(1)),
     unit: '%',
     _meta: {
       on_time: data.on_time,
@@ -179,6 +182,9 @@ export async function fetchSayDoRatio(options = {}) {
       overdue_open: data.overdue_open,
       late: data.late,
       total: data.total,
+      on_time_grace_1d: data.on_time_grace_1d,
+      resolved_late_grace_1d: data.resolved_late_grace_1d,
+      late_grace_1d: data.late_grace_1d,
       period_days: data.period_days,
       project_key: data.project_key,
     },
@@ -197,11 +203,17 @@ export async function fetchSayDoByQuarter(options = {}) {
   return data.quarters.map(q => ({
     quarter:   q.quarter,
     ratio:     q.ratio == null ? null : Math.round(q.ratio * 1000) / 10,
+    ratio_grace_1d: q.ratio_grace_1d == null
+      ? null
+      : Math.round(q.ratio_grace_1d * 1000) / 10,
     committed: q.total,
     delivered: q.on_time,
+    delivered_grace_1d: q.on_time_grace_1d,
     _meta: {
       resolved_late: q.resolved_late,
       overdue_open: q.overdue_open,
+      resolved_late_grace_1d: q.resolved_late_grace_1d,
+      late_grace_1d: q.late_grace_1d,
       window_start: q.window_start,
       window_end: q.window_end,
     },

@@ -187,6 +187,82 @@ class TestComputeSayDoWindow:
         assert '"2026-03-31"' in jql
         assert 'duedate >=' in jql and 'duedate <=' in jql
 
+    def test_grace_1d_promotes_one_day_late_to_on_time(self):
+        """An issue completed exactly 1 day past due is late under strict
+        but on-time under 1-day grace."""
+        c = make_connector()
+        stub_search(c, [
+            make_issue(
+                duedate="2026-04-15",
+                end_date="2026-04-16",
+                status_category="done",
+            ),
+        ])
+        r = c._compute_say_do_window("DELIVERY", date(2026, 4, 1), date(2026, 4, 30))
+        assert r["on_time"] == 0
+        assert r["resolved_late"] == 1
+        assert r["ratio"] == 0.0
+        assert r["on_time_grace_1d"] == 1
+        assert r["resolved_late_grace_1d"] == 0
+        assert r["ratio_grace_1d"] == 1.0
+
+    def test_grace_1d_does_not_help_two_day_late(self):
+        """Grace is exactly 1 day — completion 2 days past due stays late."""
+        c = make_connector()
+        stub_search(c, [
+            make_issue(
+                duedate="2026-04-15",
+                end_date="2026-04-17",
+                status_category="done",
+            ),
+        ])
+        r = c._compute_say_do_window("DELIVERY", date(2026, 4, 1), date(2026, 4, 30))
+        assert r["resolved_late"] == 1
+        assert r["resolved_late_grace_1d"] == 1
+        assert r["on_time_grace_1d"] == 0
+        assert r["ratio_grace_1d"] == 0.0
+
+    def test_grace_1d_does_not_rescue_overdue_open(self):
+        """An issue that's still open is never on-time, regardless of grace."""
+        c = make_connector()
+        stub_search(c, [
+            make_issue(duedate="2026-04-15", status_category="in progress"),
+        ])
+        r = c._compute_say_do_window("DELIVERY", date(2026, 4, 1), date(2026, 4, 30))
+        assert r["overdue_open"] == 1
+        assert r["on_time_grace_1d"] == 0
+        assert r["late_grace_1d"] == 1
+        assert r["ratio_grace_1d"] == 0.0
+
+    def test_grace_1d_mixed_population(self):
+        c = make_connector()
+        stub_search(c, [
+            # On-time strict — also on-time at grace
+            make_issue(duedate="2026-04-10", end_date="2026-04-10", status_category="done"),
+            # Resolved 1 day late — late strict, on-time at grace
+            make_issue(duedate="2026-04-12", end_date="2026-04-13", status_category="done"),
+            # Resolved 3 days late — late under both
+            make_issue(duedate="2026-04-15", end_date="2026-04-18", status_category="done"),
+            # Still open — late under both
+            make_issue(duedate="2026-04-20", status_category="in progress"),
+        ])
+        r = c._compute_say_do_window("DELIVERY", date(2026, 4, 1), date(2026, 4, 30))
+        assert r["on_time"] == 1
+        assert r["resolved_late"] == 2
+        assert r["overdue_open"] == 1
+        assert r["ratio"] == 0.25
+        assert r["on_time_grace_1d"] == 2
+        assert r["resolved_late_grace_1d"] == 1
+        assert r["late_grace_1d"] == 2
+        assert r["ratio_grace_1d"] == 0.5
+
+    def test_grace_1d_empty_population_is_none(self):
+        c = make_connector()
+        stub_search(c, [])
+        r = c._compute_say_do_window("DELIVERY", date(2026, 4, 1), date(2026, 4, 30))
+        assert r["ratio_grace_1d"] is None
+        assert r["on_time_grace_1d"] == 0
+
     def test_ratio_computation_mixed_population(self):
         c = make_connector()
         stub_search(c, [

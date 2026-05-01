@@ -191,7 +191,12 @@ class JiraConnector:
     def _compute_say_do_window(
         self, project_key: str, start: date, end: date
     ) -> Dict:
-        """Run the say/do logic over an absolute duedate window [start, end]."""
+        """Run the say/do logic over an absolute duedate window [start, end].
+
+        Computes the strict ratio (completion <= duedate) and a 1-day grace
+        ratio (completion <= duedate + 1 day) in a single pass. Issues that
+        are still open never count as on-time at any grace level.
+        """
         end_date_field = "customfield_10892"
         jql = (
             f'project = "{project_key}" '
@@ -205,6 +210,7 @@ class JiraConnector:
         )
 
         on_time = resolved_late = overdue_open = 0
+        on_time_grace_1d = resolved_late_grace_1d = 0
         for issue in issues:
             f = issue.get("fields", {})
             due_raw = f.get("duedate")
@@ -243,14 +249,24 @@ class JiraConnector:
 
             if completion is None:
                 overdue_open += 1
-            elif completion <= due:
+                continue
+
+            if completion <= due:
                 on_time += 1
+                on_time_grace_1d += 1
             else:
                 resolved_late += 1
+                if completion <= due + timedelta(days=1):
+                    on_time_grace_1d += 1
+                else:
+                    resolved_late_grace_1d += 1
 
         late = resolved_late + overdue_open
         total = on_time + late
         ratio = (on_time / total) if total else None
+
+        late_grace_1d = resolved_late_grace_1d + overdue_open
+        ratio_grace_1d = (on_time_grace_1d / total) if total else None
 
         return {
             "ratio": ratio,
@@ -259,6 +275,10 @@ class JiraConnector:
             "overdue_open": overdue_open,
             "late": late,
             "total": total,
+            "ratio_grace_1d": ratio_grace_1d,
+            "on_time_grace_1d": on_time_grace_1d,
+            "resolved_late_grace_1d": resolved_late_grace_1d,
+            "late_grace_1d": late_grace_1d,
             "project_key": project_key,
             "window_start": start.isoformat(),
             "window_end": end.isoformat(),

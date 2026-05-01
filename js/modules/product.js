@@ -197,13 +197,35 @@ export default {
     const k = data.kpis;
 
     grid.innerHTML = [
-      this._kpiCard('Say/Do Ratio', k.say_do_ratio.value + '%',
-        `Target: ${k.say_do_ratio.target}%`, 'yellow', 'Quarterly', null, 'say_do_ratio', k.say_do_ratio),
+      this._sayDoCard(k.say_do_ratio),
       this._kpiCard('Customer-Facing Bug Reduction', k.bug_reduction.value + '%',
         `Target: ${k.bug_reduction.target}% QoQ`, 'red', 'Quarterly', null, 'bug_reduction', k.bug_reduction),
       this._kpiCard('Strategic Allocation', k.strategic_allocation.value + '%',
         `Target: ${k.strategic_allocation.target}%`, 'red', 'Quarterly', null, 'strategic_allocation', k.strategic_allocation)
     ].join('');
+  },
+
+  _sayDoCard(kpi) {
+    let badgeHtml = '';
+    if (kpi?._catalog || kpi?._dataSource) {
+      const b = CIC.catalog.dataSourceBadge(kpi);
+      badgeHtml = `<span class="kpi-badge ${b.cssClass}">${b.label}</span>`;
+    }
+    const stackedRow = (value, caption) => `
+      <div style="display:flex;align-items:baseline;gap:6px;">
+        <span class="kpi-value kpi-value--sm">${value == null ? '—' : value + '%'}</span>
+        <span style="font-size:11px;color:#9E9E9E;">${caption}</span>
+      </div>`;
+    const grace = kpi.value_grace_1d;
+    return `
+      <div class="kpi-card kpi-card--yellow" data-drilldown="say_do_ratio">
+        ${badgeHtml}
+        <div class="kpi-cadence">Quarterly</div>
+        <div class="kpi-label">Say/Do Ratio</div>
+        ${stackedRow(kpi.value, 'strict')}
+        ${grace == null ? '' : stackedRow(grace, 'with 1-day grace')}
+        <div class="kpi-target">Target: ${kpi.target}%</div>
+      </div>`;
   },
 
   // ── Allocation Donut Chart ──
@@ -278,18 +300,28 @@ export default {
     const canvas = document.getElementById('product-saydo-chart');
     if (!canvas) return;
     const quarters = data.kpis.say_do_ratio.by_quarter;
+    const hasGrace = quarters.some(q => q.ratio_grace_1d != null);
+
+    const datasets = [{
+      label: 'Strict',
+      data: quarters.map(q => q.ratio),
+      backgroundColor: '#029FB5',
+      borderRadius: 4,
+    }];
+    if (hasGrace) {
+      datasets.push({
+        label: '+1-day grace',
+        data: quarters.map(q => q.ratio_grace_1d),
+        backgroundColor: '#7FCBD7',
+        borderRadius: 4,
+      });
+    }
 
     const chart = new Chart(canvas, {
       type: 'bar',
       data: {
         labels: quarters.map(q => q.quarter),
-        datasets: [{
-          label: 'Say/Do %',
-          data: quarters.map(q => q.ratio),
-          backgroundColor: '#029FB5',
-          borderRadius: 4,
-          barPercentage: 0.5
-        }]
+        datasets,
       },
       options: {
         responsive: true,
@@ -302,7 +334,11 @@ export default {
           x: { ticks: { font: { family: 'Nunito Sans', size: 11 } } }
         },
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: hasGrace,
+            position: 'bottom',
+            labels: { font: { family: 'Nunito Sans', size: 11 }, boxWidth: 12 },
+          },
           annotation: {
             annotations: {
               targetLine: {
