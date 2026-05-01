@@ -323,6 +323,7 @@ class JiraConnector:
 
     NON_STRATEGIC_LABELS = frozenset({"KILO", "KTLO"})
     END_DATE_FIELD = "customfield_10892"
+    SECONDS_PER_WORKDAY = 8 * 3600
 
     @staticmethod
     def _issue_weight_seconds(
@@ -333,13 +334,19 @@ class JiraConnector:
         """Time spent on an issue, in seconds, with provenance tag.
 
         Tier 1: Jira's `timespent` (logged work) when > 0.
-        Tier 2: (End Date - Start Date), inclusive, when both fields are
-                set. Calendar duration — overestimates active work
-                relative to logged time, but consistently within tier 2.
-        Tier 3: None — issue is dropped from the time-weighted total.
+        Tier 2: (End Date - Start Date), inclusive, in 8-hour workdays
+                when both fields are set. Calendar duration with each
+                day counted as one workday — keeps the unit comparable
+                to Tier 1's logged hours.
+        Tier 3: 1 workday (8h) by default — every issue contributes
+                something to the time-weighted ratio so a sparsely
+                time-tracked project doesn't reduce to a tiny subset.
+                The bias is symmetric across strategic vs maintenance
+                so it cancels out as long as both populations are
+                roughly equally tracked.
 
-        Returns (seconds: int|None, source: str). Source is one of
-        "timespent", "date_span", "no_data".
+        Returns (seconds: int, source: str). Source is one of
+        "timespent", "date_span", "default_workday".
         """
         timespent = fields.get("timespent")
         if isinstance(timespent, (int, float)) and timespent > 0:
@@ -352,13 +359,13 @@ class JiraConnector:
                 try:
                     start = date.fromisoformat(start_raw[:10])
                     end = date.fromisoformat(end_raw[:10])
+                    if end >= start:
+                        days = (end - start).days + 1
+                        return days * JiraConnector.SECONDS_PER_WORKDAY, "date_span"
                 except ValueError:
-                    return None, "no_data"
-                if end >= start:
-                    days = (end - start).days + 1
-                    return days * 86400, "date_span"
+                    pass
 
-        return None, "no_data"
+        return JiraConnector.SECONDS_PER_WORKDAY, "default_workday"
 
     def compute_strategic_allocation(
         self,
@@ -429,7 +436,7 @@ class JiraConnector:
         non_strategic_upper = {s.upper() for s in self.NON_STRATEGIC_LABELS}
         strategic = non_strategic = 0
         strategic_seconds = non_strategic_seconds = 0
-        weight_sources = {"timespent": 0, "date_span": 0, "no_data": 0}
+        weight_sources = {"timespent": 0, "date_span": 0, "default_workday": 0}
 
         for issue in issues:
             f = issue.get("fields") or {}
@@ -445,12 +452,10 @@ class JiraConnector:
 
             if is_non_strategic:
                 non_strategic += 1
-                if seconds is not None:
-                    non_strategic_seconds += seconds
+                non_strategic_seconds += seconds
             else:
                 strategic += 1
-                if seconds is not None:
-                    strategic_seconds += seconds
+                strategic_seconds += seconds
 
         total = strategic + non_strategic
         ratio_by_count = (strategic / total) if total else None

@@ -442,15 +442,20 @@ class TestStrategicAllocationCounts:
         assert "resolved >=" in jql and "resolved <=" in jql
         assert "issuetype != Epic" in jql
 
-    def test_no_time_data_yields_count_only_results(self):
-        """Without timespent or Start/End, time-weighted ratio is None and
-        all issues land in the no_data weight source."""
+    def test_no_time_data_uses_default_workday(self):
+        """Without timespent or Start/End, every issue contributes a
+        default 8-hour workday so the time-weighted ratio still tracks
+        the count-based ratio."""
         c = make_connector()
         stub_search(c, [alloc_issue(), alloc_issue("KILO")])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
-        assert r["ratio"] is None
+        assert r["weight_sources"] == {
+            "timespent": 0, "date_span": 0, "default_workday": 2,
+        }
+        assert r["strategic_seconds"] == 8 * 3600
+        assert r["non_strategic_seconds"] == 8 * 3600
+        assert r["ratio"] == 0.5
         assert r["ratio_by_count"] == 0.5
-        assert r["weight_sources"] == {"timespent": 0, "date_span": 0, "no_data": 2}
 
 
 class TestStrategicAllocationTimeWeighted:
@@ -472,7 +477,7 @@ class TestStrategicAllocationTimeWeighted:
         assert r["weight_sources"]["timespent"] == 2
 
     def test_date_span_used_when_timespent_absent(self):
-        """Tier-2 fallback: 5-day span = 5*86400 seconds (inclusive)."""
+        """Tier-2 fallback: 5-day span = 5 8-hour workdays."""
         c = make_connector()
         stub_search(c, [
             alloc_issue(start="2026-04-01", end="2026-04-05"),
@@ -480,7 +485,7 @@ class TestStrategicAllocationTimeWeighted:
         r = c.compute_strategic_allocation(
             "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
         )
-        assert r["strategic_seconds"] == 5 * 86400
+        assert r["strategic_seconds"] == 5 * 8 * 3600
         assert r["weight_sources"]["date_span"] == 1
         assert r["ratio"] == 1.0
 
@@ -493,20 +498,21 @@ class TestStrategicAllocationTimeWeighted:
         r = c.compute_strategic_allocation(
             "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
         )
-        assert r["strategic_seconds"] == 2 * 3600  # not 10 days
+        assert r["strategic_seconds"] == 2 * 3600  # logged hours, not span
         assert r["weight_sources"]["timespent"] == 1
         assert r["weight_sources"]["date_span"] == 0
 
     def test_date_span_skipped_when_start_field_not_configured(self):
-        """Tier 2 is opt-in via start_date_field; without it, drop to no_data."""
+        """Tier 2 is opt-in via start_date_field; without it, the issue
+        gets the default-workday weight rather than being dropped."""
         c = make_connector()
         stub_search(c, [
             alloc_issue(start="2026-04-01", end="2026-04-10"),
         ])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
-        assert r["weight_sources"]["no_data"] == 1
+        assert r["weight_sources"]["default_workday"] == 1
         assert r["weight_sources"]["date_span"] == 0
-        assert r["total_seconds"] == 0
+        assert r["total_seconds"] == 8 * 3600
 
     def test_date_span_handles_iso_datetime_strings(self):
         """Jira sometimes returns ISO datetime — strip to date for the math."""
@@ -520,7 +526,8 @@ class TestStrategicAllocationTimeWeighted:
         r = c.compute_strategic_allocation(
             "DELIVERY", lookback_days=90, start_date_field=START_DATE_FIELD,
         )
-        assert r["strategic_seconds"] == 3 * 86400  # Apr 1, 2, 3 inclusive
+        # Apr 1, 2, 3 inclusive at 8 hours/day
+        assert r["strategic_seconds"] == 3 * 8 * 3600
 
     def test_zero_timespent_falls_through_to_date_span(self):
         """timespent=0 isn't a valid weight — should use the next tier."""
@@ -533,27 +540,29 @@ class TestStrategicAllocationTimeWeighted:
         )
         assert r["weight_sources"]["timespent"] == 0
         assert r["weight_sources"]["date_span"] == 1
-        assert r["strategic_seconds"] == 2 * 86400
+        assert r["strategic_seconds"] == 2 * 8 * 3600
 
     def test_mixed_population_partial_time_data(self):
-        """Some issues have time data, others don't — time-weighted ratio
-        only reflects the issues with weights."""
+        """Some issues have time data, others fall back to the default
+        workday — the time-weighted ratio reflects both populations."""
         c = make_connector()
         stub_search(c, [
-            alloc_issue(timespent=8 * 3600),          # strategic, weighted
-            alloc_issue("KILO", timespent=2 * 3600),  # non-strategic, weighted
-            alloc_issue(),                            # strategic, no data
-            alloc_issue("KILO"),                      # non-strategic, no data
+            alloc_issue(timespent=8 * 3600),          # strategic, 8h logged
+            alloc_issue("KILO", timespent=2 * 3600),  # non-strategic, 2h logged
+            alloc_issue(),                            # strategic, default 8h
+            alloc_issue("KILO"),                      # non-strategic, default 8h
         ])
         r = c.compute_strategic_allocation("DELIVERY", lookback_days=90)
         assert r["strategic"] == 2
         assert r["non_strategic"] == 2
         assert r["ratio_by_count"] == 0.5
-        assert r["strategic_seconds"] == 8 * 3600
-        assert r["non_strategic_seconds"] == 2 * 3600
-        assert r["ratio"] == 0.8
+        # Strategic: 8h logged + 8h default = 16h
+        # Non-strategic: 2h logged + 8h default = 10h
+        assert r["strategic_seconds"] == 16 * 3600
+        assert r["non_strategic_seconds"] == 10 * 3600
+        assert r["ratio"] == 16 / 26
         assert r["weight_sources"] == {
-            "timespent": 2, "date_span": 0, "no_data": 2,
+            "timespent": 2, "date_span": 0, "default_workday": 2,
         }
 
     def test_jql_includes_time_fields(self):
