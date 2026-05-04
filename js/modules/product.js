@@ -3,6 +3,13 @@ import { renderInlineEntry } from './datepicker.js';
 import { wireKpiEdit } from './kpi-edit.js';
 import { wireTargets } from './kpi-targets.js';
 
+// Parse the year out of a "Qn YYYY" quarter label.
+// Returns 0 on malformed input so those quarters get filtered out.
+function quarterYear(label) {
+  const y = parseInt((label || '').slice(-4), 10);
+  return Number.isFinite(y) ? y : 0;
+}
+
 export default {
   charts: [],
   _data: null,
@@ -233,7 +240,10 @@ export default {
   _renderAllocationChart(data) {
     const canvas = document.getElementById('product-allocation-chart');
     if (!canvas) return;
-    const quarters = data.kpis.strategic_allocation.by_quarter || [];
+    const allQuarters = data.kpis.strategic_allocation.by_quarter || [];
+    // 2025 quarters had effectively no Jira data — drop them so the chart
+    // shows only quarters with meaningful signal.
+    const quarters = allQuarters.filter(q => quarterYear(q.quarter) >= 2026);
     if (quarters.length === 0) return;
 
     const fallbackQuarters = quarters.some(
@@ -320,7 +330,8 @@ export default {
   _renderSayDoChart(data) {
     const canvas = document.getElementById('product-saydo-chart');
     if (!canvas) return;
-    const quarters = data.kpis.say_do_ratio.by_quarter;
+    const allQuarters = data.kpis.say_do_ratio.by_quarter;
+    const quarters = allQuarters.filter(q => quarterYear(q.quarter) >= 2026);
     const hasGrace = quarters.some(q => q.ratio_grace_1d != null);
 
     const datasets = [{
