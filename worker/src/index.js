@@ -128,7 +128,7 @@ async function handleGoogleAds(request, env, path) {
   const adsPath = path.replace(/^\/google-ads\/?/, '');
 
   // Proxy to Google Ads REST API
-  const adsUrl = `https://googleads.googleapis.com/v17/customers/${env.GOOGLE_ADS_CUSTOMER_ID || '4135262293'}/${adsPath}${url.search}`;
+  const adsUrl = `https://googleads.googleapis.com/v23/customers/${env.GOOGLE_ADS_CUSTOMER_ID || '4135262293'}/${adsPath}${url.search}`;
 
   const resp = await fetch(adsUrl, {
     method: request.method,

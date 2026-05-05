@@ -1,14 +1,19 @@
 import { Drilldown } from './drilldown.js';
-import { renderInlineEntry } from './datepicker.js';
 import { wireKpiEdit } from './kpi-edit.js';
 import { wireTargets } from './kpi-targets.js';
 import { buildCard } from './kpi-card.js';
+import { getGoogleAdsKPIs } from '../data/google-ads.js';
+import { getACFunnelData } from '../data/ac-funnel.js';
+import { formatPeriodLabel, formatPeriodLabelShort, formatPeriodLabelTitle } from '../utils/period-formatter.js';
+import { CONFIG } from '../config.js';
 
 export default {
   charts: [],
+  _abortController: null,
 
   async init(containerEl, data) {
     this._data = data;
+    this._containerEl = containerEl;
 
     // Show connection status
     const hasLive = Object.values(data.kpis || {}).some(k => k._dataSource === 'live');
@@ -34,19 +39,8 @@ export default {
 
     CIC.onScenarioChange(reRender);
 
-    await renderInlineEntry(containerEl, {
-      id: 'mkt-spend',
-      title: 'Google Ads Spend Inputs — affects ROAS calculation',
-      department: 'marketing',
-      insertAfterSelector: '#mkt-gads-tbody',
-      fields: [
-        { key: 'ltv',           label: 'LTV (Lifetime Value)',    type: 'number', placeholder: '29000', unit: 'currency' },
-        { key: 'spend_paid_search', label: 'Paid Search Spend',  type: 'number', placeholder: '8000',  unit: 'currency' },
-        { key: 'spend_paid_social', label: 'Paid Social Spend',  type: 'number', placeholder: '4000',  unit: 'currency' },
-        { key: 'spend_content',     label: 'Content / SEO',      type: 'number', placeholder: '2000',  unit: 'currency' },
-        { key: 'spend_events',      label: 'Events Spend',       type: 'number', placeholder: '1500',  unit: 'currency' }
-      ]
-    });
+    // Wire date range dropdown and fetch live data
+    this._initDateRange(containerEl, data);
 
     // Initialize DG forecast & actual tables
     try {
@@ -68,6 +62,10 @@ export default {
   },
 
   destroy() {
+    if (this._abortController) {
+      this._abortController.abort();
+      this._abortController = null;
+    }
     this.charts.forEach(c => c.destroy());
     this.charts = [];
     if (this._forecastTables) {
@@ -360,8 +358,13 @@ export default {
       const existing = document.getElementById('roas-calc-panel');
       if (existing) { existing.remove(); return; }
 
-      const ltv   = 29000;
-      const spend = 18500;
+      const ltv = CONFIG.marketing?.ltv || CONFIG.app?.ltv || 29000;
+      const liveSpend = this._liveSpend;
+      const months = this._liveSpendMonths || 1;
+      const monthlySpend = liveSpend != null ? Math.round(liveSpend / months) : null;
+      const periodLabel = this._currentRange
+        ? formatPeriodLabelShort({ start: this._currentRange.startDate, end: this._currentRange.endDate, preset: this._currentRange.preset })
+        : '';
       const cust  = data.kpis.marketing_created_deals?.value || 142;
 
       const calc = document.createElement('div');
@@ -379,12 +382,13 @@ export default {
             <div class="roas-calc-hint">Config value — update quarterly</div>
           </div>
           <div class="roas-calc-field">
-            <label>Total Ad Spend (Month)</label>
-            <div class="roas-calc-input-wrap">
+            <label>Total Ad Spend (Monthly Avg)</label>
+            <div class="roas-calc-input-wrap" style="background:#F5F5F5;">
               <span class="roas-calc-prefix">$</span>
-              <input type="number" id="roas-spend" value="${spend}" step="100">
+              <input type="number" id="roas-spend" value="${monthlySpend || 0}" readonly
+                style="background:#F5F5F5;color:#666;cursor:not-allowed;">
             </div>
-            <div class="roas-calc-hint">Monthly marketing spend</div>
+            <div class="roas-calc-hint">(from Google Ads — ${periodLabel})</div>
           </div>
           <div class="roas-calc-field">
             <label>New Customers Acquired</label>
@@ -429,12 +433,11 @@ export default {
 
       document.getElementById('roas-save-btn').addEventListener('click', async () => {
         const l = parseFloat(document.getElementById('roas-ltv').value);
-        const s = parseFloat(document.getElementById('roas-spend').value);
+        const s = parseFloat(document.getElementById('roas-spend').value) || 0;
         const c = parseFloat(document.getElementById('roas-customers').value) || 1;
         const cac  = s / c;
         const roas = cac > 0 ? l / cac : 0;
         await CIC.setData('marketing', 'ltv', l);
-        await CIC.setData('marketing', 'ad_spend_total', s);
         await CIC.setData('marketing', 'customers_acquired', c);
         const roasValueEl = roasCard.querySelector('.kpi-value');
         if (roasValueEl) roasValueEl.textContent = Math.round(roas) + ':1';
@@ -445,6 +448,270 @@ export default {
 
       document.getElementById('roas-cancel-btn').addEventListener('click', () => calc.remove());
     });
+  },
+
+  // ── Date Range + Live Data Fetch ─────────────────────────────────
+
+  _getDateRange(value) {
+    const now = new Date();
+    let startDate, endDate;
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    endDate = fmt(now);
+
+    if (value === 'ytd') {
+      startDate = `${now.getFullYear()}-01-01`;
+    } else if (value === 'custom') {
+      return null; // handled by custom picker
+    } else {
+      const days = parseInt(value);
+      const start = new Date(now);
+      start.setDate(start.getDate() - days);
+      startDate = fmt(start);
+    }
+    return { startDate, endDate };
+  },
+
+  _initDateRange(containerEl, data) {
+    const select = containerEl.querySelector('#mkt-date-range-select');
+    const customDates = containerEl.querySelector('#mkt-custom-dates');
+    const applyBtn = containerEl.querySelector('#mkt-custom-apply');
+    const label = containerEl.querySelector('#mkt-date-range-label');
+    if (!select) return;
+
+    // Restore persisted selection
+    const saved = localStorage.getItem('cic_marketing_date_range');
+    if (saved && select.querySelector(`option[value="${saved}"]`)) {
+      select.value = saved;
+    }
+
+    const updateLabel = (range) => {
+      if (label && range) {
+        label.textContent = `${range.startDate} to ${range.endDate}`;
+      }
+    };
+
+    const onChange = () => {
+      const val = select.value;
+      localStorage.setItem('cic_marketing_date_range', val);
+
+      if (val === 'custom') {
+        if (customDates) customDates.style.display = 'inline-flex';
+        return;
+      }
+      if (customDates) customDates.style.display = 'none';
+
+      const range = this._getDateRange(val);
+      if (range) {
+        range.preset = val;
+        updateLabel(range);
+        this._fetchLiveData(containerEl, data, range);
+      }
+    };
+
+    select.addEventListener('change', onChange);
+
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        const startInput = containerEl.querySelector('#mkt-date-start');
+        const endInput = containerEl.querySelector('#mkt-date-end');
+        if (startInput?.value && endInput?.value) {
+          const range = { startDate: startInput.value, endDate: endInput.value, preset: 'custom' };
+          updateLabel(range);
+          this._fetchLiveData(containerEl, data, range);
+        }
+      });
+    }
+
+    // Trigger initial fetch with current selection
+    const initialRange = this._getDateRange(select.value);
+    if (initialRange) {
+      initialRange.preset = select.value;
+      updateLabel(initialRange);
+      this._fetchLiveData(containerEl, data, initialRange);
+    }
+  },
+
+  async _fetchLiveData(containerEl, data, { startDate, endDate, preset }) {
+    // Store current range for comparison reference
+    this._currentRange = { startDate, endDate, preset };
+
+    // Cancel any in-flight requests
+    if (this._abortController) {
+      this._abortController.abort();
+    }
+    this._abortController = new AbortController();
+    const signal = this._abortController.signal;
+
+    // Show loading state on both sections
+    this._showSectionLoading(containerEl, '#mkt-gads-kpis', 'Loading Google Ads data...');
+    this._showSectionLoading(containerEl, '#mkt-funnel-stages', 'Loading funnel data...');
+
+    // Fetch both in parallel
+    const [gadsResult, funnelResult] = await Promise.allSettled([
+      getGoogleAdsKPIs({ startDate, endDate, preset, signal }),
+      getACFunnelData({ startDate, endDate, preset, signal }),
+    ]);
+
+    if (signal.aborted) return; // user changed range, discard stale results
+
+    // ── Period label for headers ──
+    const periodRange = { start: startDate, end: endDate, preset };
+    const periodTitle = formatPeriodLabelTitle(periodRange);
+    const perfTitle = containerEl.querySelector('#mkt-campaign-perf-title');
+    if (perfTitle) perfTitle.textContent = `Campaign Performance \u2014 ${periodTitle}`;
+
+    // ── Handle Google Ads result ──
+    if (gadsResult.status === 'fulfilled') {
+      const gads = gadsResult.value;
+      if (gads._dataSource === 'error') {
+        this._showNotConnected(containerEl, 'google_ads', gads._error, data);
+        this._liveSpend = null;
+      } else {
+        data.kpis.google_ads = { ...data.kpis.google_ads, ...gads };
+        data.kpis.google_ads._dataSource = 'live';
+        this._destroyChartsFor('gads');
+        this._renderGoogleAds(containerEl, data);
+
+        // Store live spend for ROAS calculator
+        this._liveSpend = gads.summary.total_spend;
+        this._liveSpendMonths = gads.trend_labels?.length || 1;
+
+        // Compute ROAS from live data + config LTV
+        const ltv = CONFIG.marketing?.ltv || CONFIG.app?.ltv || 29000;
+        const totalConversions = gads.summary.total_conversions;
+        const totalSpend = gads.summary.total_spend;
+        if (data.kpis.roas) {
+          if (totalSpend > 0 && ltv > 0) {
+            data.kpis.roas.value = parseFloat(((totalConversions * ltv) / totalSpend).toFixed(1));
+            data.kpis.roas._dataSource = 'live';
+          } else {
+            data.kpis.roas.value = 0;
+            data.kpis.roas._dataSource = 'live';
+          }
+          data.kpis.roas.status = data.kpis.roas.value >= 4.0 ? 'green'
+            : data.kpis.roas.value >= 2.5 ? 'yellow' : 'red';
+          // Re-render KPI cards to show updated ROAS
+          this._renderKPICards(containerEl, data);
+          wireKpiEdit(containerEl, 'marketing', data.kpis);
+        }
+      }
+    } else {
+      this._showNotConnected(containerEl, 'google_ads', gadsResult.reason?.message || 'Unknown error', data);
+      this._liveSpend = null;
+    }
+
+    // ── Handle AC Funnel result ──
+    if (funnelResult.status === 'fulfilled') {
+      const funnel = funnelResult.value;
+      if (funnel._dataSource === 'error') {
+        this._showNotConnected(containerEl, 'ac_funnel', funnel._error, data);
+      } else {
+        data.kpis.ac_demand_funnel = { ...data.kpis.ac_demand_funnel, ...funnel };
+        data.kpis.ac_demand_funnel._dataSource = 'live';
+        this._destroyChartsFor('funnel');
+        this._renderACFunnel(containerEl, data);
+      }
+    } else {
+      this._showNotConnected(containerEl, 'ac_funnel', funnelResult.reason?.message || 'Unknown error', data);
+    }
+
+    // Update live indicator
+    const hasLive = Object.values(data.kpis || {}).some(k => k._dataSource === 'live');
+    if (hasLive) {
+      this._showLiveIndicator(containerEl);
+    }
+  },
+
+  _showSectionLoading(containerEl, selector, message) {
+    const el = containerEl.querySelector(selector);
+    if (!el) return;
+    el.innerHTML = `
+      <div style="text-align:center;padding:24px;color:#9E9E9E;font-family:'Nunito Sans',sans-serif;">
+        <div style="display:inline-block;width:20px;height:20px;border:3px solid #D2D5DA;border-top-color:#02475A;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px;"></div>
+        <div style="font-size:12px;font-weight:600;">${message}</div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      </div>`;
+  },
+
+  _showNotConnected(containerEl, section, reason, data) {
+    const selectorMap = {
+      google_ads: '#mkt-gads-kpis',
+      ac_funnel: '#mkt-funnel-stages',
+    };
+    const el = containerEl.querySelector(selectorMap[section]);
+    if (!el) return;
+
+    const sectionLabel = section === 'google_ads' ? 'Google Ads' : 'AC Demand Funnel';
+
+    el.innerHTML = `
+      <div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:20px;text-align:center;font-family:'Nunito Sans',sans-serif;">
+        <div style="font-size:24px;margin-bottom:8px;color:#E65100;">&#x26A0;</div>
+        <div style="font-size:14px;font-weight:700;color:#303030;margin-bottom:4px;">
+          ${sectionLabel} — Not Connected
+        </div>
+        <div style="font-size:12px;color:#666;margin-bottom:12px;">
+          ${reason || 'Unable to reach API'}
+        </div>
+        <button class="mkt-retry-btn" data-section="${section}"
+          style="font-family:'Nunito Sans',sans-serif;font-size:12px;font-weight:700;
+            padding:6px 16px;background:#02475A;color:#fff;border:none;border-radius:4px;
+            cursor:pointer;margin-right:8px;">
+          Retry
+        </button>
+        <a href="#" style="font-size:12px;color:#02475A;font-weight:600;" onclick="
+          event.preventDefault();
+          document.querySelector('[data-drilldown=\\'marketing_created_deals\\']')?.click();
+        ">Manual Entry</a>
+      </div>`;
+
+    // Wire retry button
+    const retryBtn = el.querySelector('.mkt-retry-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        const select = containerEl.querySelector('#mkt-date-range-select');
+        const range = select?.value === 'custom'
+          ? { startDate: containerEl.querySelector('#mkt-date-start')?.value,
+              endDate: containerEl.querySelector('#mkt-date-end')?.value }
+          : this._getDateRange(select?.value || '365');
+        if (range) {
+          this._fetchLiveData(containerEl, data, range);
+        }
+      });
+    }
+  },
+
+  _destroyChartsFor(prefix) {
+    // Remove and destroy charts that will be re-created
+    const canvasIds = prefix === 'gads'
+      ? ['mkt-gads-spend-chart', 'mkt-gads-cpa-chart']
+      : ['mkt-funnel-trend-chart'];
+    this.charts = this.charts.filter(chart => {
+      if (canvasIds.includes(chart.canvas?.id)) {
+        chart.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // Clean up dynamically inserted elements before funnel re-render
+    if (prefix === 'funnel' && this._containerEl) {
+      const stagesEl = this._containerEl.querySelector('#mkt-funnel-stages');
+      if (stagesEl) {
+        // Remove compare bar, maturation warning, and any other inserted siblings
+        let prev = stagesEl.previousElementSibling;
+        while (prev) {
+          const el = prev;
+          prev = prev.previousElementSibling;
+          if (el.querySelector('#funnel-compare-toggle, #funnel-compare-result') ||
+              el.classList?.contains('funnel-maturation-warning')) {
+            el.remove();
+          }
+        }
+      }
+      // Remove cohort tooltip from section header
+      const tooltip = this._containerEl.querySelector('h3 > span[title*="Cohort"]');
+      if (tooltip) tooltip.remove();
+    }
   },
 
   _renderSegmentChart(data) {
@@ -537,19 +804,19 @@ export default {
         <div id="funnel-compare-result" style="display:none;
           background:#E0EEF2;border-radius:8px;padding:12px 16px;
           margin-bottom:16px;font-family:'Nunito Sans',sans-serif;">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;
+          <div id="funnel-compare-header" style="font-size:11px;font-weight:800;text-transform:uppercase;
             letter-spacing:0.06em;color:#02475A;margin-bottom:8px;">
             Comparison \u2014 HIRO Stage
           </div>
           <div style="display:flex;gap:24px;flex-wrap:wrap;">
             <div>
-              <div style="font-size:10px;color:#9E9E9E;font-weight:700;
+              <div id="funnel-comp-current-label" style="font-size:10px;color:#9E9E9E;font-weight:700;
                 text-transform:uppercase;">Current</div>
               <div style="font-size:20px;font-weight:800;color:#303030"
                    id="funnel-comp-current">\u2014</div>
             </div>
             <div>
-              <div style="font-size:10px;color:#9E9E9E;font-weight:700;
+              <div id="funnel-comp-compare-label" style="font-size:10px;color:#9E9E9E;font-weight:700;
                 text-transform:uppercase;">Comparison</div>
               <div style="font-size:20px;font-weight:800;color:#303030"
                    id="funnel-comp-compare">\u2014</div>
@@ -569,6 +836,36 @@ export default {
           </div>
         </div>`;
       stagesEl.parentNode.insertBefore(compareBar, stagesEl);
+
+      // ── Cohort tooltip ──
+      const tooltipEl = document.createElement('span');
+      tooltipEl.style.cssText = `
+        display:inline-flex;align-items:center;justify-content:center;
+        width:18px;height:18px;border-radius:50%;background:#E0EEF2;
+        color:#02475A;font-size:11px;font-weight:800;cursor:help;
+        margin-left:8px;position:relative;font-family:'Nunito Sans',sans-serif;`;
+      tooltipEl.textContent = '?';
+      tooltipEl.title = 'Cohort view: Shows deals created within the selected date range, grouped by their current stage. A deal counts toward every stage it has reached or passed. This is a \u201Chow is this period\u2019s lead quality maturing?\u201D view, not a snapshot of currently-active deals.';
+      const sectionHeader = stagesEl.closest('.chart-card')?.previousElementSibling;
+      const headerH3 = sectionHeader?.querySelector('h3');
+      if (headerH3) headerH3.appendChild(tooltipEl);
+
+      // ── Maturation warning (when end date is within last 30 days) ──
+      if (funnel._dateRange) {
+        const endDate = new Date(funnel._dateRange.end + 'T00:00:00');
+        const now = new Date();
+        const daysSinceEnd = Math.floor((now - endDate) / (1000 * 60 * 60 * 24));
+        if (daysSinceEnd < 30) {
+          const warningEl = document.createElement('div');
+          warningEl.className = 'funnel-maturation-warning';
+          warningEl.style.cssText = `
+            background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;
+            padding:10px 16px;font-size:12px;color:#F57F17;font-weight:600;
+            font-family:'Nunito Sans',sans-serif;margin-bottom:12px;`;
+          warningEl.innerHTML = '\u26A0\uFE0F Recent cohorts haven\u2019t had time to fully mature \u2014 late-stage counts (MQL, HIRO) may be artificially low for the selected period. Compare to a fully-matured period (e.g., 60\u201390 days ago) for cleaner trend analysis.';
+          stagesEl.parentNode.insertBefore(warningEl, stagesEl);
+        }
+      }
 
       const maxCount = Math.max(...funnel.stages.map(s => s.count));
       stagesEl.innerHTML = funnel.stages.map((stage, i) => {
@@ -601,60 +898,102 @@ export default {
           </div>`;
       }).join('');
 
-      // Wire funnel comparison toggle
+      // ── Wire funnel comparison toggle (REAL QUERIES, not mock math) ──
       const hiro = funnel.stages.find(s => s.name === 'HIRO');
-      const hiroTrend = hiro?.trend || [];
+      const self = this;
 
-      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      let funnelCustomDate = new Date(2025, 1, 1); // default Feb 2025
-
-      const showFunnelComparison = (period) => {
-        const result = containerEl.querySelector('#funnel-compare-result');
-        if (!result) return;
-
-        const currentVal = hiroTrend[hiroTrend.length - 1];
-        const currentConv = hiro?.conversion_from_prev || 0;
-
-        let compVal, compConv, periodLabel;
+      const computeComparisonRange = (period) => {
+        const now = new Date();
+        const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (period === 'last-month') {
-          compVal  = hiroTrend[hiroTrend.length - 2] || 0;
-          compConv = (compVal / (funnel.stages[2]?.trend?.[hiroTrend.length - 2] || 1) * 100).toFixed(1);
-          periodLabel = 'February 2026';
-        } else if (period === 'last-year') {
-          compVal  = Math.round(currentVal * 0.75);
-          compConv = (currentConv * 0.85).toFixed(1);
-          periodLabel = 'March 2025 (est.)';
-        } else {
-          compVal  = Math.round(currentVal * 0.8);
-          compConv = (currentConv * 0.9).toFixed(1);
-          periodLabel = funnelCustomDate
-            ? monthNames[funnelCustomDate.getMonth()] + ' ' + funnelCustomDate.getFullYear() + ' (est.)'
-            : 'Selected Period (est.)';
+          const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+          return {
+            startDate: fmt(d),
+            endDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${lastDay}`,
+            preset: 'last-month'
+          };
+        }
+        if (period === 'last-year') {
+          const y = now.getFullYear() - 1;
+          return { startDate: `${y}-01-01`, endDate: `${y}-12-31`, preset: 'last-year' };
+        }
+        return null; // custom handled separately
+      };
+
+      const showFunnelComparison = async (period, compRange) => {
+        const resultEl = containerEl.querySelector('#funnel-compare-result');
+        if (!resultEl) return;
+
+        // Show loading
+        resultEl.style.display = 'block';
+        const headerEl = containerEl.querySelector('#funnel-compare-header');
+        if (headerEl) headerEl.textContent = 'Comparison \u2014 HIRO Stage';
+
+        containerEl.querySelector('#funnel-comp-current').textContent = '\u2026';
+        containerEl.querySelector('#funnel-comp-compare').textContent = '\u2026';
+        containerEl.querySelector('#funnel-comp-delta').textContent = '\u2026';
+        containerEl.querySelector('#funnel-comp-rate').textContent = '\u2026';
+
+        // Dynamic column labels
+        const currentLabel = containerEl.querySelector('#funnel-comp-current-label');
+        const compareLabel = containerEl.querySelector('#funnel-comp-compare-label');
+        if (currentLabel && self._currentRange) {
+          currentLabel.textContent = formatPeriodLabelShort({
+            start: self._currentRange.startDate,
+            end: self._currentRange.endDate,
+            preset: self._currentRange.preset
+          });
+        }
+        if (compareLabel && compRange) {
+          compareLabel.textContent = formatPeriodLabelShort({
+            start: compRange.startDate,
+            end: compRange.endDate,
+            preset: compRange.preset
+          });
         }
 
-        const delta = currentVal - compVal;
-        const deltaColor = delta >= 0 ? '#2E7D32' : '#C62828';
-        const arrow = delta >= 0 ? '\u25B2' : '\u25BC';
+        try {
+          const compData = await getACFunnelData({
+            startDate: compRange.startDate,
+            endDate: compRange.endDate,
+            preset: compRange.preset,
+          });
 
-        document.getElementById('funnel-comp-current').textContent =
-          `${currentVal} deals (${currentConv}%)`;
-        document.getElementById('funnel-comp-compare').textContent =
-          `${compVal} deals (${compConv}%)`;
+          if (compData._dataSource === 'error') {
+            containerEl.querySelector('#funnel-comp-current').textContent = '\u2014';
+            containerEl.querySelector('#funnel-comp-compare').textContent = 'Comparison unavailable';
+            containerEl.querySelector('#funnel-comp-delta').textContent = '\u2014';
+            containerEl.querySelector('#funnel-comp-rate').textContent = '\u2014';
+            return;
+          }
 
-        const deltaEl = document.getElementById('funnel-comp-delta');
-        deltaEl.textContent = `${arrow} ${Math.abs(delta)} deals`;
-        deltaEl.style.color = deltaColor;
+          const currentHiro = hiro?.count || 0;
+          const currentConv = hiro?.conversion_from_prev || 0;
+          const compHiro = compData.stages.find(s => s.name === 'HIRO');
+          const compVal = compHiro?.count || 0;
+          const compConv = compHiro?.conversion_from_prev || 0;
 
-        const convDelta = (currentConv - parseFloat(compConv)).toFixed(1);
-        const convDeltaEl = document.getElementById('funnel-comp-rate');
-        convDeltaEl.textContent = `${convDelta >= 0 ? '\u25B2' : '\u25BC'} ${Math.abs(convDelta)}pp`;
-        convDeltaEl.style.color = convDelta >= 0 ? '#2E7D32' : '#C62828';
+          containerEl.querySelector('#funnel-comp-current').textContent =
+            `${currentHiro} deals (${currentConv}%)`;
+          containerEl.querySelector('#funnel-comp-compare').textContent =
+            `${compVal} deals (${compConv}%)`;
 
-        result.style.display = 'block';
+          const delta = currentHiro - compVal;
+          const deltaColor = delta >= 0 ? '#2E7D32' : '#C62828';
+          const arrow = delta >= 0 ? '\u25B2' : '\u25BC';
+          const deltaEl = containerEl.querySelector('#funnel-comp-delta');
+          deltaEl.textContent = `${arrow} ${Math.abs(delta)} deals`;
+          deltaEl.style.color = deltaColor;
 
-        // Add period label
-        result.querySelector('div:first-child').textContent =
-          `Comparison \u2014 HIRO Stage vs ${periodLabel}`;
+          const convDelta = (currentConv - compConv).toFixed(1);
+          const convDeltaEl = containerEl.querySelector('#funnel-comp-rate');
+          convDeltaEl.textContent = `${convDelta >= 0 ? '\u25B2' : '\u25BC'} ${Math.abs(convDelta)}pp`;
+          convDeltaEl.style.color = convDelta >= 0 ? '#2E7D32' : '#C62828';
+        } catch (err) {
+          containerEl.querySelector('#funnel-comp-compare').textContent = 'Comparison unavailable';
+          console.warn('[Funnel comparison] Fetch failed:', err.message);
+        }
       };
 
       const funnelToggle      = containerEl.querySelector('#funnel-compare-toggle');
@@ -663,12 +1002,18 @@ export default {
       const funnelMonthSel    = containerEl.querySelector('#funnel-custom-month');
       const funnelYearSel     = containerEl.querySelector('#funnel-custom-year');
 
-      // Wire inline month/year selects for custom comparison
       const onFunnelCustomChange = () => {
         const month = parseInt(funnelMonthSel.value);
         const year  = parseInt(funnelYearSel.value);
-        funnelCustomDate = new Date(year, month, 1);
-        showFunnelComparison('custom');
+        const d = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const fmt = dd => `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, '0')}-${String(dd.getDate()).padStart(2, '0')}`;
+        const compRange = {
+          startDate: fmt(d),
+          endDate: `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`,
+          preset: 'custom'
+        };
+        showFunnelComparison('custom', compRange);
       };
       if (funnelMonthSel) funnelMonthSel.addEventListener('change', onFunnelCustomChange);
       if (funnelYearSel)  funnelYearSel.addEventListener('change', onFunnelCustomChange);
@@ -692,7 +1037,8 @@ export default {
             if (funnelCustomPicker) funnelCustomPicker.style.display = 'inline-flex';
             onFunnelCustomChange();
           } else {
-            showFunnelComparison(btn.dataset.period);
+            const compRange = computeComparisonRange(btn.dataset.period);
+            if (compRange) showFunnelComparison(btn.dataset.period, compRange);
           }
           funnelClear.style.display = 'inline';
         });

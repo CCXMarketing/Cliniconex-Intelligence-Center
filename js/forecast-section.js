@@ -277,7 +277,7 @@ function renderTargetPace(result, cfg) {
       <div class="fc-kpi-value fc-editable" id="fc-target-display">${formatMoney(cfg.target)}</div>
     </div>
     <div class="fc-kpi-card">
-      <div class="fc-kpi-label">YTD Recognized Revenue</div>
+      <div class="fc-kpi-label">YTD Demand Gen Revenue</div>
       <div class="fc-kpi-value">${formatMoney(result.ytd.revenue)}</div>
     </div>
     <div class="fc-kpi-card">
@@ -483,7 +483,7 @@ function renderPacingChart(result, currentMonth) {
         borderColor: C.spend, borderWidth: 1, borderRadius: 4,
       },
       {
-        label: 'Recognized Revenue',
+        label: 'Demand Gen Revenue',
         data: pacing.map(p => p.recognized),
         backgroundColor: pacing.map(p => p.isPast ? C.recognized : patterns.recognized),
         borderColor: C.recognized, borderWidth: 1, borderRadius: 4,
