@@ -830,3 +830,190 @@
   border-radius: var(--radius-sm);
   border: 1px dashed var(--border);
 }
+
+/* ── 2.17 Config-Driven KPI Card — Empty State and Source Indicator ── */
+
+.kpi-empty-state {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+.kpi-empty-text {
+  font-size: 14px;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 600;
+}
+.kpi-add-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: #ADC837;
+  color: #303030;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.kpi-add-btn:hover {
+  background: #C6DC65;
+}
+
+.kpi-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-sm);
+}
+.kpi-source-row .kpi-edit-pencil {
+  position: static;
+  opacity: 0.4;
+}
+.kpi-source-row .kpi-edit-pencil:hover {
+  opacity: 1;
+}
+.kpi-source-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.kpi-inline-editor {
+  margin-top: var(--space-sm);
+}
+
+/* ── 2.18 Prior-Data Hint ── */
+
+.kpi-prior-hint {
+  font-size: 12px;
+  color: #9E9E9E;
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* ── 2.19 History Affordance ── */
+
+.kpi-history-toggle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal, #02475A);
+  cursor: pointer;
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-light, #E1E6EF);
+  font-family: 'Nunito Sans', sans-serif;
+  user-select: none;
+}
+.kpi-history-toggle:hover {
+  color: #029FB5;
+}
+
+.kpi-history-panel {
+  margin-top: var(--space-sm);
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kpi-history-empty-msg {
+  font-size: 12px;
+  color: #9E9E9E;
+  font-style: italic;
+  font-family: 'Nunito Sans', sans-serif;
+  padding: 8px 0;
+}
+
+.kpi-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 12px;
+}
+.kpi-history-period {
+  flex: 0 0 80px;
+  color: #9E9E9E;
+  font-weight: 700;
+}
+.kpi-history-value {
+  flex: 1;
+  font-weight: 800;
+  color: #303030;
+}
+.kpi-history-value--empty {
+  color: #D2D5DA;
+  font-weight: 600;
+}
+.kpi-history-edit {
+  background: none;
+  border: none;
+  color: #02475A;
+  opacity: 0.4;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s;
+}
+.kpi-history-edit:hover {
+  opacity: 1;
+}
+.kpi-history-add {
+  background: none;
+  border: 1px solid #ADC837;
+  color: #ADC837;
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Nunito Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.kpi-history-add:hover {
+  background: #ADC837;
+  color: #303030;
+}
+
+.kpi-history-editor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+.kpi-history-input {
+  width: 80px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Nunito Sans', sans-serif;
+  color: #303030;
+  border: none;
+  border-bottom: 2px solid #029FB5;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.kpi-history-input:focus {
+  border-bottom-color: #ADC837;
+}
+.kpi-history-editor .kpi-edit-save {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+.kpi-history-editor .kpi-edit-cancel {
+  font-size: 11px;
+  padding: 2px 6px;
+  border: none;
+}

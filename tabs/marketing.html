@@ -83,8 +83,28 @@
   </table>
 </div>
 
+<!-- Date Range Selector (controls Google Ads + AC Funnel) -->
+<div class="chart-card" id="mkt-date-range-bar" style="margin-top:32px;margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#9E9E9E;font-family:'Nunito Sans',sans-serif;white-space:nowrap;">Data Range</span>
+  <select id="mkt-date-range-select" style="font-family:'Nunito Sans',sans-serif;font-size:13px;font-weight:600;padding:6px 12px;border:1px solid #D2D5DA;border-radius:6px;color:#303030;background:#fff;cursor:pointer;">
+    <option value="30">Last 30 days</option>
+    <option value="90">Last 90 days</option>
+    <option value="180">Last 6 months</option>
+    <option value="365" selected>Last 12 months</option>
+    <option value="ytd">Year-to-date</option>
+    <option value="custom">Custom</option>
+  </select>
+  <div id="mkt-custom-dates" style="display:none;align-items:center;gap:6px;">
+    <input type="date" id="mkt-date-start" style="font-family:'Nunito Sans',sans-serif;font-size:12px;padding:4px 8px;border:1px solid #D2D5DA;border-radius:4px;">
+    <span style="color:#9E9E9E;">to</span>
+    <input type="date" id="mkt-date-end" style="font-family:'Nunito Sans',sans-serif;font-size:12px;padding:4px 8px;border:1px solid #D2D5DA;border-radius:4px;">
+    <button id="mkt-custom-apply" style="font-family:'Nunito Sans',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;background:#02475A;color:#fff;border:none;border-radius:4px;cursor:pointer;">Apply</button>
+  </div>
+  <span id="mkt-date-range-label" style="font-size:12px;color:#666;font-family:'Nunito Sans',sans-serif;"></span>
+</div>
+
 <!-- Google Ads -->
-<div class="section-header" style="margin-top:32px;">
+<div class="section-header">
   <h3>Google Ads</h3>
   <p>Campaign performance — Customer ID: 4135262293</p>
 </div>
@@ -113,7 +133,7 @@
 
 <!-- Campaign table -->
 <div class="table-wrapper">
-  <div class="table-title">Campaign Performance</div>
+  <div class="table-title" id="mkt-campaign-perf-title">Campaign Performance</div>
   <table class="data-table">
     <thead>
       <tr>

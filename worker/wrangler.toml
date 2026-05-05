@@ -6,7 +6,7 @@ compatibility_date = "2024-09-23"
 ENVIRONMENT = "production"
 # Allowed origins (comma-separated) — set per environment
 # Local dev origins are only allowed when ENVIRONMENT = "development"
-ALLOWED_ORIGINS = ""
+ALLOWED_ORIGINS = "https://radar.merino-mooneye.ts.net,http://localhost:8080,http://localhost:3000"
 
 # Secrets are set via `wrangler secret put <NAME>`:
 # AC_API_TOKEN

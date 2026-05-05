@@ -97,3 +97,5 @@ node_modules/
 # API credentials — never commit these
 js/config.js
 js/data/
+client_secret.json
+client_secret_*.json
