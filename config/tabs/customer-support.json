@@ -1,0 +1,38 @@
+{
+  "tab": {
+    "id": "customer-support",
+    "name": "Customer Support",
+    "description": "Ticket health, resolution efficiency, and support cost",
+    "accountable": "Cathy",
+    "data_sources": ["salesforce", "jira"]
+  },
+  "sections": [
+    {
+      "type": "kpi-grid",
+      "title": "Ticket Health",
+      "subtitle": "Monthly metrics — Salesforce (external) + JIRA (internal)",
+      "kpis": [
+        "customer_support__ticket_volume_trend",
+        "customer_support__first_contact_resolution_rate",
+        "customer_support__average_resolution_time",
+        "customer_support__escalation_rate"
+      ]
+    },
+    {
+      "type": "kpi-grid",
+      "title": "Customer Experience",
+      "kpis": [
+        "customer_support__ces_support"
+      ]
+    },
+    {
+      "type": "kpi-grid",
+      "title": "Efficiency",
+      "subtitle": "Quarterly cadence",
+      "kpis": [
+        "customer_support__support_cost_per_customer",
+        "customer_support__revenue_per_employee_rpe"
+      ]
+    }
+  ]
+}
